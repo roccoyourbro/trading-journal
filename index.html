@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
@@ -31,9 +31,11 @@
 <script type="text/babel">
 const { useState, useEffect, useCallback, useRef } = React;
 
-const TRADES_KEY  = "nq-journal-trades";
-const NOTES_KEY   = "nq-journal-notes";
-const BALANCE_KEY = "nq-journal-balance";
+const TRADES_KEY       = "nq-journal-trades";
+const NOTES_KEY        = "nq-journal-notes";
+const BALANCE_KEY      = "nq-journal-balance";
+const DRAWDOWN_KEY     = "nq-journal-drawdown";
+const CONSISTENCY_KEY  = "nq-journal-consistency-limit";
 
 // ─── Supabase Config ──────────────────────────────────────────────────────────
 const SUPABASE_URL = "https://ravlncpwpxdzwagojblh.supabase.co";
@@ -48,61 +50,51 @@ async function sbGet(key) {
     return rows.length > 0 ? JSON.parse(rows[0].value) : null;
   } catch { return null; }
 }
-
 async function sbSet(key, value) {
   try {
     const body = JSON.stringify({ key, value: JSON.stringify(value) });
-    // upsert
     await fetch(`${SUPABASE_URL}/rest/v1/journal_data`, {
       method: "POST",
       headers: { ...SB_HEADERS, "Prefer": "resolution=merge-duplicates" },
       body
     });
   } catch {}
-  // also save locally as fallback
   try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
 }
-
 async function loadData(key, fallback) {
-  // try Supabase first, fallback to localStorage
-  try {
-    const cloud = await sbGet(key);
-    if (cloud !== null) return cloud;
-  } catch {}
+  try { const cloud = await sbGet(key); if (cloud !== null) return cloud; } catch {}
   try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
   catch { return fallback; }
 }
-
-async function saveData(key, data) {
-  await sbSet(key, data);
-}
+async function saveData(key, data) { await sbSet(key, data); }
 
 const STRATEGIES = [
   "ICT / SMC","VWAP Fade","Opening Range","Trend Follow",
   "Mean Revert","News Play","Scalp","Breakout","Other",
 ];
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const DAYS   = ["Min","Sen","Sel","Rab","Kam","Jum","Sab"];
+const DAYS   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const DEFAULT_BALANCE = 10000;
 
+// ─── Colors: Gojek green header, grey/white for body UI ──────────────────────
 const G = {
-  green:     "#00AA13",
-  greenDark: "#007D0C",
-  greenLight:"#E8F8EA",
-  greenMid:  "#00C116",
-  yellow:    "#F9A215",
-  yellowLight:"#FFF3DC",
-  red:       "#E02020",
-  redLight:  "#FDEAEA",
-  white:     "#FFFFFF",
-  bg:        "#F5F5F5",
-  card:      "#FFFFFF",
-  textPrimary:"#1A1A1A",
+  green:        "#00AA13",
+  greenDark:    "#007D0C",
+  greenLight:   "#E8F8EA",
+  greenMid:     "#00C116",
+  yellow:       "#F9A215",
+  yellowLight:  "#FFF3DC",
+  red:          "#E02020",
+  redLight:     "#FDEAEA",
+  white:        "#FFFFFF",
+  bg:           "#F5F5F5",
+  card:         "#FFFFFF",
+  textPrimary:  "#1A1A1A",
   textSecondary:"#6B6B6B",
-  textMuted: "#9E9E9E",
-  border:    "#EBEBEB",
-  shadow:    "0 2px 12px rgba(0,0,0,0.08)",
-  shadowMd:  "0 4px 24px rgba(0,0,0,0.12)",
+  textMuted:    "#9E9E9E",
+  border:       "#EBEBEB",
+  shadow:       "0 2px 12px rgba(0,0,0,0.08)",
+  shadowMd:     "0 4px 24px rgba(0,0,0,0.12)",
 };
 
 const fmt    = (n) => { const a = Math.abs(n).toLocaleString("en-US",{maximumFractionDigits:0}); return (n>=0?"+":"−")+"$"+a; };
@@ -120,7 +112,7 @@ function fmtNoteDate(iso) {
   const now = new Date();
   const diffDays = Math.floor((now - d) / 86400000);
   if (diffDays === 0) return d.toLocaleTimeString([], { hour:"2-digit", minute:"2-digit" });
-  if (diffDays === 1) return "Kemarin";
+  if (diffDays === 1) return "Yesterday";
   if (diffDays < 7)  return DAYS[d.getDay()];
   return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
@@ -133,29 +125,43 @@ function getCalendarDays(year, month) {
   return cells;
 }
 
-// ─── GojekHeader ──────────────────────────────────────────────────────────────
-function GojekHeader({ tab, onBackup, syncStatus }) {
+// ─── App Icon ─────────────────────────────────────────────────────────────────
+function AppIcon({ size = 36 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="36" height="36" rx="10" fill="rgba(255,255,255,0.18)"/>
+      <polyline points="6,26 13,18 18,22 24,12 30,16" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      <circle cx="30" cy="16" r="2.2" fill="white"/>
+    </svg>
+  );
+}
+
+// ─── Header (Gojek green) ─────────────────────────────────────────────────────
+function AppHeader({ tab, onBackup, syncStatus }) {
   const titles = {
-    dashboard: { sub:"NQ Futures", main:"Trading Journal" },
-    log:       { sub:"NQ Futures", main:"Trade Log" },
-    calendar:  { sub:"NQ Futures", main:"Kalender" },
-    risk:      { sub:"Prop Firm",  main:"Risk Manager" },
-    notes:     { sub:"Study",      main:"My Notes" },
+    dashboard: "Trading Journal",
+    log:       "Trade Log",
+    calendar:  "Calendar",
+    risk:      "Risk Manager",
+    notes:     "My Notes",
   };
-  const t = titles[tab] || titles.dashboard;
   return (
     <div style={{ background:`linear-gradient(135deg, ${G.green} 0%, ${G.greenDark} 100%)`, padding:"52px 20px 20px", position:"relative", overflow:"hidden" }}>
-      {/* decorative circles */}
       <div style={{ position:"absolute", top:-30, right:-30, width:140, height:140, borderRadius:"50%", background:"rgba(255,255,255,0.07)", pointerEvents:"none" }}/>
       <div style={{ position:"absolute", top:10, right:50, width:70, height:70, borderRadius:"50%", background:"rgba(255,255,255,0.05)", pointerEvents:"none" }}/>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-        <div>
-          <div style={{ fontSize:11, color:"rgba(255,255,255,0.7)", fontWeight:600, letterSpacing:1, marginBottom:4 }}>Hello, Rocco 👋</div>
-          <div style={{ fontSize:24, fontWeight:800, color:"#fff", letterSpacing:-0.5 }}>{t.main}</div>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <AppIcon size={36}/>
+          <div>
+            <div style={{ fontSize:11, color:"rgba(255,255,255,0.7)", fontWeight:600, letterSpacing:1, marginBottom:2 }}>{tab==="dashboard"?"Hello, Rocco 👋":"NQ Futures"}</div>
+            <div style={{ fontSize:22, fontWeight:800, color:"#fff", letterSpacing:-0.5 }}>{titles[tab]||"Trading Journal"}</div>
+          </div>
         </div>
         <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:6 }}>
-          <button onClick={onBackup} className="ripple" style={{ background:"rgba(255,255,255,0.2)", border:"none", borderRadius:12, width:42, height:42, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, backdropFilter:"blur(4px)" }}>
-            📤
+          <button onClick={onBackup} className="ripple" style={{ background:"rgba(255,255,255,0.2)", border:"none", borderRadius:12, width:42, height:42, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", backdropFilter:"blur(4px)" }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
           </button>
           <div style={{ display:"flex", alignItems:"center", gap:4, background:"rgba(0,0,0,0.2)", borderRadius:20, padding:"3px 8px" }}>
             <div style={{ width:6, height:6, borderRadius:"50%", background: syncStatus==="ok"?"#4ade80": syncStatus==="offline"?"#f87171":"#facc15" }}/>
@@ -170,10 +176,9 @@ function GojekHeader({ tab, onBackup, syncStatus }) {
 }
 
 // ─── StatCard ─────────────────────────────────────────────────────────────────
-function StatCard({ label, value, sub, valueColor, icon }) {
+function StatCard({ label, value, sub, valueColor }) {
   return (
     <div style={{ background:G.white, borderRadius:16, padding:"16px", flex:1, minWidth:0, boxShadow:G.shadow, border:`1px solid ${G.border}` }}>
-      {icon && <div style={{ fontSize:20, marginBottom:8 }}>{icon}</div>}
       <div style={{ fontSize:11, color:G.textMuted, fontWeight:600, letterSpacing:0.5, textTransform:"uppercase", marginBottom:4 }}>{label}</div>
       <div style={{ fontSize:20, fontWeight:800, color:valueColor||G.textPrimary, letterSpacing:-0.5 }}>{value}</div>
       {sub && <div style={{ fontSize:11, color:G.textMuted, marginTop:3 }}>{sub}</div>}
@@ -187,8 +192,12 @@ function TradeRow({ trade, onPress }) {
   const isLoss = trade.pnl < 0;
   return (
     <div onClick={onPress} className="ripple" style={{ display:"flex", alignItems:"center", gap:12, background:G.white, borderRadius:16, padding:"14px 16px", marginBottom:10, cursor:"pointer", boxShadow:G.shadow, border:`1px solid ${G.border}` }}>
-      <div style={{ width:44, height:44, borderRadius:12, background:isWin?G.greenLight:isLoss?G.redLight:"#F5F5F5", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, fontSize:20 }}>
-        {isWin?"📈":isLoss?"📉":"➖"}
+      <div style={{ width:44, height:44, borderRadius:12, background:isWin?G.greenLight:isLoss?G.redLight:G.bg, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={isWin?G.green:isLoss?G.red:G.textMuted} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          {isWin ? <><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></> :
+           isLoss ? <><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></> :
+           <line x1="5" y1="12" x2="19" y2="12"/>}
+        </svg>
       </div>
       <div style={{ flex:1, minWidth:0 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
@@ -219,41 +228,40 @@ function TradeModal({ trade, onSave, onDelete, onClose }) {
     if (!form.date || form.pnl==="") return;
     onSave({ id:trade.id||Date.now(), date:form.date, pnl:parseFloat(form.pnl)||0, rr:parseFloat(form.rr)||0, strategy:form.strategy, notes:form.notes });
   };
-  const inp = { width:"100%", background:G.bg, border:`1.5px solid ${G.border}`, borderRadius:12, color:G.textPrimary, fontSize:15, padding:"13px 14px", outline:"none", boxSizing:"border-box", fontFamily:"'Plus Jakarta Sans', sans-serif", fontWeight:600 };
+  const inp = { width:"100%", background:G.bg, border:`1.5px solid ${G.border}`, borderRadius:12, color:G.textPrimary, fontSize:15, padding:"13px 14px", outline:"none", boxSizing:"border-box", fontFamily:"'Plus Jakarta Sans',sans-serif", fontWeight:600 };
   const lbl = { fontSize:12, color:G.textSecondary, fontWeight:700, letterSpacing:0.3, marginBottom:6, display:"block" };
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"flex-end", zIndex:200, backdropFilter:"blur(4px)" }} onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.white, borderRadius:"24px 24px 0 0", padding:"20px 20px 40px", maxHeight:"92vh", overflowY:"auto" }}>
-        {/* handle */}
         <div style={{ width:40, height:4, background:G.border, borderRadius:2, margin:"0 auto 20px" }} />
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
-          <span style={{ fontSize:18, fontWeight:800, color:G.textPrimary }}>{isNew?"Catat Trade":"Edit Trade"}</span>
-          {!isNew && <button onClick={()=>onDelete(trade.id)} style={{ background:G.redLight, border:"none", borderRadius:10, color:G.red, fontSize:12, fontWeight:700, padding:"8px 14px", cursor:"pointer" }}>Hapus</button>}
+          <span style={{ fontSize:18, fontWeight:800, color:G.textPrimary }}>{isNew?"Log Trade":"Edit Trade"}</span>
+          {!isNew && <button onClick={()=>onDelete(trade.id)} style={{ background:G.redLight, border:"none", borderRadius:10, color:G.red, fontSize:12, fontWeight:700, padding:"8px 14px", cursor:"pointer" }}>Delete</button>}
         </div>
         <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
-          <div><label style={lbl}>Tanggal</label><input type="date" value={form.date} onChange={e=>set("date",e.target.value)} style={inp}/></div>
+          <div><label style={lbl}>Date</label><input type="date" value={form.date} onChange={e=>set("date",e.target.value)} style={inp}/></div>
           <div style={{ display:"flex", gap:12 }}>
             <div style={{ flex:1 }}>
               <label style={lbl}>P&L ($)</label>
-              <input type="number" placeholder="mis. 250 atau -100" value={form.pnl} onChange={e=>set("pnl",e.target.value)} style={{...inp, color:form.pnl?clr(parseFloat(form.pnl)):G.textPrimary, borderColor:form.pnl?(parseFloat(form.pnl)>0?G.green:parseFloat(form.pnl)<0?G.red:G.border):G.border}}/>
+              <input type="number" placeholder="e.g. 250 or -100" value={form.pnl} onChange={e=>set("pnl",e.target.value)} style={{...inp, color:form.pnl?clr(parseFloat(form.pnl)):G.textPrimary, borderColor:form.pnl?(parseFloat(form.pnl)>0?G.green:parseFloat(form.pnl)<0?G.red:G.border):G.border}}/>
             </div>
             <div style={{ flex:1 }}>
               <label style={lbl}>Risk:Reward</label>
-              <input type="number" step="0.1" placeholder="mis. 2.5" value={form.rr} onChange={e=>set("rr",e.target.value)} style={inp}/>
+              <input type="number" step="0.1" placeholder="e.g. 2.5" value={form.rr} onChange={e=>set("rr",e.target.value)} style={inp}/>
             </div>
           </div>
           <div>
-            <label style={lbl}>Strategi</label>
+            <label style={lbl}>Strategy</label>
             <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
               {STRATEGIES.map(s=>(
                 <button key={s} onClick={()=>set("strategy",s)} style={{ padding:"8px 14px", borderRadius:20, fontSize:12, fontWeight:700, border:"none", background:form.strategy===s?G.green:G.bg, color:form.strategy===s?"#fff":G.textSecondary, cursor:"pointer" }}>{s}</button>
               ))}
             </div>
           </div>
-          <div><label style={lbl}>Catatan</label><textarea placeholder="Setup, eksekusi, pelajaran..." value={form.notes} onChange={e=>set("notes",e.target.value)} rows={3} style={{...inp,resize:"none",lineHeight:1.6}}/></div>
+          <div><label style={lbl}>Trade Notes</label><textarea placeholder="Setup, execution, lessons..." value={form.notes} onChange={e=>set("notes",e.target.value)} rows={3} style={{...inp,resize:"none",lineHeight:1.6}}/></div>
         </div>
         <button onClick={handleSave} style={{ width:"100%", marginTop:24, padding:"17px", background:G.green, border:"none", borderRadius:16, color:"#fff", fontSize:16, fontWeight:800, cursor:"pointer", boxShadow:"0 4px 16px rgba(0,170,19,0.35)" }}>
-          {isNew?"💾 Simpan Trade":"✅ Update Trade"}
+          {isNew?"Save Trade":"Update Trade"}
         </button>
       </div>
     </div>
@@ -268,14 +276,18 @@ function BalanceModal({ currentBalance, onSave, onClose }) {
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:200, backdropFilter:"blur(6px)", padding:"0 20px" }} onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div style={{ width:"100%", maxWidth:400, background:G.white, borderRadius:24, padding:"28px 24px", boxShadow:G.shadowMd }}>
         <div style={{ textAlign:"center", marginBottom:24 }}>
-          <div style={{ width:56, height:56, background:G.greenLight, borderRadius:16, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 12px", fontSize:28 }}>💰</div>
-          <div style={{ fontSize:18, fontWeight:800, color:G.textPrimary }}>Set Balance Akun</div>
-          <div style={{ fontSize:13, color:G.textMuted, marginTop:4 }}>Balance awal/saat ini — tidak ditambah ke P&L</div>
+          <div style={{ width:56, height:56, background:G.greenLight, borderRadius:16, display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 12px" }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={G.green} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+            </svg>
+          </div>
+          <div style={{ fontSize:18, fontWeight:800, color:G.textPrimary }}>Set Account Balance</div>
+          <div style={{ fontSize:13, color:G.textMuted, marginTop:4 }}>Starting / current balance — not added to P&L</div>
         </div>
-        <input type="number" value={val} onChange={e=>setVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleSave()} autoFocus placeholder="mis. 50000" style={{ width:"100%", background:G.bg, border:`1.5px solid ${G.border}`, borderRadius:14, color:G.textPrimary, fontSize:24, fontWeight:800, padding:"14px 16px", outline:"none", textAlign:"center", fontFamily:"'Plus Jakarta Sans',sans-serif" }}/>
+        <input type="number" value={val} onChange={e=>setVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleSave()} autoFocus placeholder="e.g. 50000" style={{ width:"100%", background:G.bg, border:`1.5px solid ${G.border}`, borderRadius:14, color:G.textPrimary, fontSize:24, fontWeight:800, padding:"14px 16px", outline:"none", textAlign:"center", fontFamily:"'Plus Jakarta Sans',sans-serif" }}/>
         <div style={{ display:"flex", gap:10, marginTop:16 }}>
-          <button onClick={onClose} style={{ flex:1, padding:"14px", background:G.bg, border:"none", borderRadius:14, color:G.textSecondary, fontSize:15, fontWeight:700, cursor:"pointer" }}>Batal</button>
-          <button onClick={handleSave} style={{ flex:2, padding:"14px", background:G.green, border:"none", borderRadius:14, color:"#fff", fontSize:15, fontWeight:800, cursor:"pointer", boxShadow:"0 4px 16px rgba(0,170,19,0.3)" }}>Konfirmasi</button>
+          <button onClick={onClose} style={{ flex:1, padding:"14px", background:G.bg, border:"none", borderRadius:14, color:G.textSecondary, fontSize:15, fontWeight:700, cursor:"pointer" }}>Cancel</button>
+          <button onClick={handleSave} style={{ flex:2, padding:"14px", background:G.green, border:"none", borderRadius:14, color:"#fff", fontSize:15, fontWeight:800, cursor:"pointer", boxShadow:"0 4px 16px rgba(0,170,19,0.3)" }}>Confirm</button>
         </div>
       </div>
     </div>
@@ -305,10 +317,8 @@ function DataModal({ trades, notes, accountBalance, onImport, onClearAll, onClos
       const ws3 = XLSX.utils.json_to_sheet([{ AccountBalance: accountBalance, ExportedAt: new Date().toISOString() }]);
       XLSX.utils.book_append_sheet(wb, ws3, "Settings");
       XLSX.writeFile(wb, `trading-journal-${todayStr()}.xlsx`);
-      setStatus({ ok:true, msg:`✅ Berhasil export ${trades.length} trades, ${notes.length} notes` });
-    } catch(e) {
-      setStatus({ ok:false, msg:"❌ Export gagal: "+e.message });
-    }
+      setStatus({ ok:true, msg:`✓ Exported ${trades.length} trades, ${notes.length} notes` });
+    } catch(e) { setStatus({ ok:false, msg:"Export failed: "+e.message }); }
   };
 
   const handleFileChange = (e) => {
@@ -340,14 +350,11 @@ function DataModal({ trades, notes, accountBalance, onImport, onClearAll, onClos
           if (rows.length > 0 && rows[0].AccountBalance != null) importedBalance = parseFloat(rows[0].AccountBalance);
         }
         if (!importedTrades && !importedNotes && importedBalance == null) {
-          setStatus({ ok:false, msg:"❌ File tidak dikenali." });
-          return;
+          setStatus({ ok:false, msg:"File not recognized." }); return;
         }
         onImport({ trades: importedTrades, notes: importedNotes, balance: importedBalance });
-        setStatus({ ok:true, msg:`✅ Import ${importedTrades?.length||0} trades, ${importedNotes?.length||0} notes` });
-      } catch(err) {
-        setStatus({ ok:false, msg:"❌ Gagal baca file: "+err.message });
-      }
+        setStatus({ ok:true, msg:`✓ Imported ${importedTrades?.length||0} trades, ${importedNotes?.length||0} notes` });
+      } catch(err) { setStatus({ ok:false, msg:"Failed to read file: "+err.message }); }
     };
     reader.readAsArrayBuffer(file);
     e.target.value = "";
@@ -357,40 +364,34 @@ function DataModal({ trades, notes, accountBalance, onImport, onClearAll, onClos
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"flex-end", zIndex:200, backdropFilter:"blur(4px)" }} onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.white, borderRadius:"24px 24px 0 0", padding:"20px 20px 48px", maxHeight:"85vh", overflowY:"auto" }}>
         <div style={{ width:40, height:4, background:G.border, borderRadius:2, margin:"0 auto 20px" }} />
-        <div style={{ fontSize:18, fontWeight:800, color:G.textPrimary, marginBottom:4 }}>Backup & Sync Data</div>
-        <div style={{ fontSize:13, color:G.textMuted, marginBottom:24 }}>Export ke Excel untuk backup atau pindah device.</div>
-
-        <div style={{ fontSize:12, color:G.textSecondary, fontWeight:700, letterSpacing:0.5, textTransform:"uppercase", marginBottom:10 }}>💾 Export</div>
+        <div style={{ fontSize:18, fontWeight:800, color:G.textPrimary, marginBottom:4 }}>Backup & Sync</div>
+        <div style={{ fontSize:13, color:G.textMuted, marginBottom:24 }}>Export to Excel to back up or transfer to another device.</div>
+        <div style={{ fontSize:12, color:G.textSecondary, fontWeight:700, letterSpacing:0.5, textTransform:"uppercase", marginBottom:10 }}>Export</div>
         <button onClick={handleExport} style={{ width:"100%", padding:"15px 16px", background:G.green, border:"none", borderRadius:14, color:"#fff", fontSize:14, fontWeight:800, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:10, marginBottom:6, boxShadow:"0 4px 16px rgba(0,170,19,0.25)" }}>
-          <span style={{ fontSize:18 }}>📥</span> Download Excel (.xlsx)
+          Download Excel (.xlsx)
         </button>
-        <div style={{ fontSize:12, color:G.textMuted, marginBottom:20 }}>Menyimpan {trades.length} trades, {notes.length} notes, dan balance</div>
-
-        <div style={{ fontSize:12, color:G.textSecondary, fontWeight:700, letterSpacing:0.5, textTransform:"uppercase", marginBottom:10 }}>📂 Import</div>
+        <div style={{ fontSize:12, color:G.textMuted, marginBottom:20 }}>Saves {trades.length} trades, {notes.length} notes, and balance</div>
+        <div style={{ fontSize:12, color:G.textSecondary, fontWeight:700, letterSpacing:0.5, textTransform:"uppercase", marginBottom:10 }}>Import</div>
         <input ref={fileRef} type="file" accept=".xlsx,.xls" onChange={handleFileChange} style={{ display:"none" }}/>
         <button onClick={()=>fileRef.current?.click()} style={{ width:"100%", padding:"15px 16px", background:G.bg, border:`2px dashed ${G.border}`, borderRadius:14, color:G.textSecondary, fontSize:14, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:10, marginBottom:6 }}>
-          <span style={{ fontSize:18 }}>📁</span> Pilih file .xlsx
+          Select .xlsx file
         </button>
-        <div style={{ fontSize:12, color:G.red, marginBottom:20, fontWeight:600 }}>⚠️ Import akan mengganti semua data yang ada</div>
-
+        <div style={{ fontSize:12, color:G.red, marginBottom:20, fontWeight:600 }}>⚠ Import will replace all existing data</div>
         {status && (
           <div style={{ padding:"12px 14px", borderRadius:12, background:status.ok?G.greenLight:G.redLight, border:`1px solid ${status.ok?G.green:G.red}33`, fontSize:13, color:status.ok?G.green:G.red, fontWeight:700, marginBottom:16 }}>
             {status.msg}
           </div>
         )}
-
         <div style={{ borderTop:`1px solid ${G.border}`, paddingTop:16 }}>
-          <div style={{ fontSize:12, color:G.textMuted, fontWeight:700, letterSpacing:0.5, textTransform:"uppercase", marginBottom:10 }}>⚠️ Bahaya</div>
+          <div style={{ fontSize:12, color:G.textMuted, fontWeight:700, letterSpacing:0.5, textTransform:"uppercase", marginBottom:10 }}>⚠ Danger Zone</div>
           {!confirmClear ? (
-            <button onClick={()=>setConfirmClear(true)} style={{ width:"100%", padding:"14px", background:G.redLight, border:"none", borderRadius:14, color:G.red, fontSize:14, fontWeight:700, cursor:"pointer" }}>
-              Hapus Semua Data
-            </button>
+            <button onClick={()=>setConfirmClear(true)} style={{ width:"100%", padding:"14px", background:G.redLight, border:"none", borderRadius:14, color:G.red, fontSize:14, fontWeight:700, cursor:"pointer" }}>Clear All Data</button>
           ) : (
             <div>
-              <div style={{ fontSize:13, color:G.red, fontWeight:700, marginBottom:10, textAlign:"center" }}>Yakin hapus SEMUA data? Tidak bisa di-undo!</div>
+              <div style={{ fontSize:13, color:G.red, fontWeight:700, marginBottom:10, textAlign:"center" }}>Delete ALL data? This cannot be undone!</div>
               <div style={{ display:"flex", gap:8 }}>
-                <button onClick={()=>setConfirmClear(false)} style={{ flex:1, padding:"12px", background:G.bg, border:"none", borderRadius:12, color:G.textSecondary, fontSize:13, fontWeight:700, cursor:"pointer" }}>Batal</button>
-                <button onClick={()=>{ onClearAll(); setConfirmClear(false); onClose(); }} style={{ flex:1, padding:"12px", background:G.red, border:"none", borderRadius:12, color:"#fff", fontSize:13, fontWeight:800, cursor:"pointer" }}>Ya, Hapus!</button>
+                <button onClick={()=>setConfirmClear(false)} style={{ flex:1, padding:"12px", background:G.bg, border:"none", borderRadius:12, color:G.textSecondary, fontSize:13, fontWeight:700, cursor:"pointer" }}>Cancel</button>
+                <button onClick={()=>{ onClearAll(); setConfirmClear(false); onClose(); }} style={{ flex:1, padding:"12px", background:G.red, border:"none", borderRadius:12, color:"#fff", fontSize:13, fontWeight:800, cursor:"pointer" }}>Yes, Delete</button>
               </div>
             </div>
           )}
@@ -469,12 +470,12 @@ function NoteEditor({ note, onBack, onSave, onDelete }) {
         <button onClick={handleBack} style={{ background:"none", border:"none", color:G.green, fontSize:15, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", gap:4 }}>
           <span style={{ fontSize:22 }}>‹</span> Notes
         </button>
-        {!isNew && <button onClick={()=>onDelete(note.id)} style={{ background:G.redLight, border:"none", borderRadius:10, color:G.red, fontSize:12, fontWeight:700, padding:"7px 14px", cursor:"pointer" }}>Hapus</button>}
+        {!isNew && <button onClick={()=>onDelete(note.id)} style={{ background:G.redLight, border:"none", borderRadius:10, color:G.red, fontSize:12, fontWeight:700, padding:"7px 14px", cursor:"pointer" }}>Delete</button>}
       </div>
       <div style={{ flex:1, overflowY:"auto", padding:"20px 20px 40px" }}>
-        <textarea value={title} onChange={e=>handleTitle(e.target.value)} placeholder="Judul" rows={1} style={{ width:"100%", background:"none", border:"none", outline:"none", color:G.textPrimary, fontSize:22, fontWeight:800, fontFamily:"'Plus Jakarta Sans',sans-serif", resize:"none", lineHeight:1.3, marginBottom:10, boxSizing:"border-box", overflow:"hidden" }}/>
-        <div style={{ fontSize:12, color:G.textMuted, marginBottom:18 }}>{new Date().toLocaleDateString("id-ID",{ weekday:"long",year:"numeric",month:"long",day:"numeric" })}</div>
-        <textarea value={body} onChange={e=>handleBody(e.target.value)} placeholder="Mulai menulis..." style={{ width:"100%", background:"none", border:"none", outline:"none", color:G.textSecondary, fontSize:16, fontFamily:"'Plus Jakarta Sans',sans-serif", resize:"none", lineHeight:1.8, boxSizing:"border-box", minHeight:"62vh" }}/>
+        <textarea value={title} onChange={e=>handleTitle(e.target.value)} placeholder="Title" rows={1} style={{ width:"100%", background:"none", border:"none", outline:"none", color:G.textPrimary, fontSize:22, fontWeight:800, fontFamily:"'Plus Jakarta Sans',sans-serif", resize:"none", lineHeight:1.3, marginBottom:10, boxSizing:"border-box", overflow:"hidden" }}/>
+        <div style={{ fontSize:12, color:G.textMuted, marginBottom:18 }}>{new Date().toLocaleDateString("en-US",{ weekday:"long",year:"numeric",month:"long",day:"numeric" })}</div>
+        <textarea value={body} onChange={e=>handleBody(e.target.value)} placeholder="Start writing..." style={{ width:"100%", background:"none", border:"none", outline:"none", color:G.textSecondary, fontSize:16, fontFamily:"'Plus Jakarta Sans',sans-serif", resize:"none", lineHeight:1.8, boxSizing:"border-box", minHeight:"62vh" }}/>
       </div>
     </div>
   );
@@ -485,18 +486,22 @@ function NotesList({ notes, onOpen }) {
   const sorted = [...notes].sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt));
   if (!sorted.length) return (
     <div style={{ textAlign:"center", padding:"60px 0" }}>
-      <div style={{ fontSize:48, marginBottom:12 }}>🗒️</div>
-      <div style={{ fontSize:16, fontWeight:700, color:G.textSecondary, marginBottom:6 }}>Belum ada catatan</div>
-      <div style={{ fontSize:13, color:G.textMuted }}>Tap + untuk membuat catatan pertama</div>
+      <div style={{ fontSize:42, marginBottom:12 }}>🗒️</div>
+      <div style={{ fontSize:16, fontWeight:700, color:G.textSecondary, marginBottom:6 }}>No notes yet</div>
+      <div style={{ fontSize:13, color:G.textMuted }}>Tap + to create your first note</div>
     </div>
   );
   return (
     <>
       {sorted.map(n=>{
-        const preview = n.body ? n.body.replace(/\n+/g," ").trim().slice(0,55) : "Tidak ada teks tambahan";
+        const preview = n.body ? n.body.replace(/\n+/g," ").trim().slice(0,55) : "No additional text";
         return (
           <div key={n.id} onClick={()=>onOpen(n)} className="ripple" style={{ display:"flex", alignItems:"center", padding:"14px 16px", marginBottom:10, background:G.white, borderRadius:16, cursor:"pointer", boxShadow:G.shadow, border:`1px solid ${G.border}` }}>
-            <div style={{ width:44, height:44, background:G.yellowLight, borderRadius:12, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, marginRight:12, flexShrink:0 }}>📝</div>
+            <div style={{ width:44, height:44, background:G.yellowLight, borderRadius:12, display:"flex", alignItems:"center", justifyContent:"center", marginRight:12, flexShrink:0 }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={G.yellow} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+            </div>
             <div style={{ flex:1, minWidth:0 }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", gap:10 }}>
                 <span style={{ fontSize:14, fontWeight:700, color:G.textPrimary, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>{n.title}</span>
@@ -509,6 +514,219 @@ function NotesList({ notes, onOpen }) {
         );
       })}
     </>
+  );
+}
+
+// ─── Trade Notes List ─────────────────────────────────────────────────────────
+function TradeNotesList({ trades }) {
+  const withNotes = [...trades].filter(t=>t.notes&&t.notes.trim()).sort((a,b)=>b.date.localeCompare(a.date));
+  if (!withNotes.length) return (
+    <div style={{ textAlign:"center", padding:"40px 0" }}>
+      <div style={{ fontSize:36, marginBottom:10 }}>📋</div>
+      <div style={{ fontSize:14, fontWeight:600, color:G.textMuted }}>No notes from trade logs yet</div>
+      <div style={{ fontSize:12, color:G.textMuted, marginTop:4 }}>Add notes when logging a trade</div>
+    </div>
+  );
+  return (
+    <>
+      {withNotes.map(t=>(
+        <div key={t.id} style={{ background:G.white, borderRadius:16, padding:"14px 16px", marginBottom:10, boxShadow:G.shadow, border:`1px solid ${G.border}` }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <div style={{ width:8, height:8, borderRadius:"50%", background:t.pnl>0?G.green:t.pnl<0?G.red:G.textMuted }}/>
+              <span style={{ fontSize:12, fontWeight:700, color:G.textSecondary }}>{t.date}</span>
+              <span style={{ fontSize:11, color:G.textMuted, background:G.bg, borderRadius:6, padding:"2px 8px", fontWeight:600 }}>{t.strategy}</span>
+            </div>
+            <span style={{ fontSize:13, fontWeight:800, color:clr(t.pnl) }}>{fmt(t.pnl)}</span>
+          </div>
+          <div style={{ fontSize:13, color:G.textSecondary, lineHeight:1.6 }}>{t.notes}</div>
+        </div>
+      ))}
+    </>
+  );
+}
+
+// ─── Drawdown Line Chart ──────────────────────────────────────────────────────
+function DrawdownChart({ trades, accountBalance, drawdownLimit, totalPnl, consistencyLimit }) {
+  const sorted = [...trades].sort((a,b)=>a.date.localeCompare(b.date));
+  let peak = accountBalance;
+  let bal  = accountBalance;
+  const points = [{ bal, dd:0, ddPct:0 }];
+  sorted.forEach(t => {
+    bal += t.pnl;
+    if (bal > peak) peak = bal;
+    const dd    = peak - bal;
+    const ddPct = peak > 0 ? (dd / peak) * 100 : 0;
+    points.push({ bal, dd, ddPct });
+  });
+
+  const currentBal    = accountBalance + trades.reduce((a,t)=>a+t.pnl,0);
+  const currentPeak   = Math.max(accountBalance, ...points.map(p=>p.bal));
+  const currentDD     = currentPeak - currentBal;
+  const currentDDPct  = currentPeak > 0 ? (currentDD / currentPeak) * 100 : 0;
+  const ddLimit       = drawdownLimit || 0;
+  const ddUsedPct     = ddLimit > 0 ? Math.min((currentDD / ddLimit) * 100, 100) : 0;
+  const safe = ddUsedPct < 70, warn = ddUsedPct >= 70 && ddUsedPct < 90;
+
+  // Consistency rule — manual limit input
+  const today   = todayStr();
+  const todayPnl = trades.filter(t=>t.date===today).reduce((a,t)=>a+t.pnl,0);
+  const autoLimit = totalPnl > 0 ? totalPnl * 0.5 : 0;   // 50% of total PnL as reference
+  const activeLimit = consistencyLimit > 0 ? consistencyLimit : autoLimit;
+  const consistencyExceeded = activeLimit > 0 && todayPnl > activeLimit;
+  const consistencyUsedPct  = activeLimit > 0 ? Math.min((todayPnl / activeLimit) * 100, 120) : 0;
+
+  // SVG line chart
+  const chartPts = points.slice(-20);
+  const W = 320, H = 80;
+  const maxDDPct = Math.max(...chartPts.map(p=>p.ddPct), ddLimit>0?(ddLimit/currentPeak)*100:1, 0.5);
+  const toX = i => (i / (chartPts.length - 1 || 1)) * W;
+  const toY = v => H - (v / maxDDPct) * H;
+  const pathD = chartPts.map((p,i)=>`${i===0?"M":"L"}${toX(i).toFixed(1)},${toY(p.ddPct).toFixed(1)}`).join(" ");
+  const areaD = pathD + ` L${W},${H} L0,${H} Z`;
+  const limitY = ddLimit > 0 && currentPeak > 0 ? toY((ddLimit / currentPeak) * 100) : null;
+
+  return (
+    <div style={{ background:G.white, borderRadius:20, padding:"16px", marginBottom:16, boxShadow:G.shadow }}>
+      <div style={{ fontSize:12, color:G.textMuted, fontWeight:700, letterSpacing:0.5, textTransform:"uppercase", marginBottom:14 }}>Drawdown Tracker</div>
+
+      {/* Current DD vs Limit */}
+      <div style={{ display:"flex", gap:10, marginBottom:14 }}>
+        <div style={{ flex:1, background:G.bg, borderRadius:14, padding:"12px" }}>
+          <div style={{ fontSize:10, color:G.textMuted, fontWeight:700, textTransform:"uppercase", letterSpacing:0.3, marginBottom:4 }}>Current Drawdown</div>
+          <div style={{ fontSize:20, fontWeight:900, color:currentDD>0?G.red:G.green, letterSpacing:-0.5 }}>{currentDDPct.toFixed(1)}%</div>
+          <div style={{ fontSize:11, color:G.textMuted }}>${currentDD.toLocaleString("en-US",{maximumFractionDigits:0})}</div>
+        </div>
+        <div style={{ flex:1, background:G.bg, borderRadius:14, padding:"12px" }}>
+          <div style={{ fontSize:10, color:G.textMuted, fontWeight:700, textTransform:"uppercase", letterSpacing:0.3, marginBottom:4 }}>DD Limit</div>
+          <div style={{ fontSize:20, fontWeight:900, color:G.textPrimary, letterSpacing:-0.5 }}>{ddLimit>0?`$${ddLimit.toLocaleString()}`:"—"}</div>
+          <div style={{ fontSize:11, color:G.textMuted }}>{ddLimit>0?`Remaining $${Math.max(0,ddLimit-currentDD).toLocaleString()}`:"Not set"}</div>
+        </div>
+      </div>
+
+      {/* DD progress bar */}
+      {ddLimit > 0 && (
+        <div style={{ marginBottom:14 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
+            <span style={{ fontSize:11, color:G.textMuted, fontWeight:600 }}>DD Used</span>
+            <span style={{ fontSize:11, fontWeight:800, color:safe?G.green:warn?G.yellow:G.red }}>{ddUsedPct.toFixed(1)}%</span>
+          </div>
+          <div style={{ height:6, background:G.bg, borderRadius:3, overflow:"hidden" }}>
+            <div style={{ height:"100%", width:`${ddUsedPct}%`, background:safe?G.green:warn?G.yellow:G.red, borderRadius:3, transition:"width 0.5s" }}/>
+          </div>
+          <div style={{ display:"flex", justifyContent:"space-between", marginTop:3 }}>
+            <span style={{ fontSize:10, color:G.textMuted }}>$0</span>
+            <span style={{ fontSize:10, color:G.textMuted }}>${ddLimit.toLocaleString()}</span>
+          </div>
+        </div>
+      )}
+
+      {/* SVG line chart */}
+      {points.length > 1 && (
+        <div style={{ marginBottom:14 }}>
+          <div style={{ fontSize:11, color:G.textMuted, fontWeight:600, marginBottom:8 }}>Drawdown History</div>
+          <svg viewBox={`0 0 ${W} ${H + 4}`} width="100%" style={{ overflow:"visible", display:"block" }}>
+            <defs>
+              <linearGradient id="ddAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={G.red} stopOpacity="0.12"/>
+                <stop offset="100%" stopColor={G.red} stopOpacity="0.01"/>
+              </linearGradient>
+            </defs>
+            <path d={areaD} fill="url(#ddAreaGrad)"/>
+            {limitY !== null && (
+              <line x1="0" y1={limitY} x2={W} y2={limitY} stroke={G.red} strokeWidth="1.5" strokeDasharray="4,3" opacity="0.55"/>
+            )}
+            <path d={pathD} fill="none" stroke={G.red} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            {chartPts.length > 0 && (
+              <circle cx={toX(chartPts.length-1)} cy={toY(chartPts[chartPts.length-1].ddPct)} r="3.5" fill={G.red} stroke={G.white} strokeWidth="2"/>
+            )}
+          </svg>
+          <div style={{ display:"flex", justifyContent:"space-between", marginTop:2 }}>
+            <span style={{ fontSize:9, color:G.textMuted, fontWeight:600 }}>Earlier</span>
+            <span style={{ fontSize:9, color:G.textMuted, fontWeight:600 }}>Latest</span>
+          </div>
+        </div>
+      )}
+
+      {/* Consistency Rule */}
+      <div style={{ marginTop:14, paddingTop:14, borderTop:`1px solid ${G.border}` }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:G.textSecondary, textTransform:"uppercase", letterSpacing:0.3 }}>Consistency Rule</div>
+          {consistencyExceeded && (
+            <div style={{ display:"flex", alignItems:"center", gap:4, background:G.redLight, borderRadius:6, padding:"2px 8px" }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={G.red} strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <span style={{ fontSize:10, color:G.red, fontWeight:800 }}>LIMIT EXCEEDED</span>
+            </div>
+          )}
+        </div>
+        <div style={{ fontSize:12, color:G.textMuted, marginBottom:6 }}>
+          Max daily profit:{" "}
+          <span style={{ color:G.textPrimary, fontWeight:700 }}>
+            {activeLimit > 0 ? `$${activeLimit.toFixed(0)}` : "—"}
+          </span>
+          {consistencyLimit <= 0 && autoLimit > 0 && (
+            <span style={{ color:G.textMuted, fontSize:11 }}> (auto: 50% of total P&L)</span>
+          )}
+        </div>
+        {activeLimit > 0 && (
+          <>
+            <div style={{ height:6, background:G.bg, borderRadius:3, overflow:"hidden", marginBottom:5 }}>
+              <div style={{ height:"100%", width:`${Math.min(consistencyUsedPct,100)}%`, background:consistencyExceeded?G.red:consistencyUsedPct>=70?G.yellow:G.green, borderRadius:3, transition:"width 0.4s" }}/>
+            </div>
+            <div style={{ fontSize:11, color:G.textMuted }}>
+              Today's P&L:{" "}
+              <span style={{ fontWeight:700, color:clr(todayPnl) }}>{fmt(todayPnl)}</span>
+              {consistencyExceeded && <span style={{ color:G.red, fontWeight:700, marginLeft:8 }}>— Stop trading for today</span>}
+            </div>
+          </>
+        )}
+        {activeLimit === 0 && (
+          <div style={{ fontSize:12, color:G.textMuted }}>Set a limit or log profitable trades to activate.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Drawdown + Consistency Settings Modal ─────────────────────────────────────
+function DrawdownModal({ drawdownLimit, consistencyLimit, totalPnl, onSave, onClose }) {
+  const [dd,  setDd]  = useState(String(drawdownLimit||""));
+  const [cl,  setCl]  = useState(String(consistencyLimit||""));
+  const suggestedLimit = totalPnl > 0 ? Math.round(totalPnl * 0.5) : null;
+
+  const inp = { width:"100%", background:G.bg, border:`1.5px solid ${G.border}`, borderRadius:12, color:G.textPrimary, fontSize:15, padding:"13px 14px", outline:"none", fontFamily:"'Plus Jakarta Sans',sans-serif", fontWeight:600, boxSizing:"border-box" };
+  const lbl = { fontSize:12, color:G.textSecondary, fontWeight:700, marginBottom:6, display:"block" };
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"flex-end", zIndex:200, backdropFilter:"blur(4px)" }} onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.white, borderRadius:"24px 24px 0 0", padding:"20px 20px 48px" }}>
+        <div style={{ width:40, height:4, background:G.border, borderRadius:2, margin:"0 auto 20px" }} />
+        <div style={{ fontSize:18, fontWeight:800, color:G.textPrimary, marginBottom:6 }}>Drawdown & Consistency</div>
+        <div style={{ fontSize:13, color:G.textMuted, marginBottom:22 }}>Set your prop firm drawdown limit and daily profit cap.</div>
+        <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+          <div>
+            <label style={lbl}>EOD Trailing Drawdown Limit ($)</label>
+            <input type="number" placeholder="e.g. 1500" value={dd} onChange={e=>setDd(e.target.value)} style={inp}/>
+            <div style={{ fontSize:11, color:G.textMuted, marginTop:4 }}>Your account's max drawdown in dollars</div>
+          </div>
+          <div>
+            <label style={lbl}>Max Daily Profit ($) — Consistency Rule</label>
+            <input type="number" placeholder={suggestedLimit ? `Suggested: $${suggestedLimit}` : "e.g. 500"} value={cl} onChange={e=>setCl(e.target.value)} style={inp}/>
+            <div style={{ fontSize:11, color:G.textMuted, marginTop:4 }}>
+              {suggestedLimit
+                ? `50% of total P&L = $${suggestedLimit}. Leave blank to use auto.`
+                : "Leave blank to auto-calculate as 50% of total P&L."}
+            </div>
+          </div>
+        </div>
+        <button
+          onClick={()=>onSave(parseFloat(dd)||0, parseFloat(cl)||0)}
+          style={{ width:"100%", marginTop:24, padding:"17px", background:G.green, border:"none", borderRadius:16, color:"#fff", fontSize:16, fontWeight:800, cursor:"pointer", boxShadow:"0 4px 16px rgba(0,170,19,0.35)" }}
+        >
+          Save Settings
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -527,33 +745,28 @@ function RiskManagement({ accountBalance, totalPnl }) {
   const inp = { width:"100%", background:G.bg, border:`1.5px solid ${G.border}`, borderRadius:12, color:G.textPrimary, fontSize:15, padding:"13px 14px", outline:"none", boxSizing:"border-box", fontFamily:"'Plus Jakarta Sans',sans-serif", fontWeight:600 };
   return (
     <div>
-      {/* Account value banner */}
       <div style={{ background:`linear-gradient(135deg, ${G.green}, ${G.greenDark})`, borderRadius:20, padding:"20px", marginBottom:16, position:"relative", overflow:"hidden" }}>
         <div style={{ position:"absolute", top:-20, right:-20, width:100, height:100, borderRadius:"50%", background:"rgba(255,255,255,0.1)", pointerEvents:"none" }}/>
-        <div style={{ fontSize:12, color:"rgba(255,255,255,0.75)", fontWeight:600, letterSpacing:0.5, textTransform:"uppercase", marginBottom:6 }}>Nilai Akun Saat Ini</div>
+        <div style={{ fontSize:12, color:"rgba(255,255,255,0.75)", fontWeight:600, letterSpacing:0.5, textTransform:"uppercase", marginBottom:6 }}>Current Account Value</div>
         <div style={{ fontSize:34, fontWeight:900, color:"#fff", letterSpacing:-1 }}>{fmtBal(currentBalance)}</div>
         <div style={{ display:"flex", gap:16, marginTop:8 }}>
           <div><span style={{ fontSize:11, color:"rgba(255,255,255,0.6)" }}>Base </span><span style={{ fontSize:13, fontWeight:700, color:"#fff" }}>{fmtBal(accountBalance)}</span></div>
           <div><span style={{ fontSize:11, color:"rgba(255,255,255,0.6)" }}>P&L </span><span style={{ fontSize:13, fontWeight:700, color:"#fff" }}>{fmt(totalPnl)}</span></div>
         </div>
       </div>
-
-      {/* Balance source */}
       <div style={{ background:G.white, borderRadius:16, padding:"16px", marginBottom:12, boxShadow:G.shadow }}>
-        <div style={{ fontSize:12, color:G.textSecondary, fontWeight:700, letterSpacing:0.5, textTransform:"uppercase", marginBottom:12 }}>Sumber Balance</div>
+        <div style={{ fontSize:12, color:G.textSecondary, fontWeight:700, letterSpacing:0.5, textTransform:"uppercase", marginBottom:12 }}>Balance Source</div>
         <div style={{ display:"flex", gap:8, marginBottom: useManual?12:0 }}>
-          {[["📊 Dashboard", false],["✏️ Manual", true]].map(([label, val])=>(
+          {[["Dashboard", false],["Manual", true]].map(([label, val])=>(
             <button key={label} onClick={()=>{ setUseManual(val); setResult(null); }} style={{ flex:1, padding:"11px", borderRadius:12, fontSize:12, fontWeight:700, border:"none", background:useManual===val?G.green:G.bg, color:useManual===val?"#fff":G.textSecondary, cursor:"pointer" }}>{label}</button>
           ))}
         </div>
         {useManual ? (
-          <input type="number" placeholder="Masukkan balance, mis. 50000" value={manualBal} onChange={e=>{ setManualBal(e.target.value); setResult(null); }} style={inp}/>
+          <input type="number" placeholder="Enter balance, e.g. 50000" value={manualBal} onChange={e=>{ setManualBal(e.target.value); setResult(null); }} style={inp}/>
         ) : (
-          <div style={{ fontSize:13, color:G.textMuted }}>Menggunakan: <span style={{ color:G.green, fontWeight:800 }}>{fmtBal(currentBalance)}</span></div>
+          <div style={{ fontSize:13, color:G.textMuted }}>Using: <span style={{ color:G.green, fontWeight:800 }}>{fmtBal(currentBalance)}</span></div>
         )}
       </div>
-
-      {/* Risk % selector */}
       <div style={{ background:G.white, borderRadius:16, padding:"16px", marginBottom:16, boxShadow:G.shadow }}>
         <div style={{ fontSize:12, color:G.textSecondary, fontWeight:700, letterSpacing:0.5, textTransform:"uppercase", marginBottom:12 }}>Risk Per Trade (%)</div>
         <div style={{ display:"flex", gap:8 }}>
@@ -563,24 +776,21 @@ function RiskManagement({ accountBalance, totalPnl }) {
           <input type="number" step="0.1" value={["0.5","1","2"].includes(riskPct)?"":riskPct} onChange={e=>{ setRiskPct(e.target.value); setResult(null); }} placeholder="%" style={{ ...inp, flex:1, padding:"11px", textAlign:"center", fontSize:13 }}/>
         </div>
       </div>
-
       <button onClick={handleCalc} style={{ width:"100%", padding:"17px", background:G.green, border:"none", borderRadius:16, color:"#fff", fontSize:16, fontWeight:800, cursor:"pointer", marginBottom:16, boxShadow:"0 4px 16px rgba(0,170,19,0.35)" }}>
-        Hitung Max Risk →
+        Calculate Max Risk →
       </button>
-
       {result && (
         <div style={{ background:`linear-gradient(135deg, ${G.yellowLight}, #FFF8E8)`, border:`1.5px solid ${G.yellow}55`, borderRadius:20, padding:"22px 20px", textAlign:"center", marginBottom:16 }}>
-          <div style={{ fontSize:11, color:G.textMuted, fontWeight:700, letterSpacing:0.5, textTransform:"uppercase", marginBottom:8 }}>Max Risk Trade Berikutnya</div>
+          <div style={{ fontSize:11, color:G.textMuted, fontWeight:700, letterSpacing:0.5, textTransform:"uppercase", marginBottom:8 }}>Max Risk — Next Trade</div>
           <div style={{ fontSize:42, fontWeight:900, color:G.yellow, letterSpacing:-1.5, marginBottom:8 }}>${result.maxLoss.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
           <div style={{ fontSize:13, color:G.textSecondary }}>{fmtBal(result.balance)} × {result.pct}%</div>
           <div style={{ marginTop:14, padding:"10px 14px", background:"rgba(255,255,255,0.7)", borderRadius:12, fontSize:12, color:G.textSecondary }}>
-            💡 Kena max loss → sisa <span style={{ color:G.red, fontWeight:800 }}>{fmtBal(result.balance - result.maxLoss)}</span>
+            If max loss hit → remaining <span style={{ color:G.red, fontWeight:800 }}>{fmtBal(result.balance - result.maxLoss)}</span>
           </div>
         </div>
       )}
-
       <div style={{ padding:"14px 16px", background:G.greenLight, borderRadius:14, border:`1px solid ${G.green}33` }}>
-        <div style={{ fontSize:12, color:G.greenDark, lineHeight:1.7, fontWeight:600 }}>📌 <strong>Standar prop firm:</strong> 0.5% – 1% per trade. Jaga konsistensi risk untuk lindungi drawdown limit.</div>
+        <div style={{ fontSize:12, color:G.greenDark, lineHeight:1.7, fontWeight:600 }}>📌 <strong>Prop firm standard:</strong> 0.5% – 1% per trade. Keep risk consistent to protect your drawdown limit.</div>
       </div>
     </div>
   );
@@ -588,16 +798,20 @@ function RiskManagement({ accountBalance, totalPnl }) {
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 function TradingJournal() {
-  const [trades,        setTrades]        = useState([]);
-  const [notes,         setNotes]         = useState([]);
-  const [accountBalance,setAccountBalance]= useState(DEFAULT_BALANCE);
-  const [tab,           setTab]           = useState("dashboard");
-  const [tradeModal,    setTradeModal]    = useState(null);
-  const [openNote,      setOpenNote]      = useState(null);
-  const [balanceModal,  setBalanceModal]  = useState(false);
-  const [dataModal,     setDataModal]     = useState(false);
-  const [loading,       setLoading]       = useState(true);
-  const [syncStatus,    setSyncStatus]    = useState("syncing");
+  const [trades,           setTrades]           = useState([]);
+  const [notes,            setNotes]            = useState([]);
+  const [accountBalance,   setAccountBalance]   = useState(DEFAULT_BALANCE);
+  const [drawdownLimit,    setDrawdownLimit]    = useState(0);
+  const [consistencyLimit, setConsistencyLimit] = useState(0); // manual $ limit
+  const [tab,              setTab]              = useState("dashboard");
+  const [noteSubTab,       setNoteSubTab]       = useState("personal");
+  const [tradeModal,       setTradeModal]       = useState(null);
+  const [openNote,         setOpenNote]         = useState(null);
+  const [balanceModal,     setBalanceModal]     = useState(false);
+  const [dataModal,        setDataModal]        = useState(false);
+  const [ddModal,          setDdModal]          = useState(false);
+  const [loading,          setLoading]          = useState(true);
+  const [syncStatus,       setSyncStatus]       = useState("syncing");
 
   useEffect(() => {
     fetch(`${SUPABASE_URL}/rest/v1/journal_data?limit=1`, { headers: SB_HEADERS })
@@ -605,68 +819,72 @@ function TradingJournal() {
       .catch(() => setSyncStatus("offline"));
 
     Promise.all([
-      loadData(TRADES_KEY,  []),
-      loadData(NOTES_KEY,   []),
-      loadData(BALANCE_KEY, DEFAULT_BALANCE),
-    ]).then(([t,n,b]) => {
+      loadData(TRADES_KEY,       []),
+      loadData(NOTES_KEY,        []),
+      loadData(BALANCE_KEY,      DEFAULT_BALANCE),
+      loadData(DRAWDOWN_KEY,     0),
+      loadData(CONSISTENCY_KEY,  0),
+    ]).then(([t,n,b,dd,cl]) => {
       setTrades(t); setNotes(n);
       setAccountBalance(typeof b==="number" ? b : DEFAULT_BALANCE);
+      setDrawdownLimit(dd||0);
+      setConsistencyLimit(cl||0);
       setLoading(false);
     });
   }, []);
 
-  const handleSaveBalance = useCallback((val) => { setAccountBalance(val); saveData(BALANCE_KEY,val); setBalanceModal(false); }, []);
-  const handleSaveTrade = useCallback((trade) => {
+  const handleSaveBalance  = useCallback((val) => { setAccountBalance(val); saveData(BALANCE_KEY,val); setBalanceModal(false); }, []);
+  const handleSaveTrade    = useCallback((trade) => {
     setTrades(prev=>{ const idx=prev.findIndex(t=>t.id===trade.id); const next=idx>=0?prev.map(t=>t.id===trade.id?trade:t):[trade,...prev]; saveData(TRADES_KEY,next); return next; });
     setTradeModal(null);
   }, []);
-  const handleDeleteTrade = useCallback((id) => {
+  const handleDeleteTrade  = useCallback((id) => {
     setTrades(prev=>{ const next=prev.filter(t=>t.id!==id); saveData(TRADES_KEY,next); return next; });
     setTradeModal(null);
   }, []);
-  const handleSaveNote = useCallback((note, doBack) => {
+  const handleSaveNote     = useCallback((note, doBack) => {
     setNotes(prev=>{ const idx=prev.findIndex(n=>n.id===note.id); const next=idx>=0?prev.map(n=>n.id===note.id?note:n):[note,...prev]; saveData(NOTES_KEY,next); return next; });
     if (doBack) setOpenNote(null);
     else setOpenNote(prev=>(prev&&prev.id===note.id)?note:{...note});
   }, []);
-  const handleDeleteNote = useCallback((id) => {
+  const handleDeleteNote   = useCallback((id) => {
     setNotes(prev=>{ const next=prev.filter(n=>n.id!==id); saveData(NOTES_KEY,next); return next; });
     setOpenNote(null);
   }, []);
-  const handleImport = useCallback(({ trades:t, notes:n, balance:b }) => {
+  const handleImport       = useCallback(({ trades:t, notes:n, balance:b }) => {
     if (t != null) { setTrades(t); saveData(TRADES_KEY, t); }
     if (n != null) { setNotes(n);  saveData(NOTES_KEY,  n); }
     if (b != null) { setAccountBalance(b); saveData(BALANCE_KEY, b); }
   }, []);
-  const handleClearAll = useCallback(() => {
+  const handleClearAll     = useCallback(() => {
     setTrades([]); setNotes([]); setAccountBalance(DEFAULT_BALANCE);
     saveData(TRADES_KEY,[]); saveData(NOTES_KEY,[]); saveData(BALANCE_KEY,DEFAULT_BALANCE);
   }, []);
+  const handleSaveDrawdown = useCallback((dd, cl) => {
+    setDrawdownLimit(dd); setConsistencyLimit(cl);
+    saveData(DRAWDOWN_KEY, dd); saveData(CONSISTENCY_KEY, cl);
+    setDdModal(false);
+  }, []);
 
-  const wins       = trades.filter(t=>t.pnl>0);
-  const losses     = trades.filter(t=>t.pnl<0);
-  const totalPnl   = trades.reduce((a,t)=>a+t.pnl,0);
-  const winRate    = trades.length?Math.round((wins.length/trades.length)*100):0;
-  const avgRR      = trades.length?(trades.reduce((a,t)=>a+t.rr,0)/trades.length).toFixed(1):"—";
-  const gainsPct   = ((totalPnl/accountBalance)*100).toFixed(1);
-  const avgWin     = wins.length?wins.reduce((a,t)=>a+t.pnl,0)/wins.length:0;
-  const avgLoss    = losses.length?losses.reduce((a,t)=>a+t.pnl,0)/losses.length:0;
-  const sorted     = [...trades].sort((a,b)=>b.date.localeCompare(a.date));
+  const wins     = trades.filter(t=>t.pnl>0);
+  const losses   = trades.filter(t=>t.pnl<0);
+  const totalPnl = trades.reduce((a,t)=>a+t.pnl,0);
+  const winRate  = trades.length?Math.round((wins.length/trades.length)*100):0;
+  const avgRR    = trades.length?(trades.reduce((a,t)=>a+t.rr,0)/trades.length).toFixed(1):"—";
+  const gainsPct = accountBalance>0?((totalPnl/accountBalance)*100).toFixed(1):"0.0";
+  const avgWin   = wins.length?wins.reduce((a,t)=>a+t.pnl,0)/wins.length:0;
+  const avgLoss  = losses.length?losses.reduce((a,t)=>a+t.pnl,0)/losses.length:0;
+  const sorted   = [...trades].sort((a,b)=>b.date.localeCompare(a.date));
   const currentBal = accountBalance + totalPnl;
-  const equityData = (() => {
-    const chrono=[...trades].sort((a,b)=>a.date.localeCompare(b.date));
-    let bal=accountBalance;
-    return [{d:"Start",v:bal},...chrono.map(t=>{ bal+=t.pnl; return{d:t.date.slice(5),v:bal}; })];
-  })();
 
   const plusAction = tab==="notes" ? ()=>setOpenNote({title:"",body:"",updatedAt:new Date().toISOString()})
     : tab==="risk" ? null : ()=>setTradeModal({});
 
   if (loading) return (
     <div style={{ background:G.bg, minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12 }}>
-      <div style={{ width:48, height:48, background:G.green, borderRadius:14, display:"flex", alignItems:"center", justifyContent:"center", fontSize:24 }}>📈</div>
-      <div style={{ color:G.textMuted, fontSize:14, fontWeight:600 }}>Memuat journal...</div>
-      <div style={{ color:G.green, fontSize:12, fontWeight:600 }}>☁️ Sinkron dengan cloud...</div>
+      <AppIcon size={48}/>
+      <div style={{ color:G.textMuted, fontSize:14, fontWeight:600 }}>Loading journal...</div>
+      <div style={{ color:G.green, fontSize:12, fontWeight:600 }}>☁ Syncing with cloud...</div>
     </div>
   );
 
@@ -677,8 +895,7 @@ function TradingJournal() {
         <NoteEditor note={openNote} onBack={()=>setOpenNote(null)} onSave={handleSaveNote} onDelete={handleDeleteNote}/>
       )}
 
-      {/* Header */}
-      <GojekHeader tab={tab} onBackup={()=>setDataModal(true)} syncStatus={syncStatus} />
+      <AppHeader tab={tab} onBackup={()=>setDataModal(true)} syncStatus={syncStatus}/>
 
       {/* FAB */}
       {plusAction && (
@@ -687,39 +904,49 @@ function TradingJournal() {
         </div>
       )}
 
-      {/* Content */}
       <div style={{ padding:"16px 16px 0" }}>
 
+        {/* ── Dashboard ── */}
         {tab==="dashboard" && (
           <>
-            {/* Account value card */}
+            {/* PnL Hero Card */}
             <div style={{ background:G.white, borderRadius:20, padding:"20px", marginBottom:14, boxShadow:G.shadow }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:16 }}>
                 <div>
                   <div style={{ fontSize:12, color:G.textMuted, fontWeight:600, letterSpacing:0.5, textTransform:"uppercase", marginBottom:6 }}>Nilai Akun</div>
+                  {/* Primary: account balance */}
                   <div style={{ fontSize:36, fontWeight:900, color:clr(totalPnl), letterSpacing:-1.5 }}>{fmtBal(currentBal)}</div>
-                  <div style={{ display:"flex", gap:16, marginTop:8 }}>
-                    <div><span style={{ fontSize:11, color:G.textMuted }}>P&L </span><span style={{ fontSize:13, fontWeight:800, color:clr(totalPnl) }}>{fmtPct(parseFloat(gainsPct))}</span></div>
-                    <div><span style={{ fontSize:11, color:G.textMuted }}>Trades </span><span style={{ fontSize:13, fontWeight:800, color:G.textPrimary }}>{trades.length}</span></div>
+                  {/* Secondary: P&L info */}
+                  <div style={{ display:"flex", gap:10, marginTop:6, alignItems:"center" }}>
+                    <span style={{ fontSize:12, color:G.textMuted, fontWeight:600 }}>P&amp;L <span style={{ color:clr(totalPnl), fontWeight:700 }}>{fmtPct(parseFloat(gainsPct))}</span></span>
+                    <span style={{ fontSize:12, color:clr(totalPnl), fontWeight:700 }}>{fmt(totalPnl)}</span>
+                    <span style={{ fontSize:11, color:G.textMuted }}>·</span>
+                    <span style={{ fontSize:12, color:G.textMuted, fontWeight:600 }}>Trades <span style={{ color:G.textSecondary, fontWeight:700 }}>{trades.length}</span></span>
                   </div>
                 </div>
-                <div style={{ width:48, height:48, background:clrBg(totalPnl), borderRadius:14, display:"flex", alignItems:"center", justifyContent:"center", fontSize:24 }}>
-                  {totalPnl>=0?"📈":"📉"}
+                <div style={{ width:46, height:46, background:clrBg(totalPnl), borderRadius:13, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={totalPnl>=0?G.green:G.red} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    {totalPnl>=0 ? <><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></> : <><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></>}
+                  </svg>
                 </div>
               </div>
-              {/* Quick actions row */}
+              {/* Quick actions */}
               <div style={{ display:"flex", gap:8 }}>
                 <button onClick={()=>setBalanceModal(true)} style={{ flex:1, padding:"11px 8px", background:G.greenLight, border:"none", borderRadius:12, cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
-                  <span style={{ fontSize:18 }}>💰</span>
-                  <span style={{ fontSize:11, color:G.green, fontWeight:700 }}>Set Balance</span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={G.green} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                  <span style={{ fontSize:11, color:G.green, fontWeight:700 }}>Balance</span>
                 </button>
                 <button onClick={()=>setTradeModal({})} style={{ flex:1, padding:"11px 8px", background:G.greenLight, border:"none", borderRadius:12, cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
-                  <span style={{ fontSize:18 }}>➕</span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={G.green} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                   <span style={{ fontSize:11, color:G.green, fontWeight:700 }}>Log Trade</span>
                 </button>
+                <button onClick={()=>setDdModal(true)} style={{ flex:1, padding:"11px 8px", background:G.redLight, border:"none", borderRadius:12, cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={G.red} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  <span style={{ fontSize:11, color:G.red, fontWeight:700 }}>Drawdown</span>
+                </button>
                 <button onClick={()=>setTab("risk")} style={{ flex:1, padding:"11px 8px", background:G.yellowLight, border:"none", borderRadius:12, cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
-                  <span style={{ fontSize:18 }}>🛡️</span>
-                  <span style={{ fontSize:11, color:G.yellow, fontWeight:700 }}>Risk Calc</span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={G.yellow} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  <span style={{ fontSize:11, color:G.yellow, fontWeight:700 }}>Risk</span>
                 </button>
               </div>
             </div>
@@ -734,47 +961,40 @@ function TradingJournal() {
               <StatCard label="Avg Loss" value={avgLoss?`−$${Math.abs(Math.round(avgLoss))}`:"—"} valueColor={G.red}/>
             </div>
 
-            {/* Equity curve */}
-            {equityData.length>1 && (
-              <div style={{ background:G.white, borderRadius:20, padding:"16px", marginBottom:16, boxShadow:G.shadow }}>
-                <div style={{ fontSize:12, color:G.textMuted, fontWeight:700, letterSpacing:0.5, textTransform:"uppercase", marginBottom:12 }}>Kurva Ekuitas</div>
-                <div style={{ display:"flex", alignItems:"flex-end", gap:3, height:60 }}>
-                  {equityData.slice(-20).map((p,i)=>{
-                    const min=Math.min(...equityData.map(e=>e.v)), max=Math.max(...equityData.map(e=>e.v)), range=max-min||1;
-                    const h=Math.max(4,((p.v-min)/range)*52);
-                    const isUp=i===0||p.v>=equityData[Math.max(0,equityData.length-20+i-1)].v;
-                    return <div key={i} style={{ flex:1, height:h, borderRadius:4, background:isUp?G.green:G.red, opacity:0.85 }}/>;
-                  })}
-                </div>
-                <div style={{ display:"flex", justifyContent:"space-between", marginTop:6 }}>
-                  <span style={{ fontSize:10, color:G.textMuted, fontWeight:600 }}>Lama</span><span style={{ fontSize:10, color:G.textMuted, fontWeight:600 }}>Terbaru</span>
-                </div>
-              </div>
-            )}
+            {/* Drawdown Chart */}
+            <DrawdownChart
+              trades={trades}
+              accountBalance={accountBalance}
+              drawdownLimit={drawdownLimit}
+              totalPnl={totalPnl}
+              consistencyLimit={consistencyLimit}
+            />
 
-            {/* Recent trades */}
-            <div style={{ fontSize:13, color:G.textSecondary, fontWeight:700, letterSpacing:0.3, textTransform:"uppercase", marginBottom:12 }}>Trade Terkini</div>
+            {/* Recent Trades */}
+            <div style={{ fontSize:13, color:G.textSecondary, fontWeight:700, letterSpacing:0.3, textTransform:"uppercase", marginBottom:12 }}>Recent Trades</div>
             {sorted.slice(0,5).map(t=><TradeRow key={t.id} trade={t} onPress={()=>setTradeModal(t)}/>)}
-            {sorted.length>5 && <div onClick={()=>setTab("log")} style={{ textAlign:"center", color:G.green, fontSize:13, fontWeight:800, padding:"14px", cursor:"pointer", background:G.white, borderRadius:14, boxShadow:G.shadow, marginTop:4 }}>Lihat semua {sorted.length} trades →</div>}
+            {sorted.length>5 && <div onClick={()=>setTab("log")} style={{ textAlign:"center", color:G.green, fontSize:13, fontWeight:800, padding:"14px", cursor:"pointer", background:G.white, borderRadius:14, boxShadow:G.shadow, marginTop:4 }}>View all {sorted.length} trades →</div>}
             {trades.length===0 && (
               <div style={{ textAlign:"center", padding:"40px 20px", background:G.white, borderRadius:20, boxShadow:G.shadow }}>
-                <div style={{ fontSize:48, marginBottom:12 }}>📈</div>
-                <div style={{ fontSize:16, fontWeight:800, color:G.textSecondary, marginBottom:6 }}>Belum ada trades</div>
-                <div style={{ fontSize:13, color:G.textMuted, marginBottom:16 }}>Tap tombol Log Trade untuk mulai</div>
-                <button onClick={()=>setTradeModal({})} style={{ padding:"12px 24px", background:G.green, border:"none", borderRadius:12, color:"#fff", fontSize:14, fontWeight:800, cursor:"pointer" }}>+ Log Trade Pertama</button>
+                <div style={{ marginBottom:12, display:"flex", justifyContent:"center" }}>
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke={G.textMuted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+                </div>
+                <div style={{ fontSize:16, fontWeight:800, color:G.textSecondary, marginBottom:6 }}>No trades yet</div>
+                <div style={{ fontSize:13, color:G.textMuted, marginBottom:16 }}>Tap Log Trade to get started</div>
+                <button onClick={()=>setTradeModal({})} style={{ padding:"12px 24px", background:G.green, border:"none", borderRadius:12, color:"#fff", fontSize:14, fontWeight:800, cursor:"pointer" }}>+ Log First Trade</button>
               </div>
             )}
           </>
         )}
 
+        {/* ── Trade Log ── */}
         {tab==="log" && (
           <>
-            <div style={{ fontSize:13, color:G.textSecondary, fontWeight:700, letterSpacing:0.3, textTransform:"uppercase", marginBottom:14 }}>Semua Trades · {sorted.length} total</div>
+            <div style={{ fontSize:13, color:G.textSecondary, fontWeight:700, letterSpacing:0.3, textTransform:"uppercase", marginBottom:14 }}>All Trades · {sorted.length} total</div>
             {sorted.map(t=><TradeRow key={t.id} trade={t} onPress={()=>setTradeModal(t)}/>)}
             {trades.length===0 && (
               <div style={{ textAlign:"center", padding:"60px 20px", background:G.white, borderRadius:20, boxShadow:G.shadow }}>
-                <div style={{ fontSize:48, marginBottom:12 }}>📋</div>
-                <div style={{ fontSize:15, fontWeight:700, color:G.textSecondary }}>Belum ada trades yang dicatat.</div>
+                <div style={{ fontSize:15, fontWeight:700, color:G.textSecondary }}>No trades logged yet.</div>
               </div>
             )}
           </>
@@ -782,10 +1002,31 @@ function TradingJournal() {
 
         {tab==="calendar" && <CalendarView trades={trades}/>}
 
+        {/* ── Notes (2 sections only, no AI Lessons) ── */}
         {tab==="notes" && (
           <>
-            <div style={{ fontSize:13, color:G.textMuted, fontWeight:700, marginBottom:14 }}>{notes.length} {notes.length===1?"catatan":"catatan"}</div>
-            <NotesList notes={notes} onOpen={n=>setOpenNote(n)}/>
+            <div style={{ display:"flex", gap:6, marginBottom:16, background:G.white, borderRadius:16, padding:"6px", boxShadow:G.shadow }}>
+              {[
+                { id:"personal", label:"My Notes" },
+                { id:"tradelog", label:"From Trade Log" },
+              ].map(s=>(
+                <button key={s.id} onClick={()=>setNoteSubTab(s.id)} style={{ flex:1, padding:"9px 6px", borderRadius:10, border:"none", background:noteSubTab===s.id?G.green:"transparent", color:noteSubTab===s.id?"#fff":G.textMuted, fontSize:12, fontWeight:700, cursor:"pointer", transition:"background 0.15s" }}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
+            {noteSubTab==="personal" && (
+              <>
+                <div style={{ fontSize:13, color:G.textMuted, fontWeight:700, marginBottom:14 }}>{notes.length} notes</div>
+                <NotesList notes={notes} onOpen={n=>setOpenNote(n)}/>
+              </>
+            )}
+            {noteSubTab==="tradelog" && (
+              <>
+                <div style={{ fontSize:13, color:G.textMuted, fontWeight:700, marginBottom:14 }}>Notes from {trades.filter(t=>t.notes&&t.notes.trim()).length} trade logs</div>
+                <TradeNotesList trades={trades}/>
+              </>
+            )}
           </>
         )}
 
@@ -793,22 +1034,32 @@ function TradingJournal() {
 
       </div>
 
-      {/* Bottom Nav — Gojek style */}
+      {/* ── Bottom Nav (grey/white style, not green) ── */}
       <div style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:480, background:G.white, borderTop:`1px solid ${G.border}`, display:"flex", padding:"10px 0 24px", boxShadow:"0 -4px 20px rgba(0,0,0,0.08)" }}>
         {[
-          { id:"dashboard", icon:"🏠", label:"Beranda" },
-          { id:"log",       icon:"📋", label:"Log"      },
-          { id:"calendar",  icon:"📅", label:"Kalender" },
-          { id:"risk",      icon:"🛡️",  label:"Risk"     },
-          { id:"notes",     icon:"🗒️",  label:"Notes"    },
-        ].map(({ id, icon, label }) => {
+          { id:"dashboard", label:"Home",
+            icon: (a) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={a?"#1A1A1A":G.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          },
+          { id:"log", label:"Log",
+            icon: (a) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={a?"#1A1A1A":G.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          },
+          { id:"calendar", label:"Calendar",
+            icon: (a) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={a?"#1A1A1A":G.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          },
+          { id:"risk", label:"Risk",
+            icon: (a) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={a?"#1A1A1A":G.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          },
+          { id:"notes", label:"Notes",
+            icon: (a) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={a?"#1A1A1A":G.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          },
+        ].map(({ id, label, icon }) => {
           const active = tab === id;
           return (
             <button key={id} onClick={()=>setTab(id)} className="ripple" style={{ flex:1, background:"none", border:"none", cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:3, padding:"4px 0" }}>
-              <div style={{ width:36, height:36, borderRadius:10, background:active?G.greenLight:"transparent", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, transition:"background 0.15s" }}>
-                {icon}
+              <div style={{ width:36, height:36, borderRadius:10, background:active?"#F0F0F0":"transparent", display:"flex", alignItems:"center", justifyContent:"center", transition:"background 0.15s" }}>
+                {icon(active)}
               </div>
-              <span style={{ fontSize:10, fontWeight:700, color:active?G.green:G.textMuted, transition:"color 0.15s" }}>{label}</span>
+              <span style={{ fontSize:10, fontWeight:700, color:active?"#1A1A1A":G.textMuted, transition:"color 0.15s" }}>{label}</span>
             </button>
           );
         })}
@@ -818,6 +1069,7 @@ function TradingJournal() {
       {tradeModal !== null && <TradeModal trade={tradeModal} onSave={handleSaveTrade} onDelete={handleDeleteTrade} onClose={()=>setTradeModal(null)}/>}
       {balanceModal && <BalanceModal currentBalance={accountBalance} onSave={handleSaveBalance} onClose={()=>setBalanceModal(false)}/>}
       {dataModal && <DataModal trades={trades} notes={notes} accountBalance={accountBalance} onImport={handleImport} onClearAll={handleClearAll} onClose={()=>setDataModal(false)}/>}
+      {ddModal && <DrawdownModal drawdownLimit={drawdownLimit} consistencyLimit={consistencyLimit} totalPnl={totalPnl} onSave={handleSaveDrawdown} onClose={()=>setDdModal(false)}/>}
 
     </div>
   );
