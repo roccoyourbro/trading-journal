@@ -20,16 +20,51 @@
     input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
     input[type=date]::-webkit-calendar-picker-indicator { filter: none; opacity: 0.5; }
     ::-webkit-scrollbar { width: 0; }
+    ::-webkit-scrollbar:horizontal { height: 0; }
     .ripple { position:relative; overflow:hidden; }
     .ripple:active { transform: scale(0.97); }
     * { transition: transform 0.1s; }
+
+    /* ── Tablet (≥ 768px) ── */
+    @media (min-width: 768px) {
+      .mobile-app-shell { max-width: 680px !important; }
+      .bottom-nav-bar   { max-width: 680px !important; }
+    }
+
+    /* ── Desktop (≥ 1024px) ── */
+    @media (min-width: 1024px) {
+      body { background: #EAEAEA; }
+      .bottom-nav-bar   { display: none !important; }
+      .desktop-sidebar  { display: flex !important; }
+      .mobile-app-shell {
+        max-width: none !important;
+        margin-left: 240px !important;
+        min-height: 100vh;
+        border-radius: 0 !important;
+      }
+      .desktop-content-inner { max-width: 860px; margin: 0 auto; }
+      .app-header-desktop { padding: 28px 36px 24px !important; }
+      .fab-btn { right: 32px !important; bottom: 32px !important; left: auto !important; transform: none !important; }
+    }
   </style>
 </head>
 <body>
   <div id="root"></div>
 
 <script type="text/babel">
-const { useState, useEffect, useCallback, useRef } = React;
+const { useState, useEffect, useCallback, useRef, createContext, useContext } = React;
+
+const BreakpointCtx = createContext({ isDesktop: false, isTablet: false });
+function useBreakpoint() { return useContext(BreakpointCtx); }
+function useWindowWidth() {
+  const [w, setW] = useState(typeof window !== "undefined" ? window.innerWidth : 375);
+  useEffect(() => {
+    const h = () => setW(window.innerWidth);
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, []);
+  return w;
+}
 
 const TRADES_KEY       = "nq-journal-trades";
 const NOTES_KEY        = "nq-journal-notes";
@@ -138,6 +173,7 @@ function AppIcon({ size = 36 }) {
 
 // ─── Header (Gojek green) ─────────────────────────────────────────────────────
 function AppHeader({ tab, onBackup, syncStatus }) {
+  const { isDesktop } = useBreakpoint();
   const titles = {
     dashboard: "Trading Journal",
     log:       "Trade Log",
@@ -146,18 +182,18 @@ function AppHeader({ tab, onBackup, syncStatus }) {
     notes:     "My Notes",
   };
   return (
-    <div style={{ background:`linear-gradient(135deg, ${G.green} 0%, ${G.greenDark} 100%)`, padding:"52px 20px 20px", position:"relative", overflow:"hidden" }}>
+    <div className={isDesktop ? "app-header-desktop" : ""} style={{ background:`linear-gradient(135deg, ${G.green} 0%, ${G.greenDark} 100%)`, padding: isDesktop ? "28px 36px 24px" : "52px 20px 20px", position:"relative", overflow:"hidden" }}>
       <div style={{ position:"absolute", top:-30, right:-30, width:140, height:140, borderRadius:"50%", background:"rgba(255,255,255,0.07)", pointerEvents:"none" }}/>
       <div style={{ position:"absolute", top:10, right:50, width:70, height:70, borderRadius:"50%", background:"rgba(255,255,255,0.05)", pointerEvents:"none" }}/>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", maxWidth: isDesktop ? 860 : "none", margin: isDesktop ? "0 auto" : undefined }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
           <AppIcon size={36}/>
           <div>
             <div style={{ fontSize:11, color:"rgba(255,255,255,0.7)", fontWeight:600, letterSpacing:1, marginBottom:2 }}>{tab==="dashboard"?"Hello, Rocco 👋":"NQ Futures"}</div>
-            <div style={{ fontSize:22, fontWeight:800, color:"#fff", letterSpacing:-0.5 }}>{titles[tab]||"Trading Journal"}</div>
+            <div style={{ fontSize: isDesktop ? 26 : 22, fontWeight:800, color:"#fff", letterSpacing:-0.5 }}>{titles[tab]||"Trading Journal"}</div>
           </div>
         </div>
-        <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:6 }}>
+        <div style={{ display: isDesktop ? "none" : "flex", flexDirection:"column", alignItems:"flex-end", gap:6 }}>
           <button onClick={onBackup} className="ripple" style={{ background:"rgba(255,255,255,0.2)", border:"none", borderRadius:12, width:42, height:42, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", backdropFilter:"blur(4px)" }}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
@@ -215,6 +251,7 @@ function TradeRow({ trade, onPress }) {
 
 // ─── Trade Modal ──────────────────────────────────────────────────────────────
 function TradeModal({ trade, onSave, onDelete, onClose }) {
+  const { isDesktop } = useBreakpoint();
   const isNew = !trade.id;
   const [form, setForm] = useState({
     date: trade.date || todayStr(),
@@ -231,8 +268,8 @@ function TradeModal({ trade, onSave, onDelete, onClose }) {
   const inp = { width:"100%", background:G.bg, border:`1.5px solid ${G.border}`, borderRadius:12, color:G.textPrimary, fontSize:15, padding:"13px 14px", outline:"none", boxSizing:"border-box", fontFamily:"'Plus Jakarta Sans',sans-serif", fontWeight:600 };
   const lbl = { fontSize:12, color:G.textSecondary, fontWeight:700, letterSpacing:0.3, marginBottom:6, display:"block" };
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"flex-end", zIndex:200, backdropFilter:"blur(4px)" }} onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.white, borderRadius:"24px 24px 0 0", padding:"20px 20px 40px", maxHeight:"92vh", overflowY:"auto" }}>
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems: isDesktop ? "center" : "flex-end", justifyContent:"center", zIndex:200, backdropFilter:"blur(4px)", padding: isDesktop ? "0 20px" : 0 }} onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{ width:"100%", maxWidth: isDesktop ? 520 : 480, margin:"0 auto", background:G.white, borderRadius: isDesktop ? 24 : "24px 24px 0 0", padding: isDesktop ? "28px 24px" : "20px 20px 40px", maxHeight:"92vh", overflowY:"auto" }}>
         <div style={{ width:40, height:4, background:G.border, borderRadius:2, margin:"0 auto 20px" }} />
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:24 }}>
           <span style={{ fontSize:18, fontWeight:800, color:G.textPrimary }}>{isNew?"Log Trade":"Edit Trade"}</span>
@@ -445,6 +482,7 @@ function CalendarView({ trades }) {
 
 // ─── Note Editor ──────────────────────────────────────────────────────────────
 function NoteEditor({ note, onBack, onSave, onDelete }) {
+  const { isDesktop } = useBreakpoint();
   const [title, setTitle] = useState(note.title || "");
   const [body,  setBody]  = useState(note.body  || "");
   const saveTimer = useRef(null);
@@ -465,17 +503,19 @@ function NoteEditor({ note, onBack, onSave, onDelete }) {
     else onBack();
   };
   return (
-    <div style={{ position:"fixed", inset:0, background:G.white, zIndex:150, display:"flex", flexDirection:"column", maxWidth:480, margin:"0 auto", left:0, right:0 }}>
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"52px 16px 14px", borderBottom:`1px solid ${G.border}`, background:G.white }}>
+    <div style={{ position:"fixed", inset:0, background:G.white, zIndex:150, display:"flex", flexDirection:"column", maxWidth: isDesktop ? "none" : 480, marginLeft: isDesktop ? 240 : "auto", marginRight: isDesktop ? 0 : "auto", left: isDesktop ? 240 : 0, right:0 }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding: isDesktop ? "20px 36px 14px" : "52px 16px 14px", borderBottom:`1px solid ${G.border}`, background:G.white }}>
         <button onClick={handleBack} style={{ background:"none", border:"none", color:G.green, fontSize:15, fontWeight:700, cursor:"pointer", display:"flex", alignItems:"center", gap:4 }}>
           <span style={{ fontSize:22 }}>‹</span> Notes
         </button>
         {!isNew && <button onClick={()=>onDelete(note.id)} style={{ background:G.redLight, border:"none", borderRadius:10, color:G.red, fontSize:12, fontWeight:700, padding:"7px 14px", cursor:"pointer" }}>Delete</button>}
       </div>
-      <div style={{ flex:1, overflowY:"auto", padding:"20px 20px 40px" }}>
+      <div style={{ flex:1, overflowY:"auto", padding: isDesktop ? "28px 36px 40px" : "20px 20px 40px" }}>
+        <div style={{ maxWidth: isDesktop ? 860 : "none", margin: isDesktop ? "0 auto" : undefined }}>
         <textarea value={title} onChange={e=>handleTitle(e.target.value)} placeholder="Title" rows={1} style={{ width:"100%", background:"none", border:"none", outline:"none", color:G.textPrimary, fontSize:22, fontWeight:800, fontFamily:"'Plus Jakarta Sans',sans-serif", resize:"none", lineHeight:1.3, marginBottom:10, boxSizing:"border-box", overflow:"hidden" }}/>
         <div style={{ fontSize:12, color:G.textMuted, marginBottom:18 }}>{new Date().toLocaleDateString("en-US",{ weekday:"long",year:"numeric",month:"long",day:"numeric" })}</div>
         <textarea value={body} onChange={e=>handleBody(e.target.value)} placeholder="Start writing..." style={{ width:"100%", background:"none", border:"none", outline:"none", color:G.textSecondary, fontSize:16, fontFamily:"'Plus Jakarta Sans',sans-serif", resize:"none", lineHeight:1.8, boxSizing:"border-box", minHeight:"62vh" }}/>
+        </div>{/* max-width wrapper */}
       </div>
     </div>
   );
@@ -690,6 +730,7 @@ function DrawdownChart({ trades, accountBalance, drawdownLimit, totalPnl, consis
 
 // ─── Drawdown + Consistency Settings Modal ─────────────────────────────────────
 function DrawdownModal({ drawdownLimit, consistencyLimit, totalPnl, onSave, onClose }) {
+  const { isDesktop } = useBreakpoint();
   const [dd,  setDd]  = useState(String(drawdownLimit||""));
   const [cl,  setCl]  = useState(String(consistencyLimit||""));
   const suggestedLimit = totalPnl > 0 ? Math.round(totalPnl * 0.5) : null;
@@ -698,8 +739,8 @@ function DrawdownModal({ drawdownLimit, consistencyLimit, totalPnl, onSave, onCl
   const lbl = { fontSize:12, color:G.textSecondary, fontWeight:700, marginBottom:6, display:"block" };
 
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"flex-end", zIndex:200, backdropFilter:"blur(4px)" }} onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div style={{ width:"100%", maxWidth:480, margin:"0 auto", background:G.white, borderRadius:"24px 24px 0 0", padding:"20px 20px 48px" }}>
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems: isDesktop ? "center" : "flex-end", justifyContent:"center", zIndex:200, backdropFilter:"blur(4px)", padding: isDesktop ? "0 20px" : 0 }} onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{ width:"100%", maxWidth: isDesktop ? 480 : 480, margin:"0 auto", background:G.white, borderRadius: isDesktop ? 24 : "24px 24px 0 0", padding:"20px 20px 48px" }}>
         <div style={{ width:40, height:4, background:G.border, borderRadius:2, margin:"0 auto 20px" }} />
         <div style={{ fontSize:18, fontWeight:800, color:G.textPrimary, marginBottom:6 }}>Drawdown & Consistency</div>
         <div style={{ fontSize:13, color:G.textMuted, marginBottom:22 }}>Set your prop firm drawdown limit and daily profit cap.</div>
@@ -796,8 +837,86 @@ function RiskManagement({ accountBalance, totalPnl }) {
   );
 }
 
+// ─── Desktop Sidebar ──────────────────────────────────────────────────────────
+function DesktopSidebar({ tab, setTab, onBackup, syncStatus, plusAction }) {
+  const navItems = [
+    { id:"dashboard", label:"Home",
+      icon:(a)=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={a?G.green:G.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    },
+    { id:"log", label:"Trade Log",
+      icon:(a)=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={a?G.green:G.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+    },
+    { id:"calendar", label:"Calendar",
+      icon:(a)=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={a?G.green:G.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    },
+    { id:"risk", label:"Risk",
+      icon:(a)=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={a?G.green:G.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    },
+    { id:"notes", label:"Notes",
+      icon:(a)=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={a?G.green:G.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+    },
+  ];
+  return (
+    <div className="desktop-sidebar" style={{ display:"none", width:240, background:G.white, borderRight:`1px solid ${G.border}`, position:"fixed", top:0, left:0, bottom:0, flexDirection:"column", zIndex:50, boxShadow:"2px 0 16px rgba(0,0,0,0.06)" }}>
+      {/* Brand */}
+      <div style={{ padding:"28px 20px 20px", borderBottom:`1px solid ${G.border}` }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <div style={{ width:40, height:40, borderRadius:12, background:`linear-gradient(135deg, ${G.green}, ${G.greenDark})`, display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <AppIcon size={28}/>
+          </div>
+          <div>
+            <div style={{ fontSize:14, fontWeight:800, color:G.textPrimary, letterSpacing:-0.3 }}>NQ Journal</div>
+            <div style={{ fontSize:11, color:G.textMuted, fontWeight:600 }}>Trading Journal</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Nav items */}
+      <div style={{ flex:1, padding:"14px 12px", overflowY:"auto" }}>
+        {navItems.map(({ id, label, icon }) => {
+          const active = tab === id;
+          return (
+            <button key={id} onClick={()=>setTab(id)} style={{ width:"100%", display:"flex", alignItems:"center", gap:12, padding:"11px 14px", borderRadius:12, border:"none", background:active?G.greenLight:"transparent", cursor:"pointer", marginBottom:3, fontFamily:"'Plus Jakarta Sans',sans-serif", transition:"background 0.15s" }}>
+              {icon(active)}
+              <span style={{ fontSize:14, fontWeight:700, color:active?G.green:G.textSecondary }}>{label}</span>
+            </button>
+          );
+        })}
+
+        {/* Divider */}
+        <div style={{ height:1, background:G.border, margin:"14px 4px" }}/>
+
+        {/* Quick action button in sidebar */}
+        {plusAction && (
+          <button onClick={plusAction} className="ripple" style={{ width:"100%", display:"flex", alignItems:"center", gap:12, padding:"11px 14px", borderRadius:12, border:`1.5px solid ${G.green}`, background:G.greenLight, cursor:"pointer", fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={G.green} strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span style={{ fontSize:14, fontWeight:800, color:G.green }}>{tab==="notes"?"New Note":"Log Trade"}</span>
+          </button>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div style={{ padding:"14px 12px 20px", borderTop:`1px solid ${G.border}` }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 12px", borderRadius:10, background:G.bg, marginBottom:8 }}>
+          <div style={{ width:8, height:8, borderRadius:"50%", background: syncStatus==="ok"?"#4ade80": syncStatus==="offline"?"#f87171":"#facc15", flexShrink:0 }}/>
+          <span style={{ fontSize:11, color:G.textSecondary, fontWeight:600 }}>
+            {syncStatus==="ok"?"Cloud Sync Active": syncStatus==="offline"?"Offline":"Connecting..."}
+          </span>
+        </div>
+        <button onClick={onBackup} style={{ width:"100%", display:"flex", alignItems:"center", gap:10, padding:"10px 12px", borderRadius:12, border:"none", background:G.bg, cursor:"pointer", fontFamily:"'Plus Jakarta Sans',sans-serif", color:G.textSecondary }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={G.textSecondary} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <span style={{ fontSize:13, fontWeight:700 }}>Backup & Sync</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 function TradingJournal() {
+  const windowWidth = useWindowWidth();
+  const isDesktop = windowWidth >= 1024;
+  const isTablet  = windowWidth >= 768 && windowWidth < 1024;
   const [trades,           setTrades]           = useState([]);
   const [notes,            setNotes]            = useState([]);
   const [accountBalance,   setAccountBalance]   = useState(DEFAULT_BALANCE);
@@ -881,15 +1000,21 @@ function TradingJournal() {
     : tab==="risk" ? null : ()=>setTradeModal({});
 
   if (loading) return (
-    <div style={{ background:G.bg, minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12 }}>
-      <AppIcon size={48}/>
-      <div style={{ color:G.textMuted, fontSize:14, fontWeight:600 }}>Loading journal...</div>
-      <div style={{ color:G.green, fontSize:12, fontWeight:600 }}>☁ Syncing with cloud...</div>
-    </div>
+    <BreakpointCtx.Provider value={{ isDesktop, isTablet }}>
+      <div style={{ background:G.bg, minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12 }}>
+        <AppIcon size={48}/>
+        <div style={{ color:G.textMuted, fontSize:14, fontWeight:600 }}>Loading journal...</div>
+        <div style={{ color:G.green, fontSize:12, fontWeight:600 }}>☁ Syncing with cloud...</div>
+      </div>
+    </BreakpointCtx.Provider>
   );
 
   return (
-    <div style={{ background:G.bg, minHeight:"100vh", maxWidth:480, margin:"0 auto", fontFamily:"'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif", color:G.textPrimary, paddingBottom:100 }}>
+    <BreakpointCtx.Provider value={{ isDesktop, isTablet }}>
+    {/* Desktop Sidebar (hidden on mobile/tablet via CSS) */}
+    <DesktopSidebar tab={tab} setTab={setTab} onBackup={()=>setDataModal(true)} syncStatus={syncStatus} plusAction={plusAction}/>
+
+    <div className="mobile-app-shell" style={{ background:G.bg, minHeight:"100vh", maxWidth: isTablet ? 680 : 480, margin:"0 auto", fontFamily:"'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif", color:G.textPrimary, paddingBottom: isDesktop ? 40 : 100 }}>
 
       {openNote !== null && (
         <NoteEditor note={openNote} onBack={()=>setOpenNote(null)} onSave={handleSaveNote} onDelete={handleDeleteNote}/>
@@ -899,12 +1024,13 @@ function TradingJournal() {
 
       {/* FAB */}
       {plusAction && (
-        <div style={{ position:"fixed", bottom:86, right:"max(16px, calc(50% - 224px))", zIndex:100 }}>
+        <div className="fab-btn" style={{ position:"fixed", bottom:86, right:"max(16px, calc(50% - 224px))", zIndex:100 }}>
           <button onClick={plusAction} className="ripple" style={{ width:56, height:56, borderRadius:16, background:G.green, border:"none", color:"#fff", fontSize:26, cursor:"pointer", boxShadow:"0 6px 24px rgba(0,170,19,0.4)", display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700 }}>+</button>
         </div>
       )}
 
-      <div style={{ padding:"16px 16px 0" }}>
+      <div style={{ padding: isDesktop ? "20px 36px 0" : "16px 16px 0" }}>
+      <div className="desktop-content-inner">
 
         {/* ── Dashboard ── */}
         {tab==="dashboard" && (
@@ -1032,10 +1158,11 @@ function TradingJournal() {
 
         {tab==="risk" && <RiskManagement accountBalance={accountBalance} totalPnl={totalPnl}/>}
 
-      </div>
+      </div>{/* desktop-content-inner */}
+      </div>{/* padding wrapper */}
 
       {/* ── Bottom Nav (grey/white style, not green) ── */}
-      <div style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:480, background:G.white, borderTop:`1px solid ${G.border}`, display:"flex", padding:"10px 0 24px", boxShadow:"0 -4px 20px rgba(0,0,0,0.08)" }}>
+      <div className="bottom-nav-bar" style={{ position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:480, background:G.white, borderTop:`1px solid ${G.border}`, display:"flex", padding:"10px 0 24px", boxShadow:"0 -4px 20px rgba(0,0,0,0.08)" }}>
         {[
           { id:"dashboard", label:"Home",
             icon: (a) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={a?"#1A1A1A":G.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -1071,7 +1198,8 @@ function TradingJournal() {
       {dataModal && <DataModal trades={trades} notes={notes} accountBalance={accountBalance} onImport={handleImport} onClearAll={handleClearAll} onClose={()=>setDataModal(false)}/>}
       {ddModal && <DrawdownModal drawdownLimit={drawdownLimit} consistencyLimit={consistencyLimit} totalPnl={totalPnl} onSave={handleSaveDrawdown} onClose={()=>setDdModal(false)}/>}
 
-    </div>
+    </div>{/* mobile-app-shell */}
+    </BreakpointCtx.Provider>
   );
 }
 
