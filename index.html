@@ -557,40 +557,188 @@ function CalendarView({ trades }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
+  const [chartMode, setChartMode] = useState("month"); // "day" | "month" | "year"
+
   const dayMap = {};
   trades.forEach(t => { dayMap[t.date] = (dayMap[t.date]||0) + t.pnl; });
   const cells = getCalendarDays(year, month);
   const prev = () => { if(month===0){setMonth(11);setYear(y=>y-1);}else setMonth(m=>m-1); };
   const next = () => { if(month===11){setMonth(0);setYear(y=>y+1);}else setMonth(m=>m+1); };
   const monthPnl = Object.entries(dayMap).filter(([k])=>k.startsWith(`${year}-${String(month+1).padStart(2,"0")}`)).reduce((a,[,v])=>a+v,0);
-  return (
-    <div style={{ background:G.white, borderRadius:20, padding:"16px", boxShadow:G.shadow }}>
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
-        <button onClick={prev} style={{ background:G.bg, border:"none", color:G.textSecondary, fontSize:18, cursor:"pointer", padding:"8px 14px", borderRadius:10, fontWeight:800 }}>‹</button>
-        <div style={{ textAlign:"center" }}>
-          <div style={{ fontSize:16, fontWeight:800, color:G.textPrimary }}>{MONTHS[month]} {year}</div>
-          <div style={{ fontSize:13, color:clr(monthPnl), fontWeight:700 }}>{fmt(monthPnl)}</div>
+
+  // ── Chart data builders ──────────────────────────────────────────────────────
+  const chartData = React.useMemo(() => {
+    if (chartMode === "day") {
+      // All trading days in current month
+      const prefix = `${year}-${String(month+1).padStart(2,"0")}`;
+      const entries = Object.entries(dayMap)
+        .filter(([k]) => k.startsWith(prefix))
+        .sort(([a],[b]) => a.localeCompare(b));
+      return entries.map(([k, v]) => ({ label: k.slice(8), value: v }));
+    }
+    if (chartMode === "month") {
+      // All 12 months of current year
+      return Array.from({length:12}, (_,i) => {
+        const pfx = `${year}-${String(i+1).padStart(2,"0")}`;
+        const val = Object.entries(dayMap).filter(([k])=>k.startsWith(pfx)).reduce((a,[,v])=>a+v,0);
+        return { label: MONTHS[i].slice(0,3), value: val };
+      });
+    }
+    // year mode — group by year
+    const yearMap = {};
+    Object.entries(dayMap).forEach(([k,v]) => {
+      const y = k.slice(0,4);
+      yearMap[y] = (yearMap[y]||0) + v;
+    });
+    return Object.entries(yearMap).sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>({ label:k, value:v }));
+  }, [chartMode, year, month, trades]);
+
+  // ── SVG line chart (full-width, Bibit-style) ─────────────────────────────────
+  function PerformanceChart({ data }) {
+    if (!data.length) return (
+      <div style={{ textAlign:"center", padding:"48px 0", color:G.textMuted, fontSize:14, fontWeight:600 }}>No trade data for this period</div>
+    );
+    // Use a wide fixed viewBox — SVG scales to 100% width automatically
+    const W = 600, H = 220, PAD_L = 58, PAD_B = 36, PAD_T = 18, PAD_R = 12;
+    const innerW = W - PAD_L - PAD_R;
+    const innerH = H - PAD_B - PAD_T;
+    const vals = data.map(d=>d.value);
+    const totalPnl = vals.reduce((a,b)=>a+b,0);
+    const minV = Math.min(...vals);
+    const maxV = Math.max(...vals);
+    const pad  = Math.max((maxV - minV) * 0.15, 1);
+    const lo   = minV - pad, hi = maxV + pad;
+    const rangeV = hi - lo || 1;
+    const toY = v => PAD_T + innerH * (1 - (v - lo) / rangeV);
+    const toX = i => PAD_L + (data.length === 1 ? innerW/2 : (innerW / (data.length-1)) * i);
+    const zeroY = toY(0);
+    const showZero = lo < 0 && hi > 0;
+    const axisVals = [lo, lo + rangeV*0.25, lo + rangeV*0.5, lo + rangeV*0.75, hi];
+    const fmtAxis = v => {
+      const a = Math.abs(v);
+      const s = v >= 0 ? "+" : "−";
+      if (a >= 1000) return s + "$" + (a >= 10000 ? Math.round(a/1000)+"k" : (a/1000).toFixed(1)+"k");
+      return s + "$" + Math.round(a);
+    };
+    const points = data.map((_,i) => `${toX(i)},${toY(vals[i])}`).join(" ");
+    const areaPath = data.length > 1
+      ? `M${toX(0)},${toY(vals[0])} ` + data.slice(1).map((_,i)=>`L${toX(i+1)},${toY(vals[i+1])}`).join(" ")
+        + ` L${toX(data.length-1)},${H-PAD_B} L${toX(0)},${H-PAD_B} Z`
+      : "";
+    const lineColor = totalPnl >= 0 ? G.green : G.red;
+    const dotR = data.length > 24 ? 2 : data.length > 12 ? 3.5 : 5;
+
+    return (
+      <div>
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width:"100%", display:"block" }}>
+          <defs>
+            <linearGradient id="lineAreaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={lineColor} stopOpacity="0.22"/>
+              <stop offset="100%" stopColor={lineColor} stopOpacity="0.02"/>
+            </linearGradient>
+          </defs>
+          {/* Y gridlines + labels */}
+          {axisVals.map((v,i) => {
+            const y = toY(v);
+            return (
+              <g key={i}>
+                <line x1={PAD_L} y1={y} x2={W-PAD_R} y2={y} stroke={G.border} strokeWidth={0.8} strokeDasharray="4,4"/>
+                <text x={PAD_L-6} y={y+4} textAnchor="end" fontSize={9} fill={G.textMuted} fontFamily="'Plus Jakarta Sans',sans-serif" fontWeight="700">
+                  {fmtAxis(v)}
+                </text>
+              </g>
+            );
+          })}
+          {/* Zero line */}
+          {showZero && (
+            <line x1={PAD_L} y1={zeroY} x2={W-PAD_R} y2={zeroY} stroke={G.textMuted} strokeWidth={1.5}/>
+          )}
+          {/* Area fill */}
+          {areaPath && <path d={areaPath} fill="url(#lineAreaGrad)"/>}
+          {/* Line */}
+          <polyline points={points} fill="none" stroke={lineColor} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round"/>
+          {/* Dots */}
+          {data.map((_,i) => (
+            <circle key={i} cx={toX(i)} cy={toY(vals[i])} r={dotR} fill={lineColor} stroke="#fff" strokeWidth={2}/>
+          ))}
+          {/* X labels */}
+          {data.map((d,i) => {
+            if (data.length > 18 && i % Math.ceil(data.length/10) !== 0) return null;
+            return (
+              <text key={i} x={toX(i)} y={H-PAD_B+16} textAnchor="middle" fontSize={data.length>10?8:10} fill={G.textMuted} fontFamily="'Plus Jakarta Sans',sans-serif" fontWeight="700">
+                {d.label}
+              </text>
+            );
+          })}
+        </svg>
+        {/* Summary row */}
+        <div style={{ display:"flex", justifyContent:"space-between", marginTop:16, padding:"16px 4px 0", borderTop:`1px solid ${G.border}` }}>
+          <div>
+            <div style={{ fontSize:11, color:G.textMuted, fontWeight:600, marginBottom:4 }}>Total P&L</div>
+            <div style={{ fontSize:18, fontWeight:800, color:clr(totalPnl) }}>{fmt(totalPnl)}</div>
+          </div>
+          <div style={{ textAlign:"center" }}>
+            <div style={{ fontSize:11, color:G.textMuted, fontWeight:600, marginBottom:4 }}>Best</div>
+            <div style={{ fontSize:18, fontWeight:800, color:G.green }}>{fmt(Math.max(...vals))}</div>
+          </div>
+          <div style={{ textAlign:"right" }}>
+            <div style={{ fontSize:11, color:G.textMuted, fontWeight:600, marginBottom:4 }}>Worst</div>
+            <div style={{ fontSize:18, fontWeight:800, color:G.red }}>{fmt(Math.min(...vals))}</div>
+          </div>
         </div>
-        <button onClick={next} style={{ background:G.bg, border:"none", color:G.textSecondary, fontSize:18, cursor:"pointer", padding:"8px 14px", borderRadius:10, fontWeight:800 }}>›</button>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4, marginBottom:4 }}>
-        {DAYS.map(d=><div key={d} style={{ textAlign:"center", fontSize:10, color:G.textMuted, fontWeight:700, padding:"4px 0" }}>{d}</div>)}
+    );
+  }
+
+  return (
+    <>
+      {/* Calendar card */}
+      <div style={{ background:G.white, borderRadius:20, padding:"16px", boxShadow:G.shadow, marginBottom:12 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+          <button onClick={prev} style={{ background:G.bg, border:"none", color:G.textSecondary, fontSize:18, cursor:"pointer", padding:"8px 14px", borderRadius:10, fontWeight:800 }}>‹</button>
+          <div style={{ textAlign:"center" }}>
+            <div style={{ fontSize:16, fontWeight:800, color:G.textPrimary }}>{MONTHS[month]} {year}</div>
+            <div style={{ fontSize:13, color:clr(monthPnl), fontWeight:700 }}>{fmt(monthPnl)}</div>
+          </div>
+          <button onClick={next} style={{ background:G.bg, border:"none", color:G.textSecondary, fontSize:18, cursor:"pointer", padding:"8px 14px", borderRadius:10, fontWeight:800 }}>›</button>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4, marginBottom:4 }}>
+          {DAYS.map(d=><div key={d} style={{ textAlign:"center", fontSize:10, color:G.textMuted, fontWeight:700, padding:"4px 0" }}>{d}</div>)}
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4 }}>
+          {cells.map((day,i)=>{
+            if(!day) return <div key={`e${i}`}/>;
+            const key=`${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+            const pnl=dayMap[key];
+            const isToday=key===todayStr();
+            return (
+              <div key={key} style={{ borderRadius:10, padding:"6px 2px", textAlign:"center", background:pnl!==undefined?clrBg(pnl):isToday?G.greenLight:"transparent", border:isToday?`2px solid ${G.green}`:"2px solid transparent", minHeight:46 }}>
+                <div style={{ fontSize:11, color:G.textSecondary, fontWeight:700 }}>{day}</div>
+                {pnl!==undefined&&<div style={{ fontSize:8, color:clr(pnl), fontWeight:800, marginTop:2, lineHeight:1.2 }}>{pnl>0?"+":"−"}${Math.abs(pnl).toLocaleString()}</div>}
+              </div>
+            );
+          })}
+        </div>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:4 }}>
-        {cells.map((day,i)=>{
-          if(!day) return <div key={`e${i}`}/>;
-          const key=`${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-          const pnl=dayMap[key];
-          const isToday=key===todayStr();
-          return (
-            <div key={key} style={{ borderRadius:10, padding:"6px 2px", textAlign:"center", background:pnl!==undefined?clrBg(pnl):isToday?G.greenLight:"transparent", border:isToday?`2px solid ${G.green}`:"2px solid transparent", minHeight:46 }}>
-              <div style={{ fontSize:11, color:G.textSecondary, fontWeight:700 }}>{day}</div>
-              {pnl!==undefined&&<div style={{ fontSize:8, color:clr(pnl), fontWeight:800, marginTop:2, lineHeight:1.2 }}>{pnl>0?"+":"−"}${Math.abs(pnl).toLocaleString()}</div>}
-            </div>
-          );
-        })}
+
+      {/* Performance Chart card */}
+      <div style={{ background:G.white, borderRadius:20, padding:"20px 20px 20px", boxShadow:G.shadow, marginBottom:12 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
+          <div style={{ fontSize:15, fontWeight:800, color:G.textPrimary, letterSpacing:0.2 }}>Performance</div>
+          <div style={{ display:"flex", background:G.bg, borderRadius:10, padding:3, gap:2 }}>
+            {[{id:"day",label:"Day"},{id:"month",label:"Month"},{id:"year",label:"Year"}].map(m=>(
+              <button key={m.id} onClick={()=>setChartMode(m.id)} style={{ padding:"5px 12px", borderRadius:8, border:"none", background:chartMode===m.id?G.white:"transparent", color:chartMode===m.id?G.textPrimary:G.textMuted, fontSize:11, fontWeight:800, cursor:"pointer", boxShadow:chartMode===m.id?"0 1px 4px rgba(0,0,0,0.10)":"none", transition:"all 0.15s" }}>
+                {m.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ fontSize:11, color:G.textMuted, fontWeight:600, marginBottom:10 }}>
+          {chartMode==="day" ? `Daily P&L — ${MONTHS[month]} ${year}` : chartMode==="month" ? `Monthly P&L — ${year}` : "Yearly P&L — All time"}
+        </div>
+        <PerformanceChart data={chartData} />
       </div>
-    </div>
+    </>
   );
 }
 
@@ -979,13 +1127,7 @@ function DesktopSidebar({ tab, setTab, onBackup, syncStatus, plusAction, account
               </div>
             </div>
           )}
-          {/* Mini account list */}
-          <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-            {accounts.map(acc=>(
-              <button key={acc.id} onClick={()=>onSwitchAccount(acc.id)} title={acc.name} style={{ width:26, height:26, borderRadius:"50%", background:acc.color, border: acc.id===activeId?"3px solid #1A1A1A":"2px solid transparent", cursor:"pointer", padding:0, outline:"none", boxShadow: acc.id===activeId?"0 0 0 1px #fff inset":"none", flexShrink:0 }}/>
-            ))}
-            <button onClick={onManageAccounts} title="Manage accounts" style={{ width:26, height:26, borderRadius:"50%", background:G.border, border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:G.textMuted, fontSize:16, fontWeight:700, lineHeight:1 }}>+</button>
-          </div>
+
         </div>
       </div>
 
@@ -1365,18 +1507,22 @@ function TradingJournal() {
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={G.green} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
                   <span style={{ fontSize:11, color:G.green, fontWeight:700 }}>Balance</span>
                 </button>
-                <button onClick={()=>setTradeModal({})} style={{ flex:1, padding:"11px 8px", background:G.greenLight, border:"none", borderRadius:12, cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={G.green} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                  <span style={{ fontSize:11, color:G.green, fontWeight:700 }}>Log Trade</span>
-                </button>
+                {isDesktop && (
+                  <button onClick={()=>setTradeModal({})} style={{ flex:1, padding:"11px 8px", background:G.greenLight, border:"none", borderRadius:12, cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={G.green} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    <span style={{ fontSize:11, color:G.green, fontWeight:700 }}>Log Trade</span>
+                  </button>
+                )}
                 <button onClick={()=>setDdModal(true)} style={{ flex:1, padding:"11px 8px", background:G.redLight, border:"none", borderRadius:12, cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={G.red} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                   <span style={{ fontSize:11, color:G.red, fontWeight:700 }}>Drawdown</span>
                 </button>
-                <button onClick={()=>setTab("risk")} style={{ flex:1, padding:"11px 8px", background:G.yellowLight, border:"none", borderRadius:12, cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={G.yellow} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                  <span style={{ fontSize:11, color:G.yellow, fontWeight:700 }}>Risk</span>
-                </button>
+                {isDesktop && (
+                  <button onClick={()=>setTab("risk")} style={{ flex:1, padding:"11px 8px", background:G.yellowLight, border:"none", borderRadius:12, cursor:"pointer", display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={G.yellow} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span style={{ fontSize:11, color:G.yellow, fontWeight:700 }}>Risk</span>
+                  </button>
+                )}
               </div>
             </div>
 
