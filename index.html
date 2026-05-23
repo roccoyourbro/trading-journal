@@ -260,7 +260,15 @@ function TradeRow({ trade, onPress }) {
           <span style={{ fontSize:15, fontWeight:800, color:clr(trade.pnl) }}>{fmt(trade.pnl)}</span>
         </div>
         <div style={{ display:"flex", justifyContent:"space-between", marginTop:4, alignItems:"center" }}>
-          <span style={{ fontSize:12, color:G.textSecondary, background:G.bg, borderRadius:6, padding:"2px 8px", fontWeight:600 }}>{trade.strategy}</span>
+          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+            <span style={{ fontSize:12, color:G.textSecondary, background:G.bg, borderRadius:6, padding:"2px 8px", fontWeight:600 }}>{trade.strategy}</span>
+            {trade.images?.length > 0 && (
+              <span style={{ fontSize:10, color:G.textMuted, background:G.bg, borderRadius:6, padding:"2px 7px", fontWeight:700, display:"flex", alignItems:"center", gap:3 }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={G.textMuted} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                {trade.images.length}
+              </span>
+            )}
+          </div>
           <span style={{ fontSize:12, color:G.textMuted, fontWeight:600 }}>RR {trade.rr}R</span>
         </div>
       </div>
@@ -268,25 +276,105 @@ function TradeRow({ trade, onPress }) {
   );
 }
 
+// ─── Image Compressor ─────────────────────────────────────────────────────────
+function compressImage(dataUrl, maxPx = 1280, quality = 0.80) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      let { width: w, height: h } = img;
+      if (w > maxPx || h > maxPx) {
+        if (w > h) { h = Math.round(h * maxPx / w); w = maxPx; }
+        else       { w = Math.round(w * maxPx / h); h = maxPx; }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.src = dataUrl;
+  });
+}
+
 // ─── Trade Modal ──────────────────────────────────────────────────────────────
 function TradeModal({ trade, onSave, onDelete, onClose }) {
   const { isDesktop } = useBreakpoint();
   const isNew = !trade.id;
+  const imgInputRef = useRef(null);
+  const [lightbox, setLightbox] = useState(null); // index of image being previewed fullscreen
   const [form, setForm] = useState({
     date: trade.date || todayStr(),
     pnl:  trade.pnl !== undefined ? String(trade.pnl) : "",
     rr:   trade.rr  !== undefined ? String(trade.rr)  : "",
     strategy: trade.strategy || STRATEGIES[0],
     notes: trade.notes || "",
+    images: trade.images || [],
   });
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  // ── Paste from clipboard (Windows+Shift+S or any screenshot) ──────────────────
+  useEffect(() => {
+    const handlePaste = (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (!file) continue;
+          const reader = new FileReader();
+          reader.onload = async (ev) => {
+            const compressed = await compressImage(ev.target.result);
+            setForm(f => ({ ...f, images: [...f.images, compressed] }));
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+    };
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, []);
+
+  // ── File picker (click to upload) ─────────────────────────────────────────────
+  const handleFileInput = (e) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach(file => {
+      if (!file.type.startsWith("image/")) return;
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        const compressed = await compressImage(ev.target.result);
+        setForm(f => ({ ...f, images: [...f.images, compressed] }));
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = "";
+  };
+
+  // ── Drag & drop ───────────────────────────────────────────────────────────────
+  const [dragOver, setDragOver] = useState(false);
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const files = Array.from(e.dataTransfer.files || []);
+    files.forEach(file => {
+      if (!file.type.startsWith("image/")) return;
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        const compressed = await compressImage(ev.target.result);
+        setForm(f => ({ ...f, images: [...f.images, compressed] }));
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeImage = (idx) => setForm(f => ({ ...f, images: f.images.filter((_,i)=>i!==idx) }));
+
   const handleSave = () => {
     if (!form.date || form.pnl==="") return;
-    onSave({ id:trade.id||Date.now(), date:form.date, pnl:parseFloat(form.pnl)||0, rr:parseFloat(form.rr)||0, strategy:form.strategy, notes:form.notes });
+    onSave({ id:trade.id||Date.now(), date:form.date, pnl:parseFloat(form.pnl)||0, rr:parseFloat(form.rr)||0, strategy:form.strategy, notes:form.notes, images:form.images });
   };
   const inp = { width:"100%", background:G.bg, border:`1.5px solid ${G.border}`, borderRadius:12, color:G.textPrimary, fontSize:15, padding:"13px 14px", outline:"none", boxSizing:"border-box", fontFamily:"'Plus Jakarta Sans',sans-serif", fontWeight:600 };
   const lbl = { fontSize:12, color:G.textSecondary, fontWeight:700, letterSpacing:0.3, marginBottom:6, display:"block" };
   return (
+    <>
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems: isDesktop ? "center" : "flex-end", justifyContent:"center", zIndex:200, backdropFilter:"blur(4px)", padding: isDesktop ? "0 20px" : 0 }} onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div style={{ width:"100%", maxWidth: isDesktop ? 520 : 480, margin:"0 auto", background:G.white, borderRadius: isDesktop ? 24 : "24px 24px 0 0", padding: isDesktop ? "28px 24px" : "20px 20px 40px", maxHeight:"92vh", overflowY:"auto" }}>
         <div style={{ width:40, height:4, background:G.border, borderRadius:2, margin:"0 auto 20px" }} />
@@ -315,12 +403,97 @@ function TradeModal({ trade, onSave, onDelete, onClose }) {
             </div>
           </div>
           <div><label style={lbl}>Trade Notes</label><textarea placeholder="Setup, execution, lessons..." value={form.notes} onChange={e=>set("notes",e.target.value)} rows={3} style={{...inp,resize:"none",lineHeight:1.6}}/></div>
+
+          {/* ── Screenshot / Chart Images ── */}
+          <div>
+            <label style={lbl}>Charts & Screenshots</label>
+            {/* Drop zone */}
+            <input ref={imgInputRef} type="file" accept="image/*" multiple onChange={handleFileInput} style={{ display:"none" }}/>
+            <div
+              onClick={()=>imgInputRef.current?.click()}
+              onDragOver={e=>{e.preventDefault();setDragOver(true);}}
+              onDragLeave={()=>setDragOver(false)}
+              onDrop={handleDrop}
+              style={{
+                border:`2px dashed ${dragOver?G.green:G.border}`,
+                borderRadius:14,
+                padding:"18px 16px",
+                textAlign:"center",
+                cursor:"pointer",
+                background: dragOver ? G.greenLight : G.bg,
+                transition:"all 0.15s",
+                marginBottom: form.images.length ? 12 : 0,
+              }}
+            >
+              <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:6, pointerEvents:"none" }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={dragOver?G.green:G.textMuted} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="3"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <polyline points="21 15 16 10 5 21"/>
+                </svg>
+                <span style={{ fontSize:13, fontWeight:700, color:dragOver?G.green:G.textSecondary }}>
+                  Tap to upload or drag &amp; drop
+                </span>
+                <span style={{ fontSize:11, color:G.textMuted, fontWeight:600 }}>
+                  Or press <kbd style={{ background:G.border, borderRadius:5, padding:"1px 5px", fontSize:11, fontFamily:"monospace" }}>Ctrl+V</kbd> to paste screenshot
+                </span>
+              </div>
+            </div>
+
+            {/* Thumbnails grid */}
+            {form.images.length > 0 && (
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(3, 1fr)", gap:8 }}>
+                {form.images.map((src, idx) => (
+                  <div key={idx} style={{ position:"relative", borderRadius:10, overflow:"hidden", aspectRatio:"16/10", background:"#000" }}>
+                    <img
+                      src={src}
+                      alt={`chart-${idx+1}`}
+                      onClick={()=>setLightbox(idx)}
+                      style={{ width:"100%", height:"100%", objectFit:"cover", cursor:"pointer", display:"block" }}
+                    />
+                    <button
+                      onClick={e=>{e.stopPropagation();removeImage(idx);}}
+                      style={{ position:"absolute", top:4, right:4, width:22, height:22, borderRadius:"50%", background:"rgba(0,0,0,0.65)", border:"none", color:"#fff", fontSize:14, lineHeight:"22px", textAlign:"center", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", padding:0 }}
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                    <div style={{ position:"absolute", bottom:4, left:5, fontSize:10, color:"rgba(255,255,255,0.8)", fontWeight:700, background:"rgba(0,0,0,0.4)", borderRadius:4, padding:"1px 5px" }}>#{idx+1}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
         <button onClick={handleSave} style={{ width:"100%", marginTop:24, padding:"17px", background:G.green, border:"none", borderRadius:16, color:"#fff", fontSize:16, fontWeight:800, cursor:"pointer", boxShadow:"0 4px 16px rgba(0,170,19,0.35)" }}>
           {isNew?"Save Trade":"Update Trade"}
         </button>
       </div>
     </div>
+
+    {/* ── Lightbox ── */}
+    {lightbox !== null && (
+      <div
+        onClick={()=>setLightbox(null)}
+        style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.92)", zIndex:400, display:"flex", alignItems:"center", justifyContent:"center", padding:16 }}
+      >
+        <button onClick={()=>setLightbox(null)} style={{ position:"absolute", top:20, right:20, background:"rgba(255,255,255,0.15)", border:"none", borderRadius:"50%", width:40, height:40, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        {form.images.length > 1 && (
+          <button onClick={e=>{e.stopPropagation();setLightbox(i=>(i-1+form.images.length)%form.images.length);}} style={{ position:"absolute", left:12, background:"rgba(255,255,255,0.15)", border:"none", borderRadius:"50%", width:40, height:40, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+        )}
+        <img src={form.images[lightbox]} alt="" style={{ maxWidth:"100%", maxHeight:"90vh", borderRadius:12, objectFit:"contain", boxShadow:"0 8px 40px rgba(0,0,0,0.6)" }} onClick={e=>e.stopPropagation()}/>
+        {form.images.length > 1 && (
+          <button onClick={e=>{e.stopPropagation();setLightbox(i=>(i+1)%form.images.length);}} style={{ position:"absolute", right:12, background:"rgba(255,255,255,0.15)", border:"none", borderRadius:"50%", width:40, height:40, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        )}
+        <div style={{ position:"absolute", bottom:20, color:"rgba(255,255,255,0.6)", fontSize:12, fontWeight:700 }}>{lightbox+1} / {form.images.length}</div>
+      </div>
+    )}
+    </>
   );
 }
 
