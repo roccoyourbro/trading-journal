@@ -120,6 +120,7 @@
 <body><div id="root"></div>
 <script type="text/babel">
 const {useState,useEffect,useCallback,useRef,useMemo,createContext,useContext}=React;
+const PnlCtx=createContext(false);
 const BPCtx=createContext({isDesktop:false});
 const useBP=()=>useContext(BPCtx);
 const ToastCtx=createContext(null);
@@ -171,8 +172,9 @@ const DEF_ACC={id:"acc_default",name:"Main Account",color:ACOLS[0],balance:DEF_B
 const fmt=n=>{const a=Math.abs(n).toLocaleString("en-US",{maximumFractionDigits:0});return(n>=0?"+":"−")+"$"+a};
 const fmtPct=n=>(n>=0?"+":"")+n.toFixed(1)+"%";
 const fmtBal=n=>"$"+Number(n).toLocaleString("en-US",{maximumFractionDigits:2});
-const clr=n=>n>0?"var(--green)":n<0?"var(--red)":"var(--t2)";
-const clrDim=n=>n>0?"var(--green-dim)":n<0?"var(--red-dim)":"var(--elevated)";
+const clr=(n,neutral=false)=>neutral?"var(--t2)":n>0?"var(--green)":n<0?"var(--red)":"var(--t2)";
+const clrDim=(n,neutral=false)=>neutral?"var(--elevated)":n>0?"var(--green-dim)":n<0?"var(--red-dim)":"var(--elevated)";
+const PNL_MASK="••••••";
 function today(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
 function fmtNoteDate(iso){
   const d=new Date(iso),now=new Date(),diff=Math.floor((now-d)/86400000);
@@ -252,6 +254,7 @@ const StatCard=React.memo(function StatCard({label,value,sub,col,mono=true}){
 
 /* ── Trade Row — flat list ── */
 const TradeRow=React.memo(function TradeRow({trade,onPress,isLast}){
+  const pnlHidden=useContext(PnlCtx);
   const win=trade.pnl>0,loss=trade.pnl<0;
   const cts=trade.contracts||1;
   return(
@@ -264,7 +267,7 @@ const TradeRow=React.memo(function TradeRow({trade,onPress,isLast}){
             {trade.session&&<span className="pill" style={{background:SCOL[trade.session]+"22",color:SCOL[trade.session]}}>{trade.session}</span>}
             {trade.instrument&&<span className="pill" style={{background:(ICOL[trade.instrument]||"#666")+"22",color:ICOL[trade.instrument]||"var(--t2)"}}>{trade.instrument}{cts>1?` ×${cts}`:""}</span>}
           </div>
-          <span className="mono" style={{fontSize:15,fontWeight:500,color:clr(trade.pnl),flexShrink:0,marginLeft:8}}>{fmt(trade.pnl)}</span>
+          <span className="mono" style={{fontSize:15,fontWeight:500,color:pnlHidden?"var(--t3)":"var(--t2)",flexShrink:0,marginLeft:8}}>{pnlHidden?PNL_MASK:fmt(trade.pnl)}</span>
         </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
@@ -277,7 +280,7 @@ const TradeRow=React.memo(function TradeRow({trade,onPress,isLast}){
           </div>
           <div style={{display:"flex",gap:8,flexShrink:0}}>
             <span className="mono" style={{fontSize:11,color:"var(--t3)"}}>{trade.rr}R</span>
-            {cts>1&&<span className="mono" style={{fontSize:11,color:"var(--t3)"}}>{fmt(trade.pnl/cts)}/ct</span>}
+            {cts>1&&<span className="mono" style={{fontSize:11,color:"var(--t3)"}}>{pnlHidden?PNL_MASK:fmt(trade.pnl/cts)}/ct</span>}
           </div>
         </div>
       </div>
@@ -447,7 +450,7 @@ const DrawdownCard=React.memo(function DrawdownCard({trades,accountBalance,drawd
         </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
           <span className="mono" style={{fontSize:12,color:"var(--t1)"}}>{actLim>0?`$${actLim.toFixed(0)}`:"—"}</span>
-          <span className="mono" style={{fontSize:12,color:clr(todayPnl)}}>Today {fmt(todayPnl)}</span>
+          <span className="mono" style={{fontSize:12,color:"var(--t2)"}}>Today {fmt(todayPnl)}</span>
         </div>
         {actLim>0&&<div style={{height:4,background:"var(--elevated)",borderRadius:99,overflow:"hidden"}}><div style={{height:"100%",width:`${Math.min(conUsed,100)}%`,background:conEx?"var(--red)":conUsed>=70?"var(--amber)":"var(--green)",borderRadius:99,transition:"width .3s"}}/></div>}
       </div>
@@ -585,8 +588,8 @@ function CalendarView({trades}){
             const pnl=dm[key],isT=key===today();
             return(
               <div key={key} style={{borderRadius:"var(--r-sm)",padding:"5px 2px",textAlign:"center",background:pnl!==undefined?clrDim(pnl):isT?"var(--green-dim)":"transparent",border:isT?"1px solid var(--green)44":"1px solid transparent",minHeight:38}}>
-                <div style={{fontSize:10,color:pnl!==undefined?clr(pnl):"var(--t2)",fontWeight:isT?700:500}}>{day}</div>
-                {pnl!==undefined&&<div className="mono" style={{fontSize:7,color:clr(pnl),marginTop:1,lineHeight:1.1}}>{pnl>0?"+":"−"}${Math.abs(pnl).toLocaleString()}</div>}
+                <div style={{fontSize:10,color:pnl!==undefined?"var(--t2)":"var(--t2)",fontWeight:isT?700:500}}>{day}</div>
+                {pnl!==undefined&&<div className="mono" style={{fontSize:7,color:"var(--t2)",marginTop:1,lineHeight:1.1}}>{pnl>0?"+":"−"}${Math.abs(pnl).toLocaleString()}</div>}
               </div>
             );
           })}
@@ -650,7 +653,7 @@ const TradeLogView=React.memo(function TradeLogView({trades,onPress,accountName}
       </div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
         <span style={{fontSize:10,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase"}}>{accountName} · {filtered.length}{anyF?` / ${trades.length}`:""}</span>
-        {filtered.length>0&&<span className="mono" style={{fontSize:13,fontWeight:500,color:clr(filtPnl)}}>{fmt(filtPnl)}</span>}
+        {filtered.length>0&&<span className="mono" style={{fontSize:13,fontWeight:500,color:"var(--t2)"}}>{fmt(filtPnl)}</span>}
       </div>
       <div className="card" style={{padding:"0 16px"}}>
         {filtered.map((t,i)=><TradeRow key={t.id} trade={t} onPress={()=>onPress(t)} isLast={i===filtered.length-1}/>)}
@@ -665,14 +668,14 @@ function TradeModal({trade,onSave,onDelete,onClose}){
   const{isDesktop}=useBP(),toast=useToast(),isNew=!trade.id;
   const imgRef=useRef(null);
   const[lb,setLb]=useState(null),[cDel,setCDel]=useState(false),[drag,setDrag]=useState(false);
-  const[form,setForm]=useState({date:trade.date||today(),pnl:trade.pnl!==undefined?String(trade.pnl):"",rr:trade.rr!==undefined?String(trade.rr):"",strategy:trade.strategy||STRATS[0],session:trade.session||"",instrument:trade.instrument||"MNQ",contracts:trade.contracts!==undefined?String(trade.contracts):"1",tags:trade.tags||[],notes:trade.notes||"",images:trade.images||[]});
+  const[form,setForm]=useState({date:trade.date||today(),pnl:trade.pnl!==undefined?String(trade.pnl):"",rr:trade.rr!==undefined?String(trade.rr):"",strategy:trade.strategy||STRATS[0],session:trade.session||"",instrument:trade.instrument||"MNQ",contracts:trade.contracts!==undefined?String(trade.contracts):"1",tags:trade.tags||[],feelings:trade.feelings||"",notes:trade.notes||"",images:trade.images||[]});
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   useEffect(()=>{
     const h=e=>{const items=e.clipboardData?.items;if(!items)return;for(const item of Array.from(items)){if(item.type.startsWith("image/")){const r=new FileReader();r.onload=async ev=>{const c=await compressImage(ev.target.result);setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(item.getAsFile())}}};
     window.addEventListener("paste",h);return()=>window.removeEventListener("paste",h);
   },[]);
   const addFiles=files=>Array.from(files).forEach(f=>{if(!f.type.startsWith("image/"))return;const r=new FileReader();r.onload=async ev=>{const c=await compressImage(ev.target.result);setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
-  const save=()=>{if(!form.date||form.pnl===""){toast("Fill date and P&L","warn");return}onSave({id:trade.id||Date.now(),date:form.date,pnl:parseFloat(form.pnl)||0,rr:parseFloat(form.rr)||0,strategy:form.strategy,session:form.session,instrument:form.instrument,contracts:Math.max(1,parseInt(form.contracts)||1),tags:form.tags,notes:form.notes,images:form.images});toast(isNew?"Trade logged":"Updated")};
+  const save=()=>{if(!form.date||form.pnl===""){toast("Fill date and P&L","warn");return}onSave({id:trade.id||Date.now(),date:form.date,pnl:parseFloat(form.pnl)||0,rr:parseFloat(form.rr)||0,strategy:form.strategy,session:form.session,instrument:form.instrument,contracts:Math.max(1,parseInt(form.contracts)||1),tags:form.tags,feelings:form.feelings,notes:form.notes,images:form.images});toast(isNew?"Trade logged":"Updated")};
   const lbl={fontSize:10,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase",marginBottom:7,display:"block"};
   const pnlVal=parseFloat(form.pnl);
   return(
@@ -718,6 +721,16 @@ function TradeModal({trade,onSave,onDelete,onClose}){
             <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
               {TAGS.map(tag=>{const a=form.tags.includes(tag),bad=["FOMO","Revenge","Overtraded","Tilted","Late Entry"].includes(tag),good=["A+ Setup","Patient"].includes(tag);return<button key={tag} onClick={()=>set("tags",a?form.tags.filter(t=>t!==tag):[...form.tags,tag])} className="tap" style={{padding:"5px 10px",borderRadius:99,fontSize:11,fontWeight:600,border:"none",background:a?(bad?"var(--red)":good?"var(--green)":"var(--overlay)"):"var(--elevated)",color:a?(bad||good?"#000":"var(--t1)"):"var(--t2)"}}>{tag}</button>})}
             </div>
+          </div>
+          <div>
+            <label style={lbl}>Feelings</label>
+            <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>
+              {["😌 Calm","💪 Confident","🔥 In the Zone","😤 Frustrated","😰 Anxious","😶 Numb","🤑 Greedy","😴 Tired","😬 FOMO","😔 Regret"].map(f=>{
+                const sel=form.feelings===f;
+                return<button key={f} onClick={()=>set("feelings",sel?"":f)} className="tap" style={{padding:"5px 10px",borderRadius:99,fontSize:11,fontWeight:600,border:"none",background:sel?"var(--overlay)":"var(--elevated)",color:sel?"var(--t1)":"var(--t2)",outline:sel?"1px solid var(--line-md)":"none",transition:"all .12s"}}>{f}</button>;
+              })}
+            </div>
+            <textarea placeholder="Describe your mental state, hesitation, confidence level…" value={form.feelings} onChange={e=>set("feelings",e.target.value)} rows={2} className="inp" style={{resize:"none",lineHeight:1.6}}/>
           </div>
           <div><label style={lbl}>Notes</label><textarea placeholder="Setup, execution, lessons…" value={form.notes} onChange={e=>set("notes",e.target.value)} rows={3} className="inp" style={{resize:"none",lineHeight:1.6}}/></div>
           <div>
@@ -1093,6 +1106,8 @@ function App(){
   const[tab,setTab]=useState("dashboard"),[noteTab,setNoteTab]=useState("personal");
   const[tradeModal,setTradeModal]=useState(null),[openNote,setOpenNote]=useState(null);
   const[balModal,setBalModal]=useState(false),[dataModal,setDataModal]=useState(false),[ddModal,setDdModal]=useState(false),[accModal,setAccModal]=useState(false);
+  const[pnlHidden,setPnlHidden]=useState(()=>{try{return localStorage.getItem("nq-pnl-hidden")==="1"}catch{return false}});
+  const togglePnl=()=>setPnlHidden(h=>{const n=!h;try{localStorage.setItem("nq-pnl-hidden",n?"1":"0")}catch{}return n;});
   const[loading,setLoading]=useState(true),[sync,setSync]=useState("syncing");
   const[dark,setDark]=useState(()=>{try{return localStorage.getItem("nq-theme")!=="light"}catch{return true}});
 
@@ -1158,6 +1173,7 @@ function App(){
 
   return(
     <BPCtx.Provider value={{isDesktop}}>
+    <PnlCtx.Provider value={pnlHidden}>
     <ToastProvider>
     <div style={{minHeight:"100vh"}}>
       <Sidebar tab={tab} setTab={handleSetTab} onBackup={()=>setDataModal(true)} syncStatus={sync} plusAction={plusAction} accounts={accounts} activeId={activeId} onSwitch={handleSwitch} onManage={()=>setAccModal(true)} darkMode={dark} onToggleDark={toggleDark}/>
@@ -1188,11 +1204,14 @@ function App(){
                     <div className="card" style={{padding:"24px",marginBottom:16,minWidth:0,overflow:"hidden"}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
                         <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontSize:10,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase",marginBottom:6}}>Balance</div>
-                          <div className="mono" style={{fontSize:"clamp(28px,4vw,52px)",fontWeight:500,color:clr(totalPnl),letterSpacing:"-2px",lineHeight:1}}>{fmtBal(curBal)}</div>
+                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                            <div style={{fontSize:10,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase"}}>Balance</div>
+                            <button onClick={togglePnl} className="tap" title={pnlHidden?"Show P&L":"Hide P&L"} style={{background:"none",border:"none",padding:"2px 4px",borderRadius:4,color:"var(--t3)",fontSize:13,lineHeight:1,display:"flex",alignItems:"center"}}>{pnlHidden?"👁":"👁"}<span style={{fontSize:9,marginLeft:3,fontWeight:600,letterSpacing:".04em"}}>{pnlHidden?"SHOW":"HIDE"}</span></button>
+                          </div>
+                          <div className="mono" style={{fontSize:"clamp(28px,4vw,52px)",fontWeight:500,color:"var(--t1)",letterSpacing:"-2px",lineHeight:1}}>{fmtBal(curBal)}</div>
                           <div style={{display:"flex",gap:12,marginTop:10,alignItems:"center"}}>
-                            <span className="mono" style={{fontSize:13,color:clr(totalPnl),fontWeight:500}}>{fmt(totalPnl)}</span>
-                            <span className="mono" style={{fontSize:13,color:clr(totalPnl),fontWeight:500}}>{fmtPct(parseFloat(gainsPct))}</span>
+                            <span className="mono" style={{fontSize:13,color:pnlHidden?"var(--t3)":"var(--t2)",fontWeight:500}}>{pnlHidden?PNL_MASK:fmt(totalPnl)}</span>
+                            <span className="mono" style={{fontSize:13,color:pnlHidden?"var(--t3)":"var(--t2)",fontWeight:500}}>{pnlHidden?PNL_MASK:fmtPct(parseFloat(gainsPct))}</span>
                             <span style={{fontSize:11,color:"var(--t3)"}}>·</span>
                             <span style={{fontSize:12,color:"var(--t3)"}}>{trades.length} trades</span>
                           </div>
@@ -1205,7 +1224,7 @@ function App(){
                             <button key={acc.id} onClick={()=>handleSwitch(acc.id)} className="tap" style={{display:"flex",alignItems:"center",gap:5,padding:"5px 11px 5px 6px",borderRadius:99,border:`1px solid ${ia?acc.color+"55":"var(--line)"}`,background:ia?acc.color+"15":"transparent",flexShrink:0,whiteSpace:"nowrap"}}>
                               <div style={{width:12,height:12,borderRadius:"50%",background:acc.color,flexShrink:0}}/>
                               <span style={{fontSize:11,fontWeight:600,color:ia?acc.color:"var(--t3)"}}>{acc.name}</span>
-                              <span className="mono" style={{fontSize:11,color:clr(apnl)}}>{fmt(apnl)}</span>
+                              <span className="mono" style={{fontSize:11,color:pnlHidden?"var(--t3)":clr(apnl)}}>{pnlHidden?PNL_MASK:fmt(apnl)}</span>
                             </button>
                           );})}
                         </div>
@@ -1274,11 +1293,14 @@ function App(){
                   <div className="card" style={{padding:"20px",marginBottom:12}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
                       <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:10,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase",marginBottom:5}}>Balance</div>
-                        <div className="mono" style={{fontSize:40,fontWeight:500,color:clr(totalPnl),letterSpacing:"-2px",lineHeight:1}}>{fmtBal(curBal)}</div>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}>
+                          <div style={{fontSize:10,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase"}}>Balance</div>
+                          <button onClick={togglePnl} className="tap" style={{background:"none",border:"none",padding:"2px 4px",borderRadius:4,color:"var(--t3)",fontSize:11,lineHeight:1,display:"flex",alignItems:"center",gap:3}}>{pnlHidden?"👁":"👁"}<span style={{fontSize:8,fontWeight:700,letterSpacing:".04em"}}>{pnlHidden?"SHOW":"HIDE"}</span></button>
+                        </div>
+                        <div className="mono" style={{fontSize:40,fontWeight:500,color:"var(--t1)",letterSpacing:"-2px",lineHeight:1}}>{fmtBal(curBal)}</div>
                         <div style={{display:"flex",gap:10,marginTop:8,alignItems:"center",flexWrap:"wrap"}}>
-                          <span className="mono" style={{fontSize:12,color:clr(totalPnl),fontWeight:500}}>{fmt(totalPnl)}</span>
-                          <span className="mono" style={{fontSize:12,color:clr(totalPnl),fontWeight:500}}>{fmtPct(parseFloat(gainsPct))}</span>
+                          <span className="mono" style={{fontSize:12,color:pnlHidden?"var(--t3)":"var(--t2)",fontWeight:500}}>{pnlHidden?PNL_MASK:fmt(totalPnl)}</span>
+                          <span className="mono" style={{fontSize:12,color:pnlHidden?"var(--t3)":"var(--t2)",fontWeight:500}}>{pnlHidden?PNL_MASK:fmtPct(parseFloat(gainsPct))}</span>
                           <span style={{fontSize:10,color:"var(--t3)"}}>·</span>
                           <span style={{fontSize:12,color:"var(--t3)"}}>{trades.length} trades</span>
                         </div>
@@ -1291,7 +1313,7 @@ function App(){
                           <button key={acc.id} onClick={()=>handleSwitch(acc.id)} className="tap" style={{display:"flex",alignItems:"center",gap:5,padding:"4px 9px 4px 5px",borderRadius:99,border:`1px solid ${ia?acc.color+"55":"var(--line)"}`,background:ia?acc.color+"15":"transparent",flexShrink:0,whiteSpace:"nowrap"}}>
                             <div style={{width:12,height:12,borderRadius:"50%",background:acc.color,flexShrink:0}}/>
                             <span style={{fontSize:10,fontWeight:600,color:ia?acc.color:"var(--t3)"}}>{acc.name}</span>
-                            <span className="mono" style={{fontSize:10,color:clr(apnl)}}>{fmt(apnl)}</span>
+                            <span className="mono" style={{fontSize:10,color:pnlHidden?"var(--t3)":clr(apnl)}}>{pnlHidden?PNL_MASK:fmt(apnl)}</span>
                           </button>
                         );})}
                       </div>
@@ -1396,6 +1418,7 @@ function App(){
       </div>
     </div>
     </ToastProvider>
+    </PnlCtx.Provider>
     </BPCtx.Provider>
   );
 }
