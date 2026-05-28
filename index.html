@@ -6,54 +6,59 @@
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="theme-color" content="#0D0D0D"/>
-  <title>NQ Journal</title>
+  <title>Trading Journal</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
-    /* ── Design System: Dark-first, 3-layer surface ── */
+    /* ── Design System: Tradezella-inspired ── */
     :root {
-      --page:     #0D0D0D;
-      --surface:  #161616;
-      --elevated: #202020;
-      --overlay:  #2A2A2A;
-      --line:     rgba(255,255,255,0.07);
-      --line-md:  rgba(255,255,255,0.13);
-      --t1: #F2F2F2;
-      --t2: #888;
-      --t3: #444;
-      --green:      #00E676;
-      --green-dim:  rgba(0,230,118,0.12);
-      --red:        #FF4D4D;
-      --red-dim:    rgba(255,77,77,0.11);
-      --amber:      #FFB830;
-      --amber-dim:  rgba(255,184,48,0.11);
-      --blue:       #4D9FFF;
-      --blue-dim:   rgba(77,159,255,0.11);
+      --page:     #0F1117;
+      --surface:  #161B27;
+      --elevated: #1E2535;
+      --overlay:  #252D3F;
+      --line:     rgba(255,255,255,0.06);
+      --line-md:  rgba(255,255,255,0.11);
+      --t1: #EFF1F5;
+      --t2: #8B95A9;
+      --t3: #3E4758;
+      --green:      #22C55E;
+      --green-dim:  rgba(34,197,94,0.12);
+      --red:        #EF4444;
+      --red-dim:    rgba(239,68,68,0.11);
+      --amber:      #F59E0B;
+      --amber-dim:  rgba(245,158,11,0.11);
+      --blue:       #3B82F6;
+      --blue-dim:   rgba(59,130,246,0.12);
+      --accent:     #6366F1;
+      --accent-dim: rgba(99,102,241,0.14);
       --mono: 'DM Mono', monospace;
       --sans: 'Plus Jakarta Sans', sans-serif;
-      --r-sm: 8px; --r-md: 12px; --r-lg: 18px; --r-xl: 24px;
+      --r-sm: 6px; --r-md: 10px; --r-lg: 14px; --r-xl: 20px;
+      --sidebar-w: 240px;
     }
     [data-theme="light"] {
-      --page:     #EFEFED;
+      --page:     #F3F4F8;
       --surface:  #FFFFFF;
-      --elevated: #F4F4F2;
-      --overlay:  #EAEAE8;
-      --line:     rgba(0,0,0,0.07);
-      --line-md:  rgba(0,0,0,0.13);
-      --t1: #111;
-      --t2: #777;
-      --t3: #BDBDBD;
-      --green:      #00A854;
-      --green-dim:  rgba(0,168,84,0.09);
-      --red:        #E02020;
-      --red-dim:    rgba(224,32,32,0.08);
-      --amber:      #C97900;
-      --amber-dim:  rgba(201,121,0,0.09);
+      --elevated: #F0F1F5;
+      --overlay:  #E5E7EE;
+      --line:     rgba(0,0,0,0.06);
+      --line-md:  rgba(0,0,0,0.11);
+      --t1: #0F1117;
+      --t2: #5A6478;
+      --t3: #B8BDC8;
+      --green:      #16A34A;
+      --green-dim:  rgba(22,163,74,0.09);
+      --red:        #DC2626;
+      --red-dim:    rgba(220,38,38,0.08);
+      --amber:      #D97706;
+      --amber-dim:  rgba(217,119,6,0.09);
       --blue:       #2563EB;
       --blue-dim:   rgba(37,99,235,0.09);
+      --accent:     #4F46E5;
+      --accent-dim: rgba(79,70,229,0.10);
     }
 
     *{box-sizing:border-box;margin:0;padding:0}
@@ -62,7 +67,9 @@
     input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
     input[type=date]::-webkit-calendar-picker-indicator{opacity:.4;filter:invert(1)}
     [data-theme="light"] input[type=date]::-webkit-calendar-picker-indicator{filter:none;opacity:.5}
-    ::-webkit-scrollbar{width:0}
+    ::-webkit-scrollbar{width:4px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:var(--overlay);border-radius:99px}
     button{touch-action:manipulation;-webkit-tap-highlight-color:transparent;font-family:var(--sans);cursor:pointer}
     input,textarea{font-family:var(--sans)}
 
@@ -80,11 +87,28 @@
     .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg)}
     .elev{background:var(--elevated);border:1px solid var(--line);border-radius:var(--r-md)}
     .pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600}
-    .inp{width:100%;background:var(--elevated);border:1px solid var(--line-md);border-radius:var(--r-md);color:var(--t1);font-size:15px;padding:13px 14px;outline:none;transition:border-color .15s;font-family:var(--sans);font-weight:500}
-    .inp:focus{border-color:var(--green)}
+    .inp{width:100%;background:var(--elevated);border:1px solid var(--line-md);border-radius:var(--r-md);color:var(--t1);font-size:15px;padding:11px 13px;outline:none;transition:border-color .15s;font-family:var(--sans);font-weight:500}
+    .inp:focus{border-color:var(--accent)}
     .inp::placeholder{color:var(--t3)}
-    .sec{font-size:10px;font-weight:600;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px}
+    .sec{font-size:10px;font-weight:700;color:var(--t3);letter-spacing:.09em;text-transform:uppercase;margin-bottom:10px}
     .divider{height:1px;background:var(--line)}
+
+    /* Sidebar nav item hover */
+    .nav-item{transition:background .12s,color .12s}
+    .nav-item:hover{background:var(--overlay)!important}
+
+    /* Topbar btn */
+    .topbar-btn{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--r-sm);border:1px solid var(--line-md);background:var(--elevated);color:var(--t2);font-size:12px;font-weight:600;cursor:pointer;transition:all .12s;white-space:nowrap}
+    .topbar-btn:hover{border-color:var(--line-md);color:var(--t1);background:var(--overlay)}
+
+    /* Stat card accent bar */
+    .stat-card-inner{position:relative;overflow:hidden}
+    .stat-card-inner::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;border-radius:2px 2px 0 0}
+    .stat-card-green::before{background:var(--green)}
+    .stat-card-red::before{background:var(--red)}
+    .stat-card-amber::before{background:var(--amber)}
+    .stat-card-blue::before{background:var(--blue)}
+    .stat-card-accent::before{background:var(--accent)}
 
     /* tablet only */
     @media(min-width:768px) and (max-width:1023px){
@@ -94,21 +118,19 @@
     /* desktop */
     @media(min-width:1024px){
       .bot-nav{display:none!important}
-      .sidebar{display:flex!important;width:220px}
-      .shell{margin-left:220px!important;margin-right:0!important;max-width:none!important;width:calc(100vw - 220px)!important}
-      .desk-pad{padding:24px 32px 0!important}
-      .desk-grid{display:grid!important;grid-template-columns:1fr 360px;gap:20px;align-items:start;width:100%}
+      .sidebar{display:flex!important;width:var(--sidebar-w)}
+      .shell{margin-left:var(--sidebar-w)!important;margin-right:0!important;max-width:none!important;width:calc(100vw - var(--sidebar-w))!important}
+      .desk-pad{padding:16px 16px 0!important}
+      .desk-grid{display:grid!important;grid-template-columns:1fr 280px;gap:14px;align-items:start;width:100%}
       .desk-col-left{min-width:0;overflow:hidden}
-      .desk-col-right{position:sticky;top:20px;min-width:0}
+      .desk-col-right{position:sticky;top:0;min-width:0}
       .fab-w{right:32px!important;bottom:32px!important}
     }
     @media(min-width:1280px){
-      .sidebar{width:240px!important}
-      .shell{margin-left:240px!important;width:calc(100vw - 240px)!important}
-      .desk-grid{grid-template-columns:1fr 380px!important}
+      .desk-grid{grid-template-columns:1fr 300px!important}
     }
-    @media(min-width:1600px){
-      .desk-grid{grid-template-columns:1fr 420px!important}
+    @media(min-width:1440px){
+      .desk-grid{grid-template-columns:1fr 320px!important}
     }
     @media print{
       .bot-nav,.sidebar,.fab-w,.np{display:none!important}
@@ -240,14 +262,16 @@ const IcoChR=Ico(<polyline points="9 18 15 12 9 6"/>);
 const IcoUser=Ico(<><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></>);
 const IcoTrash=Ico(<><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></>);
 const IcoWarn=Ico(<><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></>);
+const IcoChart=Ico(<><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></>);
 
 /* ── Stat Card ── */
 const StatCard=React.memo(function StatCard({label,value,sub,col,mono=true}){
+  const accentClass=col===undefined?"stat-card-accent":col==="var(--green)"?"stat-card-green":col==="var(--red)"?"stat-card-red":col==="var(--amber)"?"stat-card-amber":col==="var(--blue)"?"stat-card-blue":"stat-card-accent";
   return(
-    <div className="elev" style={{padding:"14px 15px",flex:1,minWidth:0}}>
-      <div style={{fontSize:10,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase",marginBottom:5}}>{label}</div>
-      <div className={mono?"mono":""} style={{fontSize:20,fontWeight:500,color:col||"var(--t1)",letterSpacing:"-.5px",lineHeight:1}}>{value}</div>
-      {sub&&<div style={{fontSize:11,color:"var(--t2)",marginTop:4}}>{sub}</div>}
+    <div className={`elev stat-card-inner ${accentClass}`} style={{padding:"14px 15px",flex:1,minWidth:0}}>
+      <div style={{fontSize:10,color:"var(--t3)",fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",marginBottom:6}}>{label}</div>
+      <div className={mono?"mono":""} style={{fontSize:20,fontWeight:600,color:col||"var(--t1)",letterSpacing:"-.5px",lineHeight:1}}>{value}</div>
+      {sub&&<div style={{fontSize:11,color:"var(--t2)",marginTop:5}}>{sub}</div>}
     </div>
   );
 });
@@ -263,7 +287,8 @@ const TradeRow=React.memo(function TradeRow({trade,onPress,isLast}){
       <div style={{flex:1,minWidth:0}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
           <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-            <span className="mono" style={{fontSize:13,fontWeight:500,color:"var(--t1)"}}>{trade.date}</span>
+            <span className="mono" style={{fontSize:13,fontWeight:500,color:"var(--t1)"}}>{trade.date}{trade.time&&<span style={{color:"var(--t3)",fontWeight:400,fontSize:11}}> {trade.time}</span>}</span>
+            {trade.direction&&<span className="pill" style={{background:trade.direction==="long"?"var(--green-dim)":"var(--red-dim)",color:trade.direction==="long"?"var(--green)":"var(--red)"}}>{trade.direction==="long"?"▲ L":"▼ S"}</span>}
             {trade.session&&<span className="pill" style={{background:SCOL[trade.session]+"22",color:SCOL[trade.session]}}>{trade.session}</span>}
             {trade.instrument&&<span className="pill" style={{background:(ICOL[trade.instrument]||"#666")+"22",color:ICOL[trade.instrument]||"var(--t2)"}}>{trade.instrument}{cts>1?` ×${cts}`:""}</span>}
           </div>
@@ -508,22 +533,210 @@ const BreakdownCard=React.memo(function BreakdownCard({trades}){
 
 /* ── Alert Banner ── */
 const AlertBanner=React.memo(function AlertBanner({sorted}){
-  const{lossStreak,winStreak}=useMemo(()=>{
+  const pnlHidden=useContext(PnlCtx);
+  const{lossStreak,winStreak,streakHistory}=useMemo(()=>{
     let ls=0,ws=0;
     for(let i=0;i<sorted.length;i++){if(sorted[i].pnl<0)ls++;else break}
     let s=1,iw=sorted[0]?.pnl>0;
     if(sorted.length>0){for(let i=1;i<sorted.length;i++){if((sorted[i].pnl>0)===iw)s++;else break};if(iw)ws=s;}
-    return{lossStreak:ls,winStreak:ws};
+    // build streak history — find all past streaks of 3+
+    const history=[];
+    let i=0;
+    while(i<sorted.length){
+      const type=sorted[i].pnl<0?"loss":"win";
+      let j=i,cnt=0,pnlSum=0;
+      while(j<sorted.length&&((sorted[j].pnl<0)===(type==="loss"))){cnt++;pnlSum+=sorted[j].pnl;j++;}
+      if(cnt>=3)history.push({type,count:cnt,pnl:pnlSum,date:sorted[i].date,endDate:sorted[j-1]?.date});
+      i=j;
+    }
+    return{lossStreak:ls,winStreak:ws,streakHistory:history.slice(0,5)};
   },[sorted]);
+  const[showHistory,setShowHistory]=useState(false);
   if(lossStreak>=3){
-    const[col,bg,msg]=lossStreak>=5?["var(--red)","var(--red-dim)","5 consecutive losses — Stop and review before next trade."]:["var(--amber)","var(--amber-dim)","3 losses in a row — Step back and review your setups."];
-    return<div style={{background:bg,border:`1px solid ${col}33`,borderRadius:"var(--r-md)",padding:"12px 14px",marginBottom:12,display:"flex",gap:10,alignItems:"flex-start"}}><IcoWarn size={15} col={col}/><span style={{fontSize:12,color:col,fontWeight:600,lineHeight:1.5}}>{msg}</span></div>;
+    const col=lossStreak>=5?"var(--red)":"var(--amber)";
+    const bg=lossStreak>=5?"var(--red-dim)":"var(--amber-dim)";
+    const msg=lossStreak>=5?`${lossStreak} consecutive losses — Stop trading, review your plan.`:`${lossStreak} losses in a row — Step back and review setups.`;
+    return(
+      <div style={{marginBottom:12}}>
+        <div style={{background:bg,border:`1px solid ${col}33`,borderRadius:"var(--r-md)",padding:"12px 14px",display:"flex",gap:10,alignItems:"flex-start"}}>
+          <IcoWarn size={15} col={col} style={{flexShrink:0,marginTop:1}}/>
+          <div style={{flex:1}}>
+            <div style={{fontSize:12,color:col,fontWeight:700,lineHeight:1.5,marginBottom:4}}>{msg}</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              {sorted.slice(0,lossStreak).map((t,i)=>(
+                <div key={i} style={{display:"flex",alignItems:"center",gap:4,background:col+"18",borderRadius:99,padding:"2px 8px"}}>
+                  <div style={{width:4,height:4,borderRadius:"50%",background:col}}/>
+                  <span className="mono" style={{fontSize:10,color:col}}>{pnlHidden?"•••":fmt(t.pnl)}</span>
+                  <span style={{fontSize:9,color:col,opacity:.7}}>{t.date.slice(5)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <span className="mono" style={{fontSize:28,fontWeight:700,color:col,opacity:.2,flexShrink:0}}>{lossStreak}</span>
+        </div>
+        {streakHistory.filter(h=>h.type==="loss"&&h.count>=3).length>1&&(
+          <button onClick={()=>setShowHistory(v=>!v)} style={{marginTop:5,fontSize:10,color:"var(--t3)",background:"none",border:"none",cursor:"pointer",padding:"2px 4px",fontFamily:"var(--sans)"}}>
+            {showHistory?"▲ Hide":"▼ Show"} past streaks
+          </button>
+        )}
+        {showHistory&&(
+          <div style={{marginTop:6,display:"flex",flexDirection:"column",gap:4}}>
+            {streakHistory.filter(h=>h.type==="loss"&&h.count>=3).slice(1).map((h,i)=>(
+              <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 12px",background:"var(--elevated)",borderRadius:"var(--r-sm)",border:"1px solid var(--line)"}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{fontSize:11,color:"var(--red)",fontWeight:700}}>{h.count}× loss streak</span>
+                  <span className="mono" style={{fontSize:10,color:"var(--t3)"}}>{h.date.slice(5)} – {(h.endDate||h.date).slice(5)}</span>
+                </div>
+                <span className="mono" style={{fontSize:11,fontWeight:600,color:"var(--red)"}}>{pnlHidden?"•••":fmt(h.pnl)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
   }
   if(winStreak>=3){
-    return<div style={{background:"var(--green-dim)",border:"1px solid var(--green)22",borderRadius:"var(--r-md)",padding:"12px 14px",marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between"}}><div style={{display:"flex",alignItems:"center",gap:9}}><IcoTrendUp size={14} col="var(--green)"/><span style={{fontSize:12,color:"var(--green)",fontWeight:600}}>{winStreak}-trade win streak — Keep the discipline.</span></div><span className="mono" style={{fontSize:22,fontWeight:500,color:"var(--green)",opacity:.25}}>{winStreak}</span></div>;
+    return(
+      <div style={{background:"var(--green-dim)",border:"1px solid var(--green)22",borderRadius:"var(--r-md)",padding:"12px 14px",marginBottom:12}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+          <div style={{display:"flex",alignItems:"center",gap:9}}><IcoTrendUp size={14} col="var(--green)"/><span style={{fontSize:12,color:"var(--green)",fontWeight:700}}>{winStreak}-trade win streak</span></div>
+          <span className="mono" style={{fontSize:22,fontWeight:500,color:"var(--green)",opacity:.25}}>{winStreak}</span>
+        </div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {sorted.slice(0,winStreak).map((t,i)=>(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:4,background:"var(--green)18",borderRadius:99,padding:"2px 8px"}}>
+              <div style={{width:4,height:4,borderRadius:"50%",background:"var(--green)"}}/>
+              <span className="mono" style={{fontSize:10,color:"var(--green)"}}>{pnlHidden?"•••":fmt(t.pnl)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
   return null;
 });
+
+/* ── Dashboard Calendar — Tradezella style ── */
+function DashboardCalendar({trades,onLogTrade}){
+  const now=new Date();
+  const[year,setYear]=useState(now.getFullYear());
+  const[month,setMonth]=useState(now.getMonth());
+  const pnlHidden=useContext(PnlCtx);
+
+  const dm=useMemo(()=>{
+    const m={};
+    trades.forEach(t=>{
+      if(!m[t.date])m[t.date]={pnl:0,count:0,wins:0};
+      m[t.date].pnl+=t.pnl;
+      m[t.date].count++;
+      if(t.pnl>0)m[t.date].wins++;
+    });
+    return m;
+  },[trades]);
+
+  const cells=useMemo(()=>calDays(year,month),[year,month]);
+  const pfx=`${year}-${String(month+1).padStart(2,"0")}`;
+  const monthEntries=useMemo(()=>Object.entries(dm).filter(([k])=>k.startsWith(pfx)),[dm,pfx]);
+  const mPnl=useMemo(()=>monthEntries.reduce((a,[,v])=>a+v.pnl,0),[monthEntries]);
+  const mTradingDays=monthEntries.length;
+  const mWinDays=monthEntries.filter(([,v])=>v.pnl>0).length;
+
+  const weeks=useMemo(()=>{
+    const ws=[];let week=[];
+    cells.forEach(d=>{week.push(d);if(week.length===7){ws.push(week);week=[];}});
+    if(week.length)ws.push(week);
+    return ws;
+  },[cells]);
+
+  const weeklyStats=useMemo(()=>weeks.map(wk=>{
+    let pnl=0,days=0;
+    wk.forEach(d=>{
+      if(!d)return;
+      const key=`${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+      if(dm[key]){pnl+=dm[key].pnl;days++;}
+    });
+    return{pnl,days};
+  }),[weeks,dm,year,month]);
+
+  const prev=()=>{if(month===0){setMonth(11);setYear(y=>y-1)}else setMonth(m=>m-1)};
+  const next=()=>{if(month===11){setMonth(0);setYear(y=>y+1)}else setMonth(m=>m+1)};
+  const fmtK=n=>{const a=Math.abs(n);return(n>=0?"+":"-")+"$"+(a>=1000?(a/1000).toFixed(1)+"K":Math.round(a).toString())};
+
+  return(
+    <div className="card" style={{marginBottom:14,overflow:"hidden"}}>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",borderBottom:"1px solid var(--line)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <button onClick={prev} className="tap" style={{background:"var(--elevated)",border:"1px solid var(--line-md)",width:24,height:24,borderRadius:"var(--r-sm)",display:"flex",alignItems:"center",justifyContent:"center"}}><IcoChL size={10} col="var(--t2)"/></button>
+          <span style={{fontSize:13,fontWeight:700,color:"var(--t1)",minWidth:100}}>{MONTHS[month]} {year}</span>
+          <button onClick={next} className="tap" style={{background:"var(--elevated)",border:"1px solid var(--line-md)",width:24,height:24,borderRadius:"var(--r-sm)",display:"flex",alignItems:"center",justifyContent:"center"}}><IcoChR size={10} col="var(--t2)"/></button>
+          <div style={{padding:"2px 8px",borderRadius:99,background:"var(--accent-dim)",border:"1px solid var(--accent)33",fontSize:10,color:"var(--accent)",fontWeight:700,cursor:"pointer"}} onClick={()=>{setYear(now.getFullYear());setMonth(now.getMonth())}}>This month</div>
+        </div>
+        <div style={{display:"flex",gap:16,alignItems:"center"}}>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".07em",textTransform:"uppercase",marginBottom:1}}>Monthly P&L</div>
+            <div className="mono" style={{fontSize:13,fontWeight:700,color:pnlHidden?"var(--t3)":clr(mPnl)}}>{pnlHidden?PNL_MASK:fmt(mPnl)}</div>
+          </div>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".07em",textTransform:"uppercase",marginBottom:1}}>Days</div>
+            <div className="mono" style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>{mWinDays}W / {mTradingDays-mWinDays}L</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Unified 8-col grid: 7 days + WEEK — rows share height automatically */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr) 76px",paddingLeft:8}}>
+
+        {/* Header row */}
+        {DAYS.map((d,di)=>(
+          <div key={d} style={{padding:"6px 0",textAlign:"center",fontSize:10,color:"var(--t3)",fontWeight:700,borderRight:"1px solid var(--line)",borderBottom:"1px solid var(--line)"}}>{d}</div>
+        ))}
+        <div style={{padding:"6px 0",textAlign:"center",fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".05em",borderLeft:"1px solid var(--line)",borderBottom:"1px solid var(--line)"}}>WEEK</div>
+
+        {/* Week rows */}
+        {weeks.map((wk,wi)=>{
+          const ws=weeklyStats[wi];
+          const rowBorder=wi<weeks.length-1?"1px solid var(--line)":"none";
+          return(
+            <React.Fragment key={wi}>
+              {wk.map((day,di)=>{
+                if(!day)return<div key={"e"+di} style={{minHeight:68,borderRight:"1px solid var(--line)",borderBottom:rowBorder,background:"var(--page)",opacity:.35}}/>
+                const key=`${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+                const entry=dm[key];
+                const isT=key===today();
+                const pnl=entry?.pnl;
+                const winPct=entry?Math.round((entry.wins/entry.count)*100):null;
+                const isWin=pnl>0,isLoss=pnl<0;
+                return(
+                  <div key={key} style={{minHeight:68,padding:"7px 8px",borderRight:"1px solid var(--line)",borderBottom:rowBorder,background:isWin?"rgba(34,197,94,0.08)":isLoss?"rgba(239,68,68,0.08)":isT?"rgba(99,102,241,0.08)":"transparent",position:"relative"}}>
+                    <div style={{fontSize:11,fontWeight:isT?800:500,color:isT?"var(--accent)":"var(--t2)",marginBottom:3}}>{day}</div>
+                    {entry&&<>
+                      <div className="mono" style={{fontSize:11,fontWeight:700,color:pnlHidden?"var(--t3)":isWin?"var(--green)":"var(--red)",lineHeight:1.2,marginBottom:2}}>{pnlHidden?PNL_MASK:fmtK(pnl)}</div>
+                      <div style={{fontSize:9,color:"var(--t3)",lineHeight:1.3}}>{entry.count} trade{entry.count>1?"s":""}</div>
+                      <div style={{fontSize:9,color:"var(--t3)"}}>{winPct}%</div>
+                    </>}
+                    {isT&&!entry&&<div style={{width:3,height:3,borderRadius:"50%",background:"var(--accent)",position:"absolute",bottom:6,left:"50%",transform:"translateX(-50%)"}}/>}
+                  </div>
+                );
+              })}
+              {/* WEEK cell — same row, height auto-matches */}
+              <div style={{minHeight:68,padding:"8px 6px",borderLeft:"1px solid var(--line)",borderBottom:rowBorder,display:"flex",flexDirection:"column",justifyContent:"center"}}>
+                {ws.days>0?(
+                  <>
+                    <div className="mono" style={{fontSize:11,fontWeight:700,color:pnlHidden?"var(--t3)":clr(ws.pnl),marginBottom:1}}>{pnlHidden?PNL_MASK:fmtK(ws.pnl)}</div>
+                    <div style={{fontSize:9,color:"var(--t3)"}}>{ws.days}d</div>
+                  </>
+                ):(
+                  <div className="mono" style={{fontSize:11,color:"var(--t3)"}}>$0</div>
+                )}
+              </div>
+            </React.Fragment>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 /* ── Calendar ── */
 function CalendarView({trades}){
@@ -611,49 +824,84 @@ function CalendarView({trades}){
 }
 
 /* ── Trade Log View ── */
-const TradeLogView=React.memo(function TradeLogView({trades,onPress,accountName}){
-  const[fTag,setFTag]=useState(""),fSess=useState(""),fRes=useState(""),fInstr=useState("");
-  const[filterSess,setFilterSess]=fSess,filterRes=fRes,filterInstr=fInstr;
-  const[filterResult,setFilterResult]=fRes,filterTag=fTag;
+const TradeLogView=React.memo(function TradeLogView({trades,onPress,accountName,searchRef}){
+  const[fTag,setFTag]=useState(""),fSess=useState(""),fRes=useState(""),fInstr=useState(""),fStrat=useState("");
+  const[filterSess,setFilterSess]=fSess;
+  const[filterResult,setFilterResult]=fRes;
   const[filterInstrument,setFilterInstrument]=fInstr;
+  const[filterStrat,setFilterStrat]=fStrat;
   const[search,setSearch]=useState(""),showF=useState(false);
   const[showFilters,setShowFilters]=showF;
+  const[dateFrom,setDateFrom]=useState(""),[dateTo,setDateTo]=useState("");
+  const inpRef=useRef(null);
+  // expose search input ref for keyboard shortcut
+  useEffect(()=>{if(searchRef)searchRef.current=inpRef.current},[searchRef]);
+
   const filtered=useMemo(()=>trades.filter(t=>{
     if(fTag[0]&&!(t.tags||[]).includes(fTag[0]))return false;
     if(fSess[0]&&t.session!==fSess[0])return false;
     if(fRes[0]==="win"&&t.pnl<=0)return false;
     if(fRes[0]==="loss"&&t.pnl>=0)return false;
     if(fInstr[0]&&t.instrument!==fInstr[0])return false;
-    if(search){const q=search.toLowerCase();if(!((t.notes||"").toLowerCase().includes(q)||(t.strategy||"").toLowerCase().includes(q)||(t.date||"").includes(q)))return false}
+    if(fStrat[0]&&t.strategy!==fStrat[0])return false;
+    if(dateFrom&&t.date<dateFrom)return false;
+    if(dateTo&&t.date>dateTo)return false;
+    if(search){const q=search.toLowerCase();if(!((t.notes||"").toLowerCase().includes(q)||(t.strategy||"").toLowerCase().includes(q)||(t.date||"").includes(q)||(t.instrument||"").toLowerCase().includes(q)))return false}
     return true;
-  }),[trades,fTag[0],fSess[0],fRes[0],fInstr[0],search]);
-  const anyF=fTag[0]||fSess[0]||fRes[0]||fInstr[0]||search;
-  const clearAll=()=>{setFTag("");fSess[1]("");fRes[1]("");fInstr[1]("");setSearch("")};
+  }),[trades,fTag[0],fSess[0],fRes[0],fInstr[0],fStrat[0],dateFrom,dateTo,search]);
+
+  const anyF=fTag[0]||fSess[0]||fRes[0]||fInstr[0]||fStrat[0]||search||dateFrom||dateTo;
+  const clearAll=()=>{setFTag("");fSess[1]("");fRes[1]("");fInstr[1]("");fStrat[1]("");setSearch("");setDateFrom("");setDateTo("")};
   const filtPnl=useMemo(()=>filtered.reduce((a,t)=>a+t.pnl,0),[filtered]);
+  const filtWins=filtered.filter(t=>t.pnl>0).length;
+  const filtWR=filtered.length?Math.round(filtWins/filtered.length*100):0;
+
+  // unique strategies present in trades
+  const strategies=useMemo(()=>[...new Set(trades.map(t=>t.strategy).filter(Boolean))],[trades]);
+
   return(
     <>
       <div className="card" style={{padding:"12px 14px",marginBottom:12}}>
         <div style={{display:"flex",gap:8,marginBottom:showFilters?10:0}}>
-          <input className="inp" placeholder="Search…" value={search} onChange={e=>setSearch(e.target.value)} style={{flex:1,padding:"9px 12px",fontSize:13}}/>
-          <button onClick={()=>setShowFilters(v=>!v)} className="tap" style={{padding:"9px 12px",background:showFilters||anyF?"var(--green-dim)":"var(--elevated)",border:`1px solid ${showFilters||anyF?"var(--green)33":"var(--line-md)"}`,borderRadius:"var(--r-md)",color:showFilters||anyF?"var(--green)":"var(--t2)",fontSize:12,fontWeight:600,whiteSpace:"nowrap"}}>Filter{anyF?" ●":""}</button>
+          <input ref={inpRef} className="inp" placeholder="Search notes, strategy, date… (/)" value={search} onChange={e=>setSearch(e.target.value)} style={{flex:1,padding:"9px 12px",fontSize:13}}/>
+          <button onClick={()=>setShowFilters(v=>!v)} className="tap" style={{padding:"9px 12px",background:showFilters||anyF?"var(--accent-dim)":"var(--elevated)",border:`1px solid ${showFilters||anyF?"var(--accent)55":"var(--line-md)"}`,borderRadius:"var(--r-md)",color:showFilters||anyF?"var(--accent)":"var(--t2)",fontSize:12,fontWeight:600,whiteSpace:"nowrap"}}>
+            {anyF?`Filter ●`:"Filter"}
+          </button>
         </div>
         {showFilters&&(
-          <div>
+          <div style={{paddingTop:4}}>
+            {/* Date range */}
+            <div style={{display:"flex",gap:6,marginBottom:8,alignItems:"center"}}>
+              <span style={{fontSize:10,color:"var(--t3)",fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",whiteSpace:"nowrap"}}>From</span>
+              <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)} className="inp" style={{flex:1,padding:"7px 10px",fontSize:12}}/>
+              <span style={{fontSize:10,color:"var(--t3)",fontWeight:700,textTransform:"uppercase",letterSpacing:".06em"}}>To</span>
+              <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)} className="inp" style={{flex:1,padding:"7px 10px",fontSize:12}}/>
+              {(dateFrom||dateTo)&&<button onClick={()=>{setDateFrom("");setDateTo("")}} style={{background:"var(--overlay)",border:"none",borderRadius:"var(--r-sm)",padding:"7px 8px",color:"var(--t3)",fontSize:11,cursor:"pointer",flexShrink:0}}>✕</button>}
+            </div>
+            {/* Win/Loss + Sessions */}
             <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:6}}>
-              {["win","loss"].map(r=><button key={r} onClick={()=>fRes[1](fRes[0]===r?"":r)} className="tap" style={{padding:"4px 11px",borderRadius:99,fontSize:11,fontWeight:600,border:"none",background:fRes[0]===r?(r==="win"?"var(--green-dim)":"var(--red-dim)"):"var(--elevated)",color:fRes[0]===r?(r==="win"?"var(--green)":"var(--red)"):"var(--t2)"}}>{r==="win"?"Win":"Loss"}</button>)}
+              {["win","loss"].map(r=><button key={r} onClick={()=>fRes[1](fRes[0]===r?"":r)} className="tap" style={{padding:"4px 11px",borderRadius:99,fontSize:11,fontWeight:600,border:"none",background:fRes[0]===r?(r==="win"?"var(--green-dim)":"var(--red-dim)"):"var(--elevated)",color:fRes[0]===r?(r==="win"?"var(--green)":"var(--red)"):"var(--t2)"}}>{r==="win"?"✓ Win":"✗ Loss"}</button>)}
               {SESSIONS.map(s=><button key={s} onClick={()=>fSess[1](fSess[0]===s?"":s)} className="tap" style={{padding:"4px 11px",borderRadius:99,fontSize:11,fontWeight:600,border:"none",background:fSess[0]===s?SCOL[s]+"22":"var(--elevated)",color:fSess[0]===s?SCOL[s]:"var(--t2)"}}>{s}</button>)}
               {INSTRS.map(s=><button key={s} onClick={()=>fInstr[1](fInstr[0]===s?"":s)} className="tap" style={{padding:"4px 11px",borderRadius:99,fontSize:11,fontWeight:600,border:"none",background:fInstr[0]===s?(ICOL[s]||"#666")+"22":"var(--elevated)",color:fInstr[0]===s?ICOL[s]||"var(--t2)":"var(--t2)"}}>{s}</button>)}
             </div>
+            {/* Strategy filter */}
+            {strategies.length>0&&<div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:6}}>
+              {strategies.map(s=><button key={s} onClick={()=>fStrat[1](fStrat[0]===s?"":s)} className="tap" style={{padding:"3px 9px",borderRadius:99,fontSize:10,fontWeight:600,border:"none",background:fStrat[0]===s?"var(--blue-dim)":"var(--elevated)",color:fStrat[0]===s?"var(--blue)":"var(--t3)"}}>{s}</button>)}
+            </div>}
+            {/* Tags */}
             <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
               {TAGS.map(tag=><button key={tag} onClick={()=>setFTag(fTag===tag?"":tag)} className="tap" style={{padding:"3px 9px",borderRadius:99,fontSize:10,fontWeight:600,border:"none",background:fTag===tag?"var(--overlay)":"var(--elevated)",color:fTag===tag?"var(--t1)":"var(--t3)"}}>{tag}</button>)}
             </div>
-            {anyF&&<button onClick={clearAll} className="tap" style={{marginTop:8,padding:"3px 10px",borderRadius:99,fontSize:10,fontWeight:600,border:"none",background:"var(--red-dim)",color:"var(--red)"}}>✕ Clear</button>}
+            {anyF&&<button onClick={clearAll} className="tap" style={{marginTop:8,padding:"4px 12px",borderRadius:99,fontSize:10,fontWeight:700,border:"none",background:"var(--red-dim)",color:"var(--red)"}}>✕ Clear all filters</button>}
           </div>
         )}
       </div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-        <span style={{fontSize:10,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase"}}>{accountName} · {filtered.length}{anyF?` / ${trades.length}`:""}</span>
-        {filtered.length>0&&<span className="mono" style={{fontSize:13,fontWeight:500,color:"var(--t2)"}}>{fmt(filtPnl)}</span>}
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontSize:10,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase"}}>{accountName} · {filtered.length}{anyF?` / ${trades.length}` :""} trades</span>
+          {filtered.length>0&&anyF&&<span style={{fontSize:10,color:"var(--t3)"}}>· {filtWR}% WR</span>}
+        </div>
+        {filtered.length>0&&<span className="mono" style={{fontSize:13,fontWeight:500,color:filtered.length>0?clr(filtPnl):"var(--t2)"}}>{fmt(filtPnl)}</span>}
       </div>
       <div className="card" style={{padding:"0 16px"}}>
         {filtered.map((t,i)=><TradeRow key={t.id} trade={t} onPress={()=>onPress(t)} isLast={i===filtered.length-1}/>)}
@@ -668,14 +916,23 @@ function TradeModal({trade,onSave,onDelete,onClose}){
   const{isDesktop}=useBP(),toast=useToast(),isNew=!trade.id;
   const imgRef=useRef(null);
   const[lb,setLb]=useState(null),[cDel,setCDel]=useState(false),[drag,setDrag]=useState(false);
-  const[form,setForm]=useState({date:trade.date||today(),pnl:trade.pnl!==undefined?String(trade.pnl):"",rr:trade.rr!==undefined?String(trade.rr):"",strategy:trade.strategy||STRATS[0],session:trade.session||"",instrument:trade.instrument||"MNQ",contracts:trade.contracts!==undefined?String(trade.contracts):"1",tags:trade.tags||[],feelings:trade.feelings||"",notes:trade.notes||"",images:trade.images||[]});
+  const[form,setForm]=useState({date:trade.date||today(),time:trade.time||"",direction:trade.direction||"",pnl:trade.pnl!==undefined?String(trade.pnl):"",rr:trade.rr!==undefined?String(trade.rr):"",entryPrice:trade.entryPrice!==undefined?String(trade.entryPrice):"",stopLoss:trade.stopLoss!==undefined?String(trade.stopLoss):"",takeProfit:trade.takeProfit!==undefined?String(trade.takeProfit):"",strategy:trade.strategy||STRATS[0],session:trade.session||"",instrument:trade.instrument||"MNQ",contracts:trade.contracts!==undefined?String(trade.contracts):"1",tags:trade.tags||[],feelings:trade.feelings||"",notes:trade.notes||"",images:trade.images||[]});
+  // auto-calc RR from entry/SL/TP
+  const autoRR=useMemo(()=>{
+    const e=parseFloat(form.entryPrice),sl=parseFloat(form.stopLoss),tp=parseFloat(form.takeProfit);
+    if(!e||!sl||isNaN(e)||isNaN(sl))return null;
+    const risk=Math.abs(e-sl);if(!risk)return null;
+    if(!tp||isNaN(tp))return null;
+    const reward=Math.abs(tp-e);
+    return(reward/risk).toFixed(2);
+  },[form.entryPrice,form.stopLoss,form.takeProfit]);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   useEffect(()=>{
     const h=e=>{const items=e.clipboardData?.items;if(!items)return;for(const item of Array.from(items)){if(item.type.startsWith("image/")){const r=new FileReader();r.onload=async ev=>{const c=await compressImage(ev.target.result);setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(item.getAsFile())}}};
     window.addEventListener("paste",h);return()=>window.removeEventListener("paste",h);
   },[]);
   const addFiles=files=>Array.from(files).forEach(f=>{if(!f.type.startsWith("image/"))return;const r=new FileReader();r.onload=async ev=>{const c=await compressImage(ev.target.result);setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
-  const save=()=>{if(!form.date||form.pnl===""){toast("Fill date and P&L","warn");return}onSave({id:trade.id||Date.now(),date:form.date,pnl:parseFloat(form.pnl)||0,rr:parseFloat(form.rr)||0,strategy:form.strategy,session:form.session,instrument:form.instrument,contracts:Math.max(1,parseInt(form.contracts)||1),tags:form.tags,feelings:form.feelings,notes:form.notes,images:form.images});toast(isNew?"Trade logged":"Updated")};
+  const save=()=>{if(!form.date||form.pnl===""){toast("Fill date and P&L","warn");return}onSave({id:trade.id||Date.now(),date:form.date,time:form.time||"",direction:form.direction||"",pnl:parseFloat(form.pnl)||0,rr:parseFloat(autoRR||form.rr)||0,entryPrice:parseFloat(form.entryPrice)||0,stopLoss:parseFloat(form.stopLoss)||0,takeProfit:parseFloat(form.takeProfit)||0,strategy:form.strategy,session:form.session,instrument:form.instrument,contracts:Math.max(1,parseInt(form.contracts)||1),tags:form.tags,feelings:form.feelings,notes:form.notes,images:form.images});toast(isNew?"Trade logged":"Updated")};
   const lbl={fontSize:10,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase",marginBottom:7,display:"block"};
   const pnlVal=parseFloat(form.pnl);
   return(
@@ -689,6 +946,29 @@ function TradeModal({trade,onSave,onDelete,onClose}){
         </div>
         <div style={{display:"flex",flexDirection:"column",gap:16}}>
           <div><label style={lbl}>Date</label><input type="date" value={form.date} onChange={e=>set("date",e.target.value)} className="inp"/></div>
+          {/* Direction + Time */}
+          <div style={{display:"flex",gap:10}}>
+            <div style={{flex:1}}>
+              <label style={lbl}>Direction</label>
+              <div style={{display:"flex",gap:6}}>
+                {[{v:"long",l:"▲ Long",c:"var(--green)"},{v:"short",l:"▼ Short",c:"var(--red)"}].map(({v,l,c})=>{
+                  const a=form.direction===v;
+                  return<button key={v} onClick={()=>set("direction",a?"":v)} className="tap" style={{flex:1,padding:"9px 6px",borderRadius:"var(--r-sm)",fontSize:12,fontWeight:700,border:`1px solid ${a?c:"var(--line-md)"}`,background:a?c+"22":"var(--elevated)",color:a?c:"var(--t2)"}}>{l}</button>;
+                })}
+              </div>
+            </div>
+            <div style={{flex:1}}><label style={lbl}>Time</label><input type="time" value={form.time} onChange={e=>set("time",e.target.value)} className="inp mono" style={{colorScheme:"dark"}}/></div>
+          </div>
+          {/* Entry / SL / TP */}
+          <div>
+            <label style={lbl}>Entry Price / SL / TP <span style={{color:"var(--t3)",fontWeight:400,textTransform:"none",letterSpacing:0}}>(optional)</span></label>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+              <div><div style={{fontSize:9,color:"var(--t3)",fontWeight:600,marginBottom:4,textTransform:"uppercase",letterSpacing:".06em"}}>Entry</div><input type="number" step="0.01" placeholder="0.00" value={form.entryPrice} onChange={e=>set("entryPrice",e.target.value)} className="inp mono" style={{padding:"9px 10px"}}/></div>
+              <div><div style={{fontSize:9,color:"var(--red)",fontWeight:600,marginBottom:4,textTransform:"uppercase",letterSpacing:".06em"}}>Stop Loss</div><input type="number" step="0.01" placeholder="0.00" value={form.stopLoss} onChange={e=>set("stopLoss",e.target.value)} className="inp mono" style={{padding:"9px 10px",borderColor:form.stopLoss?"var(--red)33":"var(--line-md)"}}/></div>
+              <div><div style={{fontSize:9,color:"var(--green)",fontWeight:600,marginBottom:4,textTransform:"uppercase",letterSpacing:".06em"}}>Take Profit</div><input type="number" step="0.01" placeholder="0.00" value={form.takeProfit} onChange={e=>set("takeProfit",e.target.value)} className="inp mono" style={{padding:"9px 10px",borderColor:form.takeProfit?"var(--green)33":"var(--line-md)"}}/></div>
+            </div>
+            
+          </div>
           <div>
             <label style={lbl}>Instrument & Contracts</label>
             <div style={{display:"flex",gap:6,marginBottom:8,flexWrap:"wrap"}}>
@@ -702,7 +982,7 @@ function TradeModal({trade,onSave,onDelete,onClose}){
           </div>
           <div style={{display:"flex",gap:10}}>
             <div style={{flex:1}}><label style={lbl}>P&L ($)</label><input type="number" placeholder="250 or -100" value={form.pnl} onChange={e=>set("pnl",e.target.value)} className="inp mono" style={{color:form.pnl?clr(pnlVal):"var(--t1)",borderColor:form.pnl?(pnlVal>0?"var(--green)":pnlVal<0?"var(--red)":"var(--line-md)"):"var(--line-md)"}}/></div>
-            <div style={{flex:1}}><label style={lbl}>R:R</label><input type="number" step="0.1" placeholder="2.5" value={form.rr} onChange={e=>set("rr",e.target.value)} className="inp mono"/></div>
+            <div style={{flex:1}}><label style={lbl}>R:R {autoRR&&<span style={{fontSize:9,padding:"2px 6px",background:"var(--amber)22",color:"var(--amber)",borderRadius:99,fontWeight:700}}>AUTO</span>}</label><div className="inp mono" style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--elevated)",borderColor:autoRR?"var(--amber)44":"var(--line-md)",cursor:"default"}}>{autoRR?(<><span style={{color:"var(--amber)",fontWeight:700}}>{autoRR}R</span><span style={{fontSize:10,color:"var(--t3)"}}>from E/SL/TP</span></>):(<span style={{color:"var(--t3)",fontSize:12}}>Fill Entry/SL/TP</span>)}</div></div>
           </div>
           <div>
             <label style={lbl}>Strategy</label>
@@ -749,16 +1029,29 @@ function TradeModal({trade,onSave,onDelete,onClose}){
             </div>}
           </div>
         </div>
-        <button onClick={save} className="tap" style={{width:"100%",marginTop:22,padding:"15px",background:"var(--green)",border:"none",borderRadius:"var(--r-md)",color:"#000",fontSize:15,fontWeight:700,letterSpacing:".01em"}}>{isNew?"Save Trade":"Update Trade"}</button>
+        <button onClick={save} className="tap" style={{width:"100%",marginTop:22,padding:"15px",background:"var(--accent)",border:"none",borderRadius:"var(--r-md)",color:"#fff",fontSize:15,fontWeight:700,letterSpacing:".01em"}}>{isNew?"Save Trade":"Update Trade"}</button>
       </div>
     </div>
     {lb!==null&&(
-      <div onClick={()=>setLb(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.94)",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-        <button onClick={()=>setLb(null)} style={{position:"absolute",top:20,right:20,background:"rgba(255,255,255,.12)",border:"none",borderRadius:"50%",width:38,height:38,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><IcoX size={15} col="white"/></button>
-        {form.images.length>1&&<button onClick={e=>{e.stopPropagation();setLb(i=>(i-1+form.images.length)%form.images.length)}} style={{position:"absolute",left:12,background:"rgba(255,255,255,.12)",border:"none",borderRadius:"50%",width:38,height:38,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><IcoChL size={15} col="white"/></button>}
-        <img src={form.images[lb]} alt="" style={{maxWidth:"100%",maxHeight:"88vh",borderRadius:"var(--r-md)",objectFit:"contain"}} onClick={e=>e.stopPropagation()}/>
-        {form.images.length>1&&<button onClick={e=>{e.stopPropagation();setLb(i=>(i+1)%form.images.length)}} style={{position:"absolute",right:12,background:"rgba(255,255,255,.12)",border:"none",borderRadius:"50%",width:38,height:38,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><IcoChR size={15} col="white"/></button>}
-        <div style={{position:"absolute",bottom:18,color:"rgba(255,255,255,.4)",fontSize:12}}>{lb+1} / {form.images.length}</div>
+      <div onClick={()=>setLb(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.97)",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+        {/* Top bar */}
+        <div style={{position:"absolute",top:0,left:0,right:0,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 16px",background:"linear-gradient(to bottom,rgba(0,0,0,.6),transparent)",zIndex:1}}>
+          <span style={{color:"rgba(255,255,255,.5)",fontSize:12,fontWeight:600}}>Screenshot {lb+1} / {form.images.length}</span>
+          <div style={{display:"flex",gap:8}}>
+            <a href={form.images[lb]} download={`trade-chart-${lb+1}.jpg`} onClick={e=>e.stopPropagation()} style={{background:"rgba(255,255,255,.12)",border:"none",borderRadius:"50%",width:38,height:38,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"white",textDecoration:"none",fontSize:16}}>↓</a>
+            <button onClick={()=>setLb(null)} style={{background:"rgba(255,255,255,.12)",border:"none",borderRadius:"50%",width:38,height:38,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><IcoX size={15} col="white"/></button>
+          </div>
+        </div>
+        {/* Prev/Next */}
+        {form.images.length>1&&<button onClick={e=>{e.stopPropagation();setLb(i=>(i-1+form.images.length)%form.images.length)}} style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,.15)",border:"none",borderRadius:"50%",width:44,height:44,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1}}><IcoChL size={18} col="white"/></button>}
+        <img src={form.images[lb]} alt="" style={{maxWidth:"100%",maxHeight:"88vh",borderRadius:"var(--r-md)",objectFit:"contain",userSelect:"none"}} onClick={e=>e.stopPropagation()}/>
+        {form.images.length>1&&<button onClick={e=>{e.stopPropagation();setLb(i=>(i+1)%form.images.length)}} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,.15)",border:"none",borderRadius:"50%",width:44,height:44,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1}}><IcoChR size={18} col="white"/></button>}
+        {/* Dot indicators */}
+        {form.images.length>1&&<div style={{position:"absolute",bottom:18,display:"flex",gap:6}}>
+          {form.images.map((_,i)=><div key={i} onClick={e=>{e.stopPropagation();setLb(i)}} style={{width:i===lb?20:6,height:6,borderRadius:99,background:i===lb?"white":"rgba(255,255,255,.3)",transition:"width .2s",cursor:"pointer"}}/>)}
+        </div>}
+        {/* Hint */}
+        {form.images.length>1&&<div style={{position:"absolute",bottom:40,color:"rgba(255,255,255,.2)",fontSize:10,letterSpacing:".05em"}}>← → to navigate · ESC to close</div>}
       </div>
     )}
     </>
@@ -779,7 +1072,7 @@ function BalanceModal({current,onSave,onClose}){
         <input type="number" value={v} onChange={e=>setV(e.target.value)} onKeyDown={e=>e.key==="Enter"&&save()} autoFocus className="inp mono" style={{textAlign:"center",fontSize:24,fontWeight:500,marginBottom:14}}/>
         <div style={{display:"flex",gap:10}}>
           <button onClick={onClose} className="tap" style={{flex:1,padding:"12px",background:"var(--elevated)",border:"1px solid var(--line)",borderRadius:"var(--r-md)",color:"var(--t2)",fontSize:14,fontWeight:600}}>Cancel</button>
-          <button onClick={save} className="tap" style={{flex:2,padding:"12px",background:"var(--green)",border:"none",borderRadius:"var(--r-md)",color:"#000",fontSize:14,fontWeight:700}}>Confirm</button>
+          <button onClick={save} className="tap" style={{flex:2,padding:"12px",background:"var(--accent)",border:"none",borderRadius:"var(--r-md)",color:"#fff",fontSize:14,fontWeight:700}}>Confirm</button>
         </div>
       </div>
     </div>
@@ -812,7 +1105,7 @@ function DDModal({drawdownLimit,consistencyLimit,totalPnl,onSave,onClose}){
           <div><label style={lbl}>Trailing DD Limit ($)</label><input type="number" placeholder="e.g. 1500" value={dd} onChange={e=>setDd(e.target.value)} className="inp mono"/><div style={{fontSize:11,color:"var(--t3)",marginTop:4}}>Amount the floor trails behind your peak balance</div></div>
           <div><label style={lbl}>Max Daily Profit ($) — Consistency</label><input type="number" placeholder={sug?`Suggested: $${sug}`:"e.g. 500"} value={clVal} onChange={e=>setClVal(e.target.value)} className="inp mono"/>{sug&&<div style={{fontSize:11,color:"var(--t3)",marginTop:4}}>50% of P&L = ${sug}</div>}</div>
         </div>
-        <button onClick={()=>onSave(parseFloat(dd)||0,parseFloat(clVal)||0)} className="tap" style={{width:"100%",marginTop:20,padding:"14px",background:"var(--green)",border:"none",borderRadius:"var(--r-md)",color:"#000",fontSize:15,fontWeight:700}}>Save</button>
+        <button onClick={()=>onSave(parseFloat(dd)||0,parseFloat(clVal)||0)} className="tap" style={{width:"100%",marginTop:20,padding:"14px",background:"var(--accent)",border:"none",borderRadius:"var(--r-md)",color:"#fff",fontSize:15,fontWeight:700}}>Save</button>
       </div>
     </div>
   );
@@ -878,7 +1171,7 @@ function AccModal({accounts,activeId,onSwitch,onAdd,onEdit,onDelete,onClose}){
 
 /* ── Data Modal ── */
 function DataModal({trades,notes,account,onImport,onClearAll,onClose}){
-  const fRef=useRef(null),[status,setStatus]=useState(null),[conf,setConf]=useState(false);
+  const fRef=useRef(null),[status,setStatus]=useState(null),[conf,setConf]=useState(false),[delText,setDelText]=useState("");
   const toast=useToast();
   const doExport=()=>{
     try{
@@ -923,8 +1216,34 @@ function DataModal({trades,notes,account,onImport,onClearAll,onClose}){
         {status&&<div style={{padding:"10px 12px",borderRadius:"var(--r-sm)",background:status.ok?"var(--green-dim)":"var(--red-dim)",color:status.ok?"var(--green)":"var(--red)",fontSize:12,fontWeight:600,marginBottom:14}}>{status.msg}</div>}
         <div style={{borderTop:"1px solid var(--line)",paddingTop:14}}>
           <div className="sec" style={{color:"var(--red)"}}>Danger Zone</div>
-          {!conf?<button onClick={()=>setConf(true)} className="tap" style={{width:"100%",padding:"12px",background:"var(--red-dim)",border:"none",borderRadius:"var(--r-md)",color:"var(--red)",fontSize:13,fontWeight:600}}>Clear All Trades</button>
-          :<div><div style={{fontSize:12,color:"var(--red)",marginBottom:10,textAlign:"center"}}>Delete all trades for "{account?.name}"?</div><div style={{display:"flex",gap:8}}><button onClick={()=>setConf(false)} className="tap" style={{flex:1,padding:"11px",background:"var(--elevated)",border:"none",borderRadius:"var(--r-md)",color:"var(--t2)",fontSize:13,fontWeight:600}}>Cancel</button><button onClick={()=>{onClearAll();setConf(false);onClose();toast("Cleared","error")}} className="tap" style={{flex:1,padding:"11px",background:"var(--red)",border:"none",borderRadius:"var(--r-md)",color:"#fff",fontSize:13,fontWeight:700}}>Delete All</button></div></div>}
+          {!conf?(
+            <button onClick={()=>setConf(true)} className="tap" style={{width:"100%",padding:"12px",background:"var(--red-dim)",border:"1px solid var(--red)33",borderRadius:"var(--r-md)",color:"var(--red)",fontSize:13,fontWeight:600}}>Clear All Trades</button>
+          ):(
+            <div style={{background:"var(--red-dim)",border:"1px solid var(--red)33",borderRadius:"var(--r-md)",padding:"16px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                <IcoWarn size={16} col="var(--red)"/>
+                <span style={{fontSize:13,fontWeight:700,color:"var(--red)"}}>This cannot be undone</span>
+              </div>
+              <div style={{fontSize:12,color:"var(--t2)",marginBottom:12,lineHeight:1.6}}>This will permanently delete all <strong style={{color:"var(--t1)"}}>{trades.length} trades</strong> for <strong style={{color:"var(--t1)"}}>{account?.name}</strong>. Type <span style={{fontFamily:"var(--mono)",background:"var(--overlay)",padding:"1px 6px",borderRadius:4,color:"var(--red)",fontWeight:700}}>DELETE</span> to confirm.</div>
+              <input
+                autoFocus
+                className="inp mono"
+                placeholder="Type DELETE to confirm"
+                value={delText}
+                onChange={e=>setDelText(e.target.value)}
+                style={{marginBottom:10,borderColor:delText==="DELETE"?"var(--red)":"var(--line-md)",color:delText==="DELETE"?"var(--red)":"var(--t1)",fontWeight:700,letterSpacing:".1em"}}
+              />
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>{setConf(false);setDelText("")}} className="tap" style={{flex:1,padding:"11px",background:"var(--elevated)",border:"none",borderRadius:"var(--r-md)",color:"var(--t2)",fontSize:13,fontWeight:600}}>Cancel</button>
+                <button
+                  disabled={delText!=="DELETE"}
+                  onClick={()=>{if(delText==="DELETE"){onClearAll();setConf(false);setDelText("");onClose();toast("Cleared","error")}}}
+                  className="tap"
+                  style={{flex:1,padding:"11px",background:delText==="DELETE"?"var(--red)":"var(--overlay)",border:"none",borderRadius:"var(--r-md)",color:delText==="DELETE"?"#fff":"var(--t3)",fontSize:13,fontWeight:700,cursor:delText==="DELETE"?"pointer":"not-allowed",transition:"all .15s"}}
+                >Delete All</button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -941,7 +1260,7 @@ function NoteEditor({note,onBack,onSave,onDelete}){
   return(
     <div style={{position:"fixed",inset:0,background:"var(--page)",zIndex:150,display:"flex",flexDirection:"column",marginLeft:isDesktop?220:0}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:isDesktop?"20px 32px 14px":"52px 18px 14px",borderBottom:"1px solid var(--line)"}}>
-        <button onClick={back} className="tap" style={{background:"none",border:"none",color:"var(--green)",fontSize:14,fontWeight:600,display:"flex",alignItems:"center",gap:4}}>
+        <button onClick={back} className="tap" style={{background:"none",border:"none",color:"var(--accent)",fontSize:14,fontWeight:600,display:"flex",alignItems:"center",gap:4}}>
           <IcoChL size={15} col="var(--green)"/> Notes
         </button>
         {!isNew&&<button onClick={()=>onDelete(note.id)} className="tap" style={{background:"var(--red-dim)",border:"none",borderRadius:"var(--r-sm)",color:"var(--red)",fontSize:12,fontWeight:600,padding:"6px 12px"}}>Delete</button>}
@@ -1012,7 +1331,7 @@ function RiskManagement({accountBalance,totalPnl}){
           <input type="number" step="0.1" value={["0.5","1","2"].includes(pct)?"":(pct||"")} onChange={e=>{setPct(e.target.value);setResult(null)}} placeholder="%" className="inp mono" style={{flex:1,padding:"10px",fontSize:13,textAlign:"center"}}/>
         </div>
       </div>
-      <button onClick={calc} className="tap" style={{width:"100%",padding:"15px",background:"var(--green)",border:"none",borderRadius:"var(--r-md)",color:"#000",fontSize:15,fontWeight:700,marginBottom:14}}>Calculate →</button>
+      <button onClick={calc} className="tap" style={{width:"100%",padding:"15px",background:"var(--accent)",border:"none",borderRadius:"var(--r-md)",color:"#fff",fontSize:15,fontWeight:700,marginBottom:14}}>Calculate →</button>
       {result&&(
         <div className="card" style={{padding:"22px",textAlign:"center",border:"1px solid var(--amber)33"}}>
           <div style={{fontSize:10,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase",marginBottom:8}}>Max Risk</div>
@@ -1027,46 +1346,594 @@ function RiskManagement({accountBalance,totalPnl}){
     </div>
   );
 }
+/* ── Goal Tracker ── */
+function GoalTracker({trades,accountBalance}){
+  const pnlHidden=useContext(PnlCtx);
+  const SK="nq-goals";
+  const[goals,setGoals]=useState(()=>{try{const v=localStorage.getItem(SK);return v?JSON.parse(v):[]}catch{return[]}});
+  const[adding,setAdding]=useState(false);
+  const[form,setForm]=useState({label:"",target:"",period:"monthly",type:"pnl"});
+  const toast=useToast();
+
+  const save=g=>{try{localStorage.setItem(SK,JSON.stringify(g))}catch{}};
+
+  const now=new Date();
+  const monthKey=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+  const weekStart=new Date(now);weekStart.setDate(now.getDate()-now.getDay()+1);
+  const weekKey=weekStart.toISOString().slice(0,10);
+
+  function getProgress(goal){
+    let ts=trades;
+    if(goal.period==="monthly")ts=trades.filter(t=>t.date.startsWith(monthKey));
+    else if(goal.period==="weekly")ts=trades.filter(t=>t.date>=weekKey);
+    if(goal.type==="pnl")return ts.reduce((a,t)=>a+t.pnl,0);
+    if(goal.type==="trades")return ts.length;
+    if(goal.type==="winrate")return ts.length?Math.round(ts.filter(t=>t.pnl>0).length/ts.length*100):0;
+    return 0;
+  }
+
+  function addGoal(){
+    if(!form.label||!form.target){toast("Fill all fields","warn");return;}
+    const g=[...goals,{id:Date.now(),label:form.label,target:parseFloat(form.target),period:form.period,type:form.type}];
+    setGoals(g);save(g);setAdding(false);setForm({label:"",target:"",period:"monthly",type:"pnl"});toast("Goal added");
+  }
+  function delGoal(id){const g=goals.filter(x=>x.id!==id);setGoals(g);save(g);}
+
+  const periodLabel={monthly:"This month",weekly:"This week",alltime:"All time"};
+  const typeLabel={pnl:"P&L",trades:"# Trades",winrate:"Win Rate %"};
+
+  if(goals.length===0&&!adding)return(
+    <div className="card" style={{padding:"16px",marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+      <div>
+        <div style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>Goals</div>
+        <div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>Set a target to track</div>
+      </div>
+      <button onClick={()=>setAdding(true)} className="tap" style={{padding:"7px 14px",background:"var(--accent)",border:"none",borderRadius:"var(--r-sm)",color:"#fff",fontSize:12,fontWeight:700}}>+ Add Goal</button>
+    </div>
+  );
+
+  return(
+    <div className="card" style={{padding:"16px",marginBottom:12}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+        <div style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>Goals</div>
+        {!adding&&<button onClick={()=>setAdding(true)} className="tap" style={{padding:"5px 12px",background:"var(--accent-dim)",border:"1px solid var(--accent)33",borderRadius:"var(--r-sm)",color:"var(--accent)",fontSize:11,fontWeight:700}}>+ Add</button>}
+      </div>
+
+      {adding&&(
+        <div style={{background:"var(--elevated)",borderRadius:"var(--r-md)",padding:"14px",marginBottom:12,border:"1px solid var(--line)"}}>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <input className="inp" placeholder="Goal name (e.g. Hit $2k profit)" value={form.label} onChange={e=>setForm(f=>({...f,label:e.target.value}))} style={{fontSize:13,padding:"9px 12px"}} autoFocus/>
+            <div style={{display:"flex",gap:8}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".07em",textTransform:"uppercase",marginBottom:5}}>Type</div>
+                <div style={{display:"flex",gap:4}}>
+                  {[{v:"pnl",l:"P&L $"},{v:"trades",l:"Trades"},{v:"winrate",l:"Win %"}].map(o=>(
+                    <button key={o.v} onClick={()=>setForm(f=>({...f,type:o.v}))} className="tap" style={{flex:1,padding:"7px 4px",borderRadius:"var(--r-sm)",border:"none",background:form.type===o.v?"var(--accent-dim)":"var(--overlay)",color:form.type===o.v?"var(--accent)":"var(--t3)",fontSize:10,fontWeight:700}}>{o.l}</button>
+                  ))}
+                </div>
+              </div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".07em",textTransform:"uppercase",marginBottom:5}}>Period</div>
+                <div style={{display:"flex",gap:4}}>
+                  {[{v:"weekly",l:"Week"},{v:"monthly",l:"Month"},{v:"alltime",l:"All"}].map(o=>(
+                    <button key={o.v} onClick={()=>setForm(f=>({...f,period:o.v}))} className="tap" style={{flex:1,padding:"7px 4px",borderRadius:"var(--r-sm)",border:"none",background:form.period===o.v?"var(--accent-dim)":"var(--overlay)",color:form.period===o.v?"var(--accent)":"var(--t3)",fontSize:10,fontWeight:700}}>{o.l}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <input className="inp mono" type="number" placeholder={form.type==="pnl"?"2000":form.type==="winrate"?"60":"20"} value={form.target} onChange={e=>setForm(f=>({...f,target:e.target.value}))} style={{padding:"9px 12px",fontSize:13}}/>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>setAdding(false)} className="tap" style={{flex:1,padding:"10px",background:"var(--overlay)",border:"none",borderRadius:"var(--r-sm)",color:"var(--t2)",fontSize:13,fontWeight:600}}>Cancel</button>
+              <button onClick={addGoal} className="tap" style={{flex:2,padding:"10px",background:"var(--accent)",border:"none",borderRadius:"var(--r-sm)",color:"#fff",fontSize:13,fontWeight:700}}>Save Goal</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {goals.map(goal=>{
+          const prog=getProgress(goal);
+          const pct=Math.min(Math.max((prog/goal.target)*100,0),100);
+          const done=prog>=goal.target;
+          const negative=prog<0;
+          const showVal=goal.type==="pnl"?(pnlHidden?PNL_MASK:fmt(prog)):(goal.type==="winrate"?prog+"%":prog);
+          const showTarget=goal.type==="pnl"?"$"+goal.target.toLocaleString():(goal.type==="winrate"?goal.target+"%":goal.target);
+          return(
+            <div key={goal.id} style={{padding:"12px",background:"var(--elevated)",borderRadius:"var(--r-md)",border:`1px solid ${done?"var(--green)33":"var(--line)"}`}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,color:done?"var(--green)":"var(--t1)",display:"flex",alignItems:"center",gap:6}}>
+                    {done&&<span style={{fontSize:14}}>✓</span>}{goal.label}
+                  </div>
+                  <div style={{fontSize:10,color:"var(--t3)",marginTop:2}}>{periodLabel[goal.period]} · {typeLabel[goal.type]}</div>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{textAlign:"right"}}>
+                    <div className="mono" style={{fontSize:13,fontWeight:700,color:done?"var(--green)":negative?"var(--red)":"var(--t1)"}}>{showVal}</div>
+                    <div style={{fontSize:10,color:"var(--t3)"}}>of {showTarget}</div>
+                  </div>
+                  <button onClick={()=>delGoal(goal.id)} className="tap" style={{background:"var(--red-dim)",border:"none",borderRadius:"var(--r-sm)",padding:"5px 6px",display:"flex",alignItems:"center"}}><IcoX size={11} col="var(--red)"/></button>
+                </div>
+              </div>
+              <div style={{height:5,background:"var(--overlay)",borderRadius:99,overflow:"hidden"}}>
+                <div style={{height:"100%",width:`${pct}%`,background:done?"var(--green)":negative?"var(--red)":"var(--accent)",borderRadius:99,transition:"width .4s"}}/>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",marginTop:4}}>
+                <span style={{fontSize:9,color:"var(--t3)"}}>{Math.round(pct)}% complete</span>
+                {!done&&goal.type==="pnl"&&<span style={{fontSize:9,color:"var(--t3)"}} className="mono">{pnlHidden?PNL_MASK:(fmt(goal.target-Math.max(prog,0))+" to go")}</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+
+/* ── Analytics View ── */
+function AnalyticsView({trades,accountBalance}){
+  const pnlHidden=useContext(PnlCtx);
+  const[period,setPeriod]=useState("all");
+  const filtered=useMemo(()=>{
+    if(period==="all")return trades;
+    const cutoff=new Date();
+    if(period==="7d"){cutoff.setDate(cutoff.getDate()-7)}
+    else if(period==="30d"){cutoff.setDate(cutoff.getDate()-30)}
+    else if(period==="90d"){cutoff.setDate(cutoff.getDate()-90)}
+    const co=cutoff.toISOString().slice(0,10);
+    return trades.filter(t=>t.date>=co);
+  },[trades,period]);
+
+  const sorted=useMemo(()=>[...filtered].sort((a,b)=>a.date.localeCompare(b.date)),[filtered]);
+
+  const stats=useMemo(()=>{
+    const w=filtered.filter(t=>t.pnl>0),l=filtered.filter(t=>t.pnl<0);
+    const total=filtered.reduce((a,t)=>a+t.pnl,0);
+    const wr=filtered.length?Math.round((w.length/filtered.length)*100):0;
+    const aw=w.length?w.reduce((a,t)=>a+t.pnl,0)/w.length:0;
+    const al=l.length?l.reduce((a,t)=>a+t.pnl,0)/l.length:0;
+    const tw=w.reduce((a,t)=>a+t.pnl,0),tl=Math.abs(l.reduce((a,t)=>a+t.pnl,0));
+    const pf=tl>0?(tw/tl).toFixed(2):"inf";
+    const pfDisplay=tl>0?(tw/tl).toFixed(2):"\u221e";
+    const exp=filtered.length?Math.round((wr/100)*aw-((100-wr)/100)*Math.abs(al)):0;
+    const rr=filtered.length?(filtered.reduce((a,t)=>a+t.rr,0)/filtered.length).toFixed(1):"0.0";
+    let peak=accountBalance,bal=accountBalance,mdd=0;
+    sorted.forEach(t=>{bal+=t.pnl;if(bal>peak)peak=bal;const dd=peak>0?(peak-bal)/peak*100:0;if(dd>mdd)mdd=dd;});
+    const dm={};sorted.forEach(t=>{dm[t.date]=(dm[t.date]||0)+t.pnl});
+    const dr=Object.values(dm);
+    const mean=dr.length?dr.reduce((a,b)=>a+b,0)/dr.length:0;
+    const std=dr.length>1?Math.sqrt(dr.reduce((a,v)=>a+Math.pow(v-mean,2),0)/(dr.length-1)):0;
+    const sh=std>0?(mean/std*Math.sqrt(252)).toFixed(2):"—";
+    return{wins:w,losses:l,totalPnl:total,winRate:wr,avgWin:aw,avgLoss:al,profitFactor:pfDisplay,profitFactorNum:parseFloat(pf),expectancy:exp,avgRR:rr,maxDD:mdd.toFixed(1),sharpe:sh};
+  },[filtered,sorted,accountBalance]);
+
+  const eqData=useMemo(()=>{
+    let bal=accountBalance;const pts=[{d:"Start",v:bal}];
+    sorted.forEach(t=>{bal+=t.pnl;pts.push({d:t.date.slice(5),v:bal})});
+    return pts;
+  },[sorted,accountBalance]);
+
+  const dowData=useMemo(()=>{
+    const days=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    const m={};days.forEach(d=>{m[d]={pnl:0,n:0,wins:0}});
+    filtered.forEach(t=>{const d=days[new Date(t.date+"T12:00:00").getDay()];if(d){m[d].pnl+=t.pnl;m[d].n++;if(t.pnl>0)m[d].wins++;}});
+    return days.filter(d=>m[d].n>0).map(d=>({l:d,...m[d],wr:m[d].n?Math.round(m[d].wins/m[d].n*100):0}));
+  },[filtered]);
+
+  const sessData=useMemo(()=>{
+    const m={};
+    filtered.forEach(t=>{const s=t.session||"Other";if(!m[s])m[s]={pnl:0,n:0,wins:0};m[s].pnl+=t.pnl;m[s].n++;if(t.pnl>0)m[s].wins++;});
+    return Object.entries(m).map(([s,v])=>({l:s,...v,wr:Math.round(v.wins/v.n*100),col:SCOL[s]||"#666"})).sort((a,b)=>b.pnl-a.pnl);
+  },[filtered]);
+
+  const stratData=useMemo(()=>{
+    const m={};
+    filtered.forEach(t=>{const s=t.strategy||"Other";if(!m[s])m[s]={pnl:0,n:0,wins:0};m[s].pnl+=t.pnl;m[s].n++;if(t.pnl>0)m[s].wins++;});
+    return Object.entries(m).map(([s,v])=>({l:s,...v,wr:Math.round(v.wins/v.n*100)})).sort((a,b)=>b.pnl-a.pnl).slice(0,6);
+  },[filtered]);
+
+  const instrData=useMemo(()=>{
+    const m={};
+    filtered.forEach(t=>{const s=t.instrument||"Other";if(!m[s])m[s]={pnl:0,n:0,wins:0,cts:0};m[s].pnl+=t.pnl;m[s].n++;m[s].cts+=(t.contracts||1);if(t.pnl>0)m[s].wins++;});
+    return Object.entries(m).map(([s,v])=>({l:s,...v,wr:Math.round(v.wins/v.n*100),col:ICOL[s]||"#666"})).sort((a,b)=>b.pnl-a.pnl);
+  },[filtered]);
+
+  const tagData=useMemo(()=>{
+    const m={};
+    filtered.forEach(t=>(t.tags||[]).forEach(tag=>{if(!m[tag])m[tag]={pnl:0,n:0,wins:0};m[tag].pnl+=t.pnl;m[tag].n++;if(t.pnl>0)m[tag].wins++;}));
+    return Object.entries(m).map(([tag,v])=>({l:tag,...v,wr:Math.round(v.wins/v.n*100)})).sort((a,b)=>b.n-a.n).slice(0,8);
+  },[filtered]);
+
+  const rrDist=useMemo(()=>{
+    const b={"<0":0,"0-1R":0,"1-2R":0,"2-3R":0,"3R+":0};
+    filtered.forEach(t=>{const r=t.rr||0;if(r<0)b["<0"]++;else if(r<1)b["0-1R"]++;else if(r<2)b["1-2R"]++;else if(r<3)b["2-3R"]++;else b["3R+"]++;});
+    return Object.entries(b).map(([l,v])=>({l,v,col:l==="<0"?"var(--red)":l==="3R+"?"var(--green)":"var(--blue)"})).filter(d=>d.v>0);
+  },[filtered]);
+
+  const monthlyData=useMemo(()=>{
+    const m={};filtered.forEach(t=>{const k=t.date.slice(0,7);m[k]=(m[k]||0)+t.pnl});
+    return Object.entries(m).sort().map(([k,v])=>({l:MONTHS[parseInt(k.slice(5))-1]+" '"+k.slice(2,4),v}));
+  },[filtered]);
+
+  function MiniBarChart({data,height=60,colFn}){
+    if(!data.length)return null;
+    const vals=data.map(d=>d.v!=null?d.v:0);
+    const mx=Math.max(...vals.map(Math.abs),1);
+    return(
+      <div style={{display:"flex",alignItems:"flex-end",gap:3,height:height+20}}>
+        {data.map((d,i)=>{
+          const v=vals[i];const h2=Math.max((Math.abs(v)/mx)*height,2);
+          const col=colFn?colFn(d,v):v>=0?"var(--green)":"var(--red)";
+          return(
+            <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",height:height+20,gap:2}}>
+              <div style={{width:"100%",height:h2,background:col,borderRadius:"3px 3px 0 0",opacity:.85}}/>
+              <div style={{fontSize:8,color:"var(--t3)",textAlign:"center",lineHeight:1.1,fontFamily:"var(--mono)"}}>{d.l}</div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  function EquityCurveChart({data}){
+    if(data.length<2)return null;
+    const W=600,H=100;
+    const vals=data.map(d=>d.v);
+    const mn=Math.min(...vals),mx=Math.max(...vals),rng=mx-mn||1;
+    const tx=i=>(i/(data.length-1))*W;
+    const ty=v=>H-(((v-mn)/rng)*(H*0.82)+H*0.09);
+    const line=data.map((d,i)=>`${i===0?"M":"L"}${tx(i).toFixed(1)},${ty(d.v).toFixed(1)}`).join(" ");
+    const area=line+` L${W},${H} L0,${H} Z`;
+    const up=vals[vals.length-1]>=vals[0];
+    const sc=up?"var(--green)":"var(--red)",hex=up?"#22C55E":"#EF4444";
+    return(
+      <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",display:"block",overflow:"visible",marginBottom:4}}>
+        <defs>
+          <linearGradient id="aqg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={hex} stopOpacity=".25"/>
+            <stop offset="100%" stopColor={hex} stopOpacity="0"/>
+          </linearGradient>
+        </defs>
+        <path d={area} fill="url(#aqg)"/>
+        <path d={line} fill="none" stroke={sc} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <circle cx={tx(data.length-1)} cy={ty(vals[vals.length-1])} r="3.5" fill={sc} stroke="var(--surface)" strokeWidth="1.5"/>
+      </svg>
+    );
+  }
+
+  if(filtered.length===0)return(
+    <div style={{textAlign:"center",padding:"64px 20px"}}>
+      <IcoChart size={36} col="var(--t3)"/>
+      <div style={{fontSize:15,fontWeight:700,color:"var(--t2)",margin:"14px 0 6px"}}>No trades to analyze</div>
+      <div style={{fontSize:13,color:"var(--t3)"}}>Log some trades first</div>
+    </div>
+  );
+
+  const {wins,losses,totalPnl,winRate,avgWin,avgLoss,profitFactor,profitFactorNum,expectancy,avgRR,maxDD,sharpe}=stats;
+
+  const metricGrid=[
+    {label:"Win Rate",value:`${winRate}%`,sub:`${wins.length}W · ${losses.length}L`,col:winRate>=50?"var(--green)":"var(--red)"},
+    {label:"Profit Factor",value:profitFactor,sub:"gross win/loss",col:profitFactorNum>=1.5||profitFactor==="\u221e"?"var(--green)":profitFactorNum<1?"var(--red)":"var(--amber)"},
+    {label:"Expectancy",value:expectancy>=0?`+$${expectancy}`:`-$${Math.abs(expectancy)}`,sub:"avg per trade",col:expectancy>=0?"var(--green)":"var(--red)",hide:true},
+    {label:"Avg R:R",value:`${avgRR}R`,sub:`${filtered.length} trades`,col:"var(--blue)"},
+    {label:"Avg Win",value:avgWin?`$${Math.round(avgWin)}`:"—",sub:"per winner",col:"var(--green)",hide:true},
+    {label:"Avg Loss",value:avgLoss?`$${Math.abs(Math.round(avgLoss))}`:"—",sub:"per loser",col:"var(--red)",hide:true},
+    {label:"Max DD",value:`${maxDD}%`,sub:"from peak",col:parseFloat(maxDD)>10?"var(--red)":parseFloat(maxDD)>5?"var(--amber)":"var(--green)"},
+    {label:"Sharpe (est.)",value:sharpe,sub:"daily return ratio",col:sharpe!=="—"&&parseFloat(sharpe)>=1?"var(--green)":sharpe!=="—"&&parseFloat(sharpe)<0?"var(--red)":"var(--amber)"},
+  ];
+
+  return(
+    <div>
+      <GoalTracker trades={trades} accountBalance={accountBalance}/>
+      <div style={{display:"flex",background:"var(--surface)",borderRadius:"var(--r-md)",padding:4,border:"1px solid var(--line)",marginBottom:16,gap:2}}>
+        {[{id:"7d",l:"7D"},{id:"30d",l:"30D"},{id:"90d",l:"90D"},{id:"all",l:"All Time"}].map(p=>(
+          <button key={p.id} onClick={()=>setPeriod(p.id)} className="tap" style={{flex:1,padding:"7px 6px",borderRadius:"var(--r-sm)",border:"none",background:period===p.id?"var(--elevated)":"transparent",color:period===p.id?"var(--t1)":"var(--t3)",fontSize:12,fontWeight:700,cursor:"pointer"}}>{p.l}</button>
+        ))}
+      </div>
+
+      <div className="card" style={{padding:"18px",marginBottom:12}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+          <div>
+            <div style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>Equity Curve</div>
+            <div className="mono" style={{fontSize:12,color:clr(totalPnl),marginTop:2}}>{pnlHidden?PNL_MASK:fmt(totalPnl)}</div>
+          </div>
+          <div style={{textAlign:"right"}}>
+            <div style={{fontSize:10,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase",marginBottom:2}}>Current Balance</div>
+            <div className="mono" style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>{pnlHidden?PNL_MASK:("$"+(accountBalance+totalPnl).toLocaleString())}</div>
+          </div>
+        </div>
+        <EquityCurveChart data={eqData}/>
+        <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:"var(--t3)",marginTop:4}}>
+          <span className="mono">Start ${accountBalance.toLocaleString()}</span>
+          <span className="mono">Now ${(accountBalance+totalPnl).toLocaleString()}</span>
+        </div>
+      </div>
+
+      <div className="card" style={{padding:"18px",marginBottom:12}}>
+        <div className="sec">Key Metrics</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+          {metricGrid.map((m,i)=>(
+            <div key={i} className="elev" style={{padding:"12px 14px",borderRadius:"var(--r-md)"}}>
+              <div style={{fontSize:10,color:"var(--t3)",fontWeight:700,letterSpacing:".07em",textTransform:"uppercase",marginBottom:5}}>{m.label}</div>
+              <div className="mono" style={{fontSize:18,fontWeight:600,color:m.col,lineHeight:1}}>{pnlHidden&&m.hide?PNL_MASK:m.value}</div>
+              <div style={{fontSize:10,color:"var(--t3)",marginTop:4}}>{m.sub}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {monthlyData.length>0&&(
+        <div className="card" style={{padding:"18px",marginBottom:12}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+            <div style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>Monthly P&L</div>
+            <div className="mono" style={{fontSize:12,color:clr(totalPnl)}}>{pnlHidden?PNL_MASK:fmt(totalPnl)}</div>
+          </div>
+          <MiniBarChart data={monthlyData} height={72}/>
+          {monthlyData.length>0&&<div style={{display:"flex",justifyContent:"space-between",paddingTop:10,borderTop:"1px solid var(--line)",marginTop:4}}>
+            <div><div style={{fontSize:10,color:"var(--t3)",marginBottom:2}}>Best</div><div className="mono" style={{fontSize:12,fontWeight:600,color:"var(--green)"}}>{pnlHidden?PNL_MASK:fmt(Math.max(...monthlyData.map(d=>d.v)))}</div></div>
+            <div style={{textAlign:"right"}}><div style={{fontSize:10,color:"var(--t3)",marginBottom:2}}>Worst</div><div className="mono" style={{fontSize:12,fontWeight:600,color:"var(--red)"}}>{pnlHidden?PNL_MASK:fmt(Math.min(...monthlyData.map(d=>d.v)))}</div></div>
+          </div>}
+        </div>
+      )}
+
+      {dowData.length>0&&(
+        <div className="card" style={{padding:"18px",marginBottom:12}}>
+          <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",marginBottom:14}}>P&L by Day of Week</div>
+          <MiniBarChart data={dowData} height={60}/>
+          <div style={{marginTop:10,display:"flex",flexDirection:"column",gap:6}}>
+            {[...dowData].sort((a,b)=>b.pnl-a.pnl).slice(0,3).map((d,i)=>(
+              <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <div style={{width:6,height:6,borderRadius:"50%",background:i===0?"var(--green)":i===1?"var(--amber)":"var(--red)",flexShrink:0}}/>
+                  <span style={{fontSize:12,color:"var(--t2)",fontWeight:500}}>{d.l}</span>
+                </div>
+                <div style={{display:"flex",gap:12}}>
+                  <span style={{fontSize:11,color:"var(--t3)"}}>{d.wr}% · {d.n}T</span>
+                  <span className="mono" style={{fontSize:12,fontWeight:500,color:pnlHidden?"var(--t3)":clr(d.pnl),minWidth:60,textAlign:"right"}}>{pnlHidden?PNL_MASK:fmt(d.pnl)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {sessData.length>0&&(
+        <div className="card" style={{padding:"18px",marginBottom:12}}>
+          <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",marginBottom:14}}>Session Performance</div>
+          {sessData.map((s,i)=>{
+            const maxP=Math.max(...sessData.map(x=>Math.abs(x.pnl)),1);
+            return(
+              <div key={i} style={{marginBottom:i<sessData.length-1?12:0}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span className="pill" style={{background:s.col+"22",color:s.col}}>{s.l}</span>
+                    <span style={{fontSize:11,color:"var(--t3)"}}>{s.wr}% · {s.n}T</span>
+                  </div>
+                  <span className="mono" style={{fontSize:12,fontWeight:600,color:pnlHidden?"var(--t3)":clr(s.pnl)}}>{pnlHidden?PNL_MASK:fmt(s.pnl)}</span>
+                </div>
+                <div style={{height:3,background:"var(--elevated)",borderRadius:99,overflow:"hidden"}}>
+                  <div style={{height:"100%",width:`${Math.round(Math.abs(s.pnl)/maxP*100)}%`,background:s.pnl>=0?s.col:"var(--red)",borderRadius:99,opacity:.8}}/>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {stratData.length>=2&&(
+        <div className="card" style={{padding:"18px",marginBottom:12}}>
+          <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",marginBottom:14}}>Strategy Performance</div>
+          {stratData.map((s,i)=>{
+            const mx=Math.max(...stratData.map(x=>Math.abs(x.pnl)),1);
+            return(
+              <div key={i} style={{marginBottom:i<stratData.length-1?12:0}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+                  <span style={{fontSize:12,color:"var(--t1)",fontWeight:500}}>{s.l}</span>
+                  <div style={{display:"flex",gap:10}}>
+                    <span style={{fontSize:11,color:"var(--t3)"}}>{s.wr}% · {s.n}T</span>
+                    <span className="mono" style={{fontSize:12,fontWeight:500,color:pnlHidden?"var(--t3)":clr(s.pnl),minWidth:60,textAlign:"right"}}>{pnlHidden?PNL_MASK:fmt(s.pnl)}</span>
+                  </div>
+                </div>
+                <div style={{height:3,background:"var(--elevated)",borderRadius:99,overflow:"hidden"}}>
+                  <div style={{height:"100%",width:`${Math.round(Math.abs(s.pnl)/mx*100)}%`,background:s.pnl>=0?"var(--green)":"var(--red)",borderRadius:99}}/>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {instrData.length>0&&(
+        <div className="card" style={{padding:"18px",marginBottom:12}}>
+          <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",marginBottom:14}}>Instrument Breakdown</div>
+          {instrData.map((s,i)=>{
+            const mx=Math.max(...instrData.map(x=>Math.abs(x.pnl)),1);
+            return(
+              <div key={i} style={{marginBottom:i<instrData.length-1?12:0}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span className="pill" style={{background:s.col+"22",color:s.col}}>{s.l}</span>
+                    <span style={{fontSize:11,color:"var(--t3)"}}>{s.wr}% · {s.n}T</span>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div className="mono" style={{fontSize:12,fontWeight:500,color:pnlHidden?"var(--t3)":clr(s.pnl)}}>{pnlHidden?PNL_MASK:fmt(s.pnl)}</div>
+                    <div className="mono" style={{fontSize:10,color:"var(--t3)"}}>{pnlHidden?PNL_MASK:(fmt(s.pnl/Math.max(s.cts,1))+"/ct")}</div>
+                  </div>
+                </div>
+                <div style={{height:3,background:"var(--elevated)",borderRadius:99,overflow:"hidden"}}>
+                  <div style={{height:"100%",width:`${Math.round(Math.abs(s.pnl)/mx*100)}%`,background:s.pnl>=0?s.col:"var(--red)",borderRadius:99,opacity:.8}}/>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {rrDist.length>0&&(
+        <div className="card" style={{padding:"18px",marginBottom:12}}>
+          <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",marginBottom:14}}>R:R Distribution</div>
+          <MiniBarChart data={rrDist} height={56} colFn={(d)=>d.col}/>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:8,borderTop:"1px solid var(--line)",paddingTop:10}}>
+            <span style={{fontSize:11,color:"var(--t3)"}}>Avg R:R <span className="mono" style={{color:"var(--t1)"}}>{avgRR}R</span></span>
+            <span style={{fontSize:11,color:"var(--t3)"}}>{filtered.filter(t=>t.rr>=2).length} trades >=2R</span>
+          </div>
+        </div>
+      )}
+
+      {tagData.length>0&&(
+        <div className="card" style={{padding:"18px",marginBottom:12}}>
+          <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",marginBottom:14}}>Tag Performance</div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {tagData.map((t,i)=>{
+              const bad=["FOMO","Revenge","Tilted","Overtraded","Late Entry"].includes(t.l);
+              const good=["A+ Setup","Patient","B Setup"].includes(t.l);
+              const col=bad?"var(--red)":good?"var(--green)":"var(--t2)";
+              return(
+                <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 12px",background:"var(--elevated)",borderRadius:"var(--r-sm)"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span className="pill" style={{background:bad?"var(--red-dim)":good?"var(--green-dim)":"var(--overlay)",color:col}}>{t.l}</span>
+                    <span style={{fontSize:11,color:"var(--t3)"}}>{t.n}x · {t.wr}%</span>
+                  </div>
+                  <span className="mono" style={{fontSize:12,fontWeight:600,color:pnlHidden?"var(--t3)":clr(t.pnl)}}>{pnlHidden?PNL_MASK:fmt(t.pnl)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Heatmap jam trading ── */}
+      {filtered.length>0&&(()=>{
+        const HOURS=Array.from({length:14},(_,i)=>i+8); // 08:00 - 21:00
+        const WDAYS=["Mon","Tue","Wed","Thu","Fri"];
+        const hm={};
+        filtered.forEach(t=>{
+          if(!t.time)return;
+          const hr=parseInt(t.time.split(":")[0]);
+          const dow=new Date(t.date+"T12:00:00").getDay();
+          if(dow===0||dow===6)return;
+          const key=`${dow}-${hr}`;
+          if(!hm[key])hm[key]={pnl:0,n:0};
+          hm[key].pnl+=t.pnl;hm[key].n++;
+        });
+        const hasTimes=Object.keys(hm).length>0;
+        if(!hasTimes)return null;
+        const vals=Object.values(hm).map(v=>Math.abs(v.pnl));
+        const maxV=Math.max(...vals,1);
+        return(
+          <div className="card" style={{padding:"18px",marginBottom:12}}>
+            <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",marginBottom:4}}>Trading Heatmap</div>
+            <div style={{fontSize:11,color:"var(--t3)",marginBottom:14}}>P&L by hour & day (requires time on trades)</div>
+            <div style={{overflowX:"auto"}}>
+              <div style={{minWidth:320}}>
+                {/* Hour labels */}
+                <div style={{display:"flex",marginLeft:36,marginBottom:3,gap:2}}>
+                  {HOURS.map(h=><div key={h} style={{flex:1,textAlign:"center",fontSize:8,color:"var(--t3)",fontFamily:"var(--mono)"}}>{h}</div>)}
+                </div>
+                {/* Grid rows */}
+                {WDAYS.map((day,di)=>{
+                  const dow=di+1;
+                  return(
+                    <div key={day} style={{display:"flex",alignItems:"center",gap:2,marginBottom:2}}>
+                      <div style={{width:32,fontSize:9,color:"var(--t3)",fontWeight:600,flexShrink:0}}>{day}</div>
+                      {HOURS.map(hr=>{
+                        const key=`${dow}-${hr}`;
+                        const cell=hm[key];
+                        const intensity=cell?Math.min((Math.abs(cell.pnl)/maxV)*0.9+0.1,1):0;
+                        const bg=cell?(cell.pnl>=0?`rgba(34,197,94,${intensity})`:`rgba(239,68,68,${intensity})`):"var(--elevated)";
+                        return(
+                          <div key={hr} title={cell?`${fmt(cell.pnl)} (${cell.n}T)`:"No trades"} style={{flex:1,height:28,borderRadius:4,background:bg,cursor:cell?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                            {cell&&cell.n>1&&<span style={{fontSize:7,color:"rgba(255,255,255,0.7)",fontWeight:700}}>{cell.n}</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+                <div style={{display:"flex",alignItems:"center",gap:8,marginTop:10,justifyContent:"flex-end"}}>
+                  <span style={{fontSize:9,color:"var(--t3)"}}>Loss</span>
+                  {[.8,.5,.2].map(o=><div key={o} style={{width:12,height:12,borderRadius:3,background:`rgba(239,68,68,${o})`}}/>)}
+                  <div style={{width:12,height:12,borderRadius:3,background:"var(--elevated)"}}/>
+                  {[.2,.5,.8].map(o=><div key={o} style={{width:12,height:12,borderRadius:3,background:`rgba(34,197,94,${o})`}}/>)}
+                  <span style={{fontSize:9,color:"var(--t3)"}}>Win</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+    </div>
+  );
+}
+
 
 /* ── Desktop Sidebar ── */
 const Sidebar=React.memo(function Sidebar({tab,setTab,onBackup,syncStatus,plusAction,accounts,activeId,onSwitch,onManage,darkMode,onToggleDark}){
-  const NAV=[{id:"dashboard",l:"Overview",I:IcoHome},{id:"log",l:"Trade Log",I:IcoLog},{id:"calendar",l:"Calendar",I:IcoCal},{id:"risk",l:"Risk",I:IcoShield},{id:"notes",l:"Notes",I:IcoNote}];
+  const NAV=[
+    {id:"dashboard",l:"Dashboard",I:IcoHome},
+    {id:"log",l:"Trade Log",I:IcoLog},
+    {id:"analytics",l:"Analytics",I:IcoChart},
+    {id:"risk",l:"Risk",I:IcoShield},
+    {id:"notes",l:"Notes",I:IcoNote}
+  ];
   const acc=accounts.find(a=>a.id===activeId);
   return(
-    <div className="sidebar" style={{display:"none",width:220,background:"var(--surface)",borderRight:"1px solid var(--line)",position:"fixed",top:0,left:0,bottom:0,flexDirection:"column",zIndex:50}}>
-      <div style={{padding:"22px 18px 14px",borderBottom:"1px solid var(--line)"}}>
-        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
-          <div style={{width:32,height:32,borderRadius:"var(--r-sm)",background:"var(--green)",display:"flex",alignItems:"center",justifyContent:"center"}}><IcoTrendUp size={16} col="#000"/></div>
-          <div><div style={{fontSize:13,fontWeight:800,color:"var(--t1)",letterSpacing:"-.3px"}}>NQ Journal</div><div style={{fontSize:10,color:"var(--t3)"}}>Trading Journal</div></div>
-        </div>
-        {acc&&<div style={{background:"var(--elevated)",borderRadius:"var(--r-sm)",padding:"10px 11px"}}>
-          <div style={{fontSize:9,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase",marginBottom:5}}>Active Account</div>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <div style={{width:22,height:22,borderRadius:"50%",background:acc.color,flexShrink:0}}/>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:12,fontWeight:700,color:"var(--t1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{acc.name}</div>
-              <div className="mono" style={{fontSize:10,color:"var(--t2)"}}>{fmtBal(acc.balance||DEF_BAL)}</div>
-            </div>
+    <div className="sidebar" style={{display:"none",width:"var(--sidebar-w)",background:"var(--surface)",borderRight:"1px solid var(--line)",position:"fixed",top:0,left:0,bottom:0,flexDirection:"column",zIndex:50}}>
+      {/* Logo */}
+      <div style={{padding:"18px 20px 14px",borderBottom:"1px solid var(--line)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{width:30,height:30,borderRadius:"var(--r-sm)",background:"linear-gradient(135deg,var(--accent),#8B5CF6)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            <IcoTrendUp size={15} col="#fff"/>
           </div>
-        </div>}
+          <div>
+            <div style={{fontSize:14,fontWeight:800,color:"var(--t1)",letterSpacing:"-.4px",lineHeight:1}}>Trading Journal</div>
+            <div style={{fontSize:10,color:"var(--t3)",fontWeight:500,marginTop:1}}>Performance Tracker</div>
+          </div>
+        </div>
       </div>
+
+      {/* Account pill */}
+      {acc&&(
+        <div style={{padding:"12px 14px",borderBottom:"1px solid var(--line)"}}>
+          <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",marginBottom:7}}>Active Account</div>
+          <button onClick={onManage} className="tap nav-item" style={{width:"100%",display:"flex",alignItems:"center",gap:9,padding:"9px 10px",borderRadius:"var(--r-md)",background:"var(--elevated)",border:"1px solid var(--line)",cursor:"pointer"}}>
+            <div style={{width:26,height:26,borderRadius:"50%",background:acc.color,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <span style={{fontSize:10,fontWeight:800,color:"#000"}}>{acc.name.charAt(0)}</span>
+            </div>
+            <div style={{flex:1,minWidth:0,textAlign:"left"}}>
+              <div style={{fontSize:12,fontWeight:700,color:"var(--t1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{acc.name}</div>
+              <div className="mono" style={{fontSize:9,color:"var(--t3)"}}>{fmtBal(acc.balance||DEF_BAL)}</div>
+            </div>
+            <IcoChR size={11} col="var(--t3)"/>
+          </button>
+        </div>
+      )}
+
+      {/* Nav */}
       <div style={{flex:1,padding:"10px 10px",overflowY:"auto"}}>
+        <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".09em",textTransform:"uppercase",padding:"6px 6px 8px"}}>Menu</div>
         {NAV.map(({id,l,I})=>{const a=tab===id;return(
-          <button key={id} onClick={()=>setTab(id)} className="tap" style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"9px 10px",borderRadius:"var(--r-sm)",border:"none",background:a?"var(--green-dim)":"transparent",cursor:"pointer",marginBottom:2,fontFamily:"var(--sans)"}}>
-            <I size={15} col={a?"var(--green)":"var(--t3)"}/>
-            <span style={{fontSize:12,fontWeight:600,color:a?"var(--green)":"var(--t2)"}}>{l}</span>
+          <button key={id} onClick={()=>setTab(id)} className="tap nav-item" style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"9px 10px",borderRadius:"var(--r-md)",border:"none",background:a?"var(--accent-dim)":"transparent",cursor:"pointer",marginBottom:2,fontFamily:"var(--sans)"}}>
+            <div style={{width:28,height:28,borderRadius:"var(--r-sm)",background:a?"var(--accent-dim)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <I size={14} col={a?"var(--accent)":"var(--t3)"}/>
+            </div>
+            <span style={{fontSize:13,fontWeight:600,color:a?"var(--t1)":"var(--t2)"}}>{l}</span>
+            {a&&<div style={{marginLeft:"auto",width:4,height:4,borderRadius:"50%",background:"var(--accent)",flexShrink:0}}/>}
           </button>
         );})}
-
       </div>
+
+      {/* Bottom util */}
       <div style={{padding:"10px 10px 18px",borderTop:"1px solid var(--line)"}}>
-        <div style={{display:"flex",alignItems:"center",gap:6,padding:"7px 8px",borderRadius:"var(--r-sm)",background:"var(--elevated)",marginBottom:6}}>
-          <div style={{width:5,height:5,borderRadius:"50%",background:syncStatus==="ok"?"var(--green)":syncStatus==="offline"?"var(--red)":"var(--amber)",animation:syncStatus==="syncing"?"pulse 1.5s infinite":"none"}}/>
-          <span style={{fontSize:10,color:"var(--t2)",fontWeight:600}}>{syncStatus==="ok"?"Cloud Sync":syncStatus==="offline"?"Offline":"Connecting…"}</span>
+        <div style={{display:"flex",alignItems:"center",gap:6,padding:"7px 10px",borderRadius:"var(--r-md)",background:"var(--elevated)",border:"1px solid var(--line)",marginBottom:6}}>
+          <div style={{width:6,height:6,borderRadius:"50%",background:syncStatus==="ok"?"var(--green)":syncStatus==="offline"?"var(--red)":"var(--amber)",flexShrink:0,animation:syncStatus==="syncing"?"pulse 1.5s infinite":"none"}}/>
+          <span style={{fontSize:11,color:"var(--t2)",fontWeight:600}}>{syncStatus==="ok"?"Cloud Sync Active":syncStatus==="offline"?"Offline":"Connecting…"}</span>
         </div>
-        {[{l:"Manage Accounts",I:IcoUser,a:onManage},{l:"Backup & Sync",I:IcoUp,a:onBackup},{l:darkMode?"Light Mode":"Dark Mode",I:darkMode?IcoSun:IcoMoon,a:onToggleDark}].map(({l,I,a})=>(
-          <button key={l} onClick={a} className="tap" style={{width:"100%",display:"flex",alignItems:"center",gap:8,padding:"8px 8px",borderRadius:"var(--r-sm)",border:"none",background:"transparent",cursor:"pointer",fontFamily:"var(--sans)",color:"var(--t2)",marginBottom:2}}>
-            <I size={13} col="var(--t3)"/><span style={{fontSize:11,fontWeight:600}}>{l}</span>
+        {[{l:"Backup & Import",I:IcoUp,a:onBackup},{l:darkMode?"Light Mode":"Dark Mode",I:darkMode?IcoSun:IcoMoon,a:onToggleDark}].map(({l,I,a})=>(
+          <button key={l} onClick={a} className="tap nav-item" style={{width:"100%",display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:"var(--r-md)",border:"none",background:"transparent",cursor:"pointer",fontFamily:"var(--sans)",color:"var(--t2)",marginBottom:2}}>
+            <I size={13} col="var(--t3)"/><span style={{fontSize:12,fontWeight:600}}>{l}</span>
           </button>
         ))}
       </div>
@@ -1077,27 +1944,218 @@ const Sidebar=React.memo(function Sidebar({tab,setTab,onBackup,syncStatus,plusAc
 /* ── Header ── */
 const AppHeader=React.memo(function AppHeader({tab,syncStatus,account,onSwitchAccount,darkMode,onToggleDark,onBackup}){
   const{isDesktop}=useBP();
-  const TITLES={dashboard:"Overview",log:"Trade Log",calendar:"Calendar",risk:"Risk",notes:"Notes"};
+  const TITLES={dashboard:"Dashboard",log:"Trade Log",analytics:"Analytics",risk:"Risk Calculator",notes:"Notebook"};
+  const SUBTITLES={dashboard:"Performance overview",log:"All your trades",analytics:"Detailed performance analysis",risk:"Position sizing",notes:"Journal & notes"};
   return(
-    <div style={{padding:isDesktop?"22px 32px 18px":"52px 20px 16px",borderBottom:"1px solid var(--line)"}}>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-        <div>
-          <div style={{fontSize:10,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase",marginBottom:4}}>{account?.name||"Journal"}</div>
-          <div style={{fontSize:isDesktop?26:22,fontWeight:800,color:"var(--t1)",letterSpacing:"-.5px",lineHeight:1}}>{TITLES[tab]||"Journal"}</div>
+    <div style={{
+      padding:isDesktop?"16px 24px":"52px 16px 14px",
+      borderBottom:"1px solid var(--line)",
+      background:"var(--surface)",
+      display:"flex",
+      alignItems:"center",
+      justifyContent:"space-between",
+      gap:12,
+      position:"sticky",
+      top:0,
+      zIndex:40,
+      backdropFilter:"blur(12px)"
+    }}>
+      {/* Left: page title */}
+      <div style={{minWidth:0}}>
+        <div style={{fontSize:isDesktop?18:16,fontWeight:800,color:"var(--t1)",letterSpacing:"-.4px",lineHeight:1}}>{TITLES[tab]||"Journal"}</div>
+        {isDesktop&&<div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>{SUBTITLES[tab]||""}</div>}
+      </div>
+
+      {/* Right: action buttons */}
+      <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
+        {/* Sync pill */}
+        <div style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:99,background:"var(--elevated)",border:"1px solid var(--line)",marginRight:2}}>
+          <div style={{width:6,height:6,borderRadius:"50%",background:syncStatus==="ok"?"var(--green)":syncStatus==="offline"?"var(--red)":"var(--amber)",flexShrink:0}}/>
+          <span style={{fontSize:10,color:"var(--t2)",fontWeight:700,letterSpacing:".04em"}}>{syncStatus==="ok"?"LIVE":syncStatus==="offline"?"OFFLINE":"SYNC"}</span>
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:7}}>
-          <div style={{display:"flex",alignItems:"center",gap:5,background:"var(--elevated)",borderRadius:99,padding:"5px 10px",border:"1px solid var(--line)"}}>
-            <div style={{width:5,height:5,borderRadius:"50%",background:syncStatus==="ok"?"var(--green)":syncStatus==="offline"?"var(--red)":"var(--amber)"}}/>
-            <span style={{fontSize:9,color:"var(--t2)",fontWeight:600,letterSpacing:".05em"}}>{syncStatus==="ok"?"LIVE":syncStatus==="offline"?"OFFLINE":"SYNC"}</span>
-          </div>
-          {!isDesktop&&account&&<button onClick={onSwitchAccount} className="tap" style={{width:30,height:30,borderRadius:"50%",background:account.color||"var(--green)",border:"none",flexShrink:0,boxShadow:`0 0 0 3px ${account.color||"var(--green)"}33`}}/>}
-          <button onClick={onBackup} className="tap" style={{width:32,height:32,borderRadius:"var(--r-md)",background:"var(--elevated)",border:"1px solid var(--line)",display:"flex",alignItems:"center",justifyContent:"center"}}><IcoUp size={14}/></button>
-          <button onClick={onToggleDark} className="tap" style={{width:32,height:32,borderRadius:"var(--r-md)",background:"var(--elevated)",border:"1px solid var(--line)",display:"flex",alignItems:"center",justifyContent:"center"}}>{darkMode?<IcoSun size={14}/>:<IcoMoon size={14}/>}</button>
-        </div>
+
+        {/* Account pill — mobile only */}
+        {!isDesktop&&account&&(
+          <button onClick={onSwitchAccount} className="tap" style={{display:"flex",alignItems:"center",gap:6,padding:"5px 10px 5px 6px",borderRadius:99,background:account.color+"18",border:`1px solid ${account.color}44`,cursor:"pointer"}}>
+            <div style={{width:18,height:18,borderRadius:"50%",background:account.color,flexShrink:0}}/>
+            <span style={{fontSize:11,fontWeight:700,color:account.color,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{account.name}</span>
+          </button>
+        )}
+
+        <button onClick={onBackup} className="tap topbar-btn">
+          <IcoUp size={13}/>{isDesktop&&"Backup"}
+        </button>
+        <button onClick={onToggleDark} className="tap topbar-btn">
+          {darkMode?<IcoSun size={13}/>:<IcoMoon size={13}/>}
+          {isDesktop&&(darkMode?"Light":"Dark")}
+        </button>
       </div>
     </div>
   );
 });
+
+/* ── Equity Curve Full Card (Dashboard) ── */
+function EquityCurveDashCard({trades,accountBalance}){
+  const pnlHidden=useContext(PnlCtx);
+  const pts=useMemo(()=>{
+    const s=[...trades].sort((a,b)=>a.date.localeCompare(b.date)||(a.time||"").localeCompare(b.time||""));
+    let bal=accountBalance;const arr=[{d:"Start",v:bal,pnl:0}];
+    s.forEach(t=>{bal+=t.pnl;arr.push({d:t.date.slice(5),v:bal,pnl:t.pnl,id:t.id})});
+    return arr;
+  },[trades,accountBalance]);
+  const[hover,setHover]=useState(null);
+  if(pts.length<2)return null;
+  const W=600,H=110;
+  const vals=pts.map(p=>p.v);
+  const mn=Math.min(...vals),mx=Math.max(...vals),rng=mx-mn||1;
+  const tx=i=>(i/(pts.length-1))*W;
+  const ty=v=>H-(((v-mn)/rng)*(H*0.78)+H*0.11);
+  const line=pts.map((p,i)=>`${i===0?"M":"L"}${tx(i).toFixed(1)},${ty(p.v).toFixed(1)}`).join(" ");
+  const area=line+` L${W},${H} L0,${H} Z`;
+  const up=vals[vals.length-1]>=vals[0];
+  const sc=up?"var(--green)":"var(--red)",hex=up?"#22C55E":"#EF4444";
+  const totalPnl=vals[vals.length-1]-vals[0];
+  // Drawdown from peak
+  let peak=vals[0],maxDd=0;vals.forEach(v=>{if(v>peak)peak=v;const dd=(peak-v)/peak*100;if(dd>maxDd)maxDd=dd;});
+  const hpt=hover!==null?pts[hover]:null;
+
+  return(
+    <div className="card" style={{padding:"16px 18px",marginBottom:14,overflow:"hidden"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
+        <div>
+          <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",marginBottom:4}}>Equity Curve</div>
+          <div style={{display:"flex",gap:14,alignItems:"center"}}>
+            <span className="mono" style={{fontSize:16,fontWeight:700,color:pnlHidden?"var(--t3)":clr(totalPnl)}}>{pnlHidden?PNL_MASK:fmt(totalPnl)}</span>
+            {maxDd>0&&<span style={{fontSize:10,color:"var(--t3)",background:"var(--red-dim)",padding:"2px 7px",borderRadius:99}}>Max DD {maxDd.toFixed(1)}%</span>}
+          </div>
+        </div>
+        {hpt&&(
+          <div style={{textAlign:"right",animation:"fadeUp .1s ease forwards"}}>
+            <div style={{fontSize:11,color:"var(--t3)"}}>{hpt.d}</div>
+            <div className="mono" style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>{pnlHidden?PNL_MASK:("$"+hpt.v.toLocaleString())}</div>
+            {hpt.pnl!==0&&<div className="mono" style={{fontSize:11,color:clr(hpt.pnl)}}>{pnlHidden?PNL_MASK:fmt(hpt.pnl)}</div>}
+          </div>
+        )}
+      </div>
+      <div style={{position:"relative",userSelect:"none"}}>
+        <svg viewBox={`0 0 ${W} ${H}`} style={{width:"100%",display:"block",overflow:"visible"}}
+          onMouseMove={e=>{const r=e.currentTarget.getBoundingClientRect();const x=(e.clientX-r.left)/r.width*W;const idx=Math.round(x/(W/(pts.length-1)));setHover(Math.max(0,Math.min(idx,pts.length-1)))}}
+          onMouseLeave={()=>setHover(null)}>
+          <defs>
+            <linearGradient id="ecfg" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={hex} stopOpacity=".22"/>
+              <stop offset="100%" stopColor={hex} stopOpacity="0"/>
+            </linearGradient>
+          </defs>
+          <path d={area} fill="url(#ecfg)"/>
+          <path d={line} fill="none" stroke={sc} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          {/* Start/end dots */}
+          <circle cx={tx(0)} cy={ty(pts[0].v)} r="3" fill="var(--t3)" stroke="var(--surface)" strokeWidth="1.5"/>
+          <circle cx={tx(pts.length-1)} cy={ty(pts[pts.length-1].v)} r="4" fill={sc} stroke="var(--surface)" strokeWidth="1.5"/>
+          {/* Hover crosshair */}
+          {hover!==null&&<>
+            <line x1={tx(hover)} y1="0" x2={tx(hover)} y2={H} stroke="var(--line-md)" strokeWidth="1" strokeDasharray="3,3"/>
+            <circle cx={tx(hover)} cy={ty(pts[hover].v)} r="4" fill={pts[hover].pnl>=0?"var(--green)":"var(--red)"} stroke="var(--surface)" strokeWidth="1.5"/>
+          </>}
+        </svg>
+      </div>
+      <div style={{display:"flex",justifyContent:"space-between",marginTop:6}}>
+        <span className="mono" style={{fontSize:9,color:"var(--t3)"}}>Start ${accountBalance.toLocaleString()}</span>
+        <span style={{fontSize:9,color:"var(--t3)"}}>{trades.length} trades</span>
+        <span className="mono" style={{fontSize:9,color:"var(--t3)"}}>${(accountBalance+totalPnl).toLocaleString()}</span>
+      </div>
+    </div>
+  );
+}
+
+/* ── Daily Kill Switch ── */
+function DailyKillSwitch({trades,accountBalance,drawdownLimit}){
+  const pnlHidden=useContext(PnlCtx);
+  const[dismissed,setDismissed]=useState(()=>{
+    try{const d=localStorage.getItem("nq-kill-dismissed");return d===today()}catch{return false}
+  });
+  const todayKey=today();
+  const todayTrades=useMemo(()=>trades.filter(t=>t.date===todayKey),[trades,todayKey]);
+  const todayPnl=todayTrades.reduce((a,t)=>a+t.pnl,0);
+  // daily loss limit — use 2% of balance by default, or configured DD limit if smaller
+  const bal=accountBalance;
+  const dailyLimit=drawdownLimit>0?Math.min(drawdownLimit*0.5,bal*0.02):bal*0.02;
+  const isBreached=todayPnl<0&&Math.abs(todayPnl)>=dailyLimit;
+  const isCaution=todayPnl<0&&Math.abs(todayPnl)>=dailyLimit*0.6&&!isBreached;
+
+  if(dismissed||todayTrades.length===0)return null;
+  if(!isBreached&&!isCaution)return null;
+
+  const handleDismiss=()=>{
+    setDismissed(true);
+    try{localStorage.setItem("nq-kill-dismissed",today())}catch{}
+  };
+
+  if(isBreached)return(
+    <div style={{position:"fixed",inset:0,zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:20,background:"rgba(0,0,0,.85)",backdropFilter:"blur(12px)"}}>
+      <div style={{width:"100%",maxWidth:420,background:"var(--surface)",borderRadius:"var(--r-xl)",border:"2px solid var(--red)",overflow:"hidden"}}>
+        <div style={{background:"var(--red)",padding:"24px 24px 20px",textAlign:"center"}}>
+          <div style={{fontSize:48,marginBottom:8}}>🛑</div>
+          <div style={{fontSize:22,fontWeight:900,color:"#fff",letterSpacing:"-.5px"}}>STOP TRADING</div>
+          <div style={{fontSize:13,color:"rgba(255,255,255,.8)",marginTop:4}}>Daily loss limit reached</div>
+        </div>
+        <div style={{padding:"20px 24px 28px",textAlign:"center"}}>
+          <div className="mono" style={{fontSize:32,fontWeight:700,color:"var(--red)",marginBottom:6}}>{pnlHidden?PNL_MASK:fmt(todayPnl)}</div>
+          <div style={{fontSize:13,color:"var(--t2)",marginBottom:6}}>Today's P&L — limit is {pnlHidden?PNL_MASK:("−$"+Math.round(dailyLimit))}</div>
+          <div style={{fontSize:12,color:"var(--t3)",marginBottom:24,lineHeight:1.7}}>You've hit your daily max loss. Step away, review your trades, and come back tomorrow with a clear head.</div>
+          <div style={{display:"flex",gap:10}}>
+            <button onClick={handleDismiss} style={{flex:1,padding:"12px",background:"var(--elevated)",border:"1px solid var(--line)",borderRadius:"var(--r-md)",color:"var(--t2)",fontSize:13,fontWeight:600,cursor:"pointer"}}>I understand, close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  return(
+    <div style={{background:"var(--amber-dim)",border:"1px solid var(--amber)44",borderRadius:"var(--r-md)",padding:"12px 14px",marginBottom:12,display:"flex",gap:10,alignItems:"flex-start"}}>
+      <span style={{fontSize:20,flexShrink:0}}>⚠️</span>
+      <div style={{flex:1}}>
+        <div style={{fontSize:12,fontWeight:700,color:"var(--amber)",marginBottom:2}}>Daily loss caution — {pnlHidden?PNL_MASK:fmt(todayPnl)} today</div>
+        <div style={{fontSize:11,color:"var(--t2)"}}>Approaching daily limit of {pnlHidden?PNL_MASK:("−$"+Math.round(dailyLimit))}. Consider pausing and reviewing your setups.</div>
+      </div>
+      <button onClick={handleDismiss} style={{background:"none",border:"none",cursor:"pointer",color:"var(--t3)",fontSize:16,padding:2,lineHeight:1,flexShrink:0}}>✕</button>
+    </div>
+  );
+}
+
+/* ── Keyboard Shortcuts Tooltip ── */
+function KbdShortcutsHint(){
+  const[show,setShow]=useState(false);
+  if(!show)return(
+    <button onClick={()=>setShow(true)} style={{position:"fixed",bottom:24,right:24,background:"var(--elevated)",border:"1px solid var(--line-md)",borderRadius:"var(--r-sm)",padding:"5px 10px",fontSize:10,fontWeight:600,color:"var(--t3)",cursor:"pointer",zIndex:50,display:"flex",alignItems:"center",gap:5}}>
+      <span style={{fontFamily:"var(--mono)",background:"var(--overlay)",padding:"1px 5px",borderRadius:3,fontSize:9}}>?</span> Shortcuts
+    </button>
+  );
+  const shortcuts=[
+    {key:"N",desc:"New trade"},
+    {key:"/",desc:"Search trades"},
+    {key:"Esc",desc:"Close modal"},
+    {key:"1",desc:"Dashboard"},
+    {key:"2",desc:"Trade Log"},
+    {key:"3",desc:"Analytics"},
+    {key:"4",desc:"Risk"},
+    {key:"5",desc:"Notes"},
+  ];
+  return(
+    <div style={{position:"fixed",bottom:24,right:24,background:"var(--surface)",border:"1px solid var(--line-md)",borderRadius:"var(--r-lg)",padding:"14px 16px",zIndex:200,minWidth:200,boxShadow:"0 8px 32px rgba(0,0,0,.3)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <span style={{fontSize:11,fontWeight:700,color:"var(--t2)"}}>Keyboard Shortcuts</span>
+        <button onClick={()=>setShow(false)} style={{background:"none",border:"none",cursor:"pointer",color:"var(--t3)",fontSize:14,lineHeight:1,padding:0}}>✕</button>
+      </div>
+      {shortcuts.map(({key,desc})=>(
+        <div key={key} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+          <span style={{fontSize:11,color:"var(--t2)"}}>{desc}</span>
+          <span style={{fontFamily:"var(--mono)",background:"var(--elevated)",border:"1px solid var(--line-md)",borderRadius:4,padding:"2px 7px",fontSize:10,color:"var(--t1)",fontWeight:700}}>{key}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /* ── MAIN APP ── */
 function App(){
@@ -1146,7 +2204,34 @@ function App(){
   const toggleDark=useCallback(()=>setDark(d=>!d),[]);
   const handleSetTab=useCallback(t=>{setTab(t);window.scrollTo({top:0,behavior:"smooth"})},[]);
 
-  const{wins,losses,totalPnl,winRate,avgRR,gainsPct,avgWin,avgLoss,sorted,curBal,profitFactor}=useMemo(()=>{
+  // Keyboard shortcuts
+  const searchRef=useRef(null);
+  useEffect(()=>{
+    const h=e=>{
+      const tag=document.activeElement?.tagName;
+      const isTyping=["INPUT","TEXTAREA","SELECT"].includes(tag);
+      if(isTyping&&e.key!=="Escape")return;
+      if(e.key==="Escape"){
+        if(tradeModal!==null){setTradeModal(null);return;}
+        if(balModal){setBalModal(false);return;}
+        if(dataModal){setDataModal(false);return;}
+        if(ddModal){setDdModal(false);return;}
+        if(accModal){setAccModal(false);return;}
+      }
+      if(isTyping)return;
+      if(e.key==="n"||e.key==="N"){e.preventDefault();setTradeModal({});return;}
+      if(e.key==="/"){e.preventDefault();handleSetTab("log");setTimeout(()=>searchRef.current?.focus(),100);return;}
+      if(e.key==="1")handleSetTab("dashboard");
+      if(e.key==="2")handleSetTab("log");
+      if(e.key==="3")handleSetTab("analytics");
+      if(e.key==="4")handleSetTab("risk");
+      if(e.key==="5")handleSetTab("notes");
+    };
+    window.addEventListener("keydown",h);
+    return()=>window.removeEventListener("keydown",h);
+  },[tradeModal,balModal,dataModal,ddModal,accModal,handleSetTab]);
+
+  const{wins,losses,totalPnl,winRate,avgRR,gainsPct,avgWin,avgLoss,sorted,curBal,profitFactor,streak}=useMemo(()=>{
     const wins=trades.filter(t=>t.pnl>0),losses=trades.filter(t=>t.pnl<0);
     const total=trades.reduce((a,t)=>a+t.pnl,0);
     const wr=trades.length?Math.round((wins.length/trades.length)*100):0;
@@ -1154,10 +2239,13 @@ function App(){
     const gp=accBal>0?((total/accBal)*100).toFixed(1):"0.0";
     const aw=wins.length?wins.reduce((a,t)=>a+t.pnl,0)/wins.length:0;
     const al=losses.length?losses.reduce((a,t)=>a+t.pnl,0)/losses.length:0;
-    const s=[...trades].sort((a,b)=>b.date.localeCompare(a.date));
+    const s=[...trades].sort((a,b)=>b.date.localeCompare(a.date)||(b.time||"").localeCompare(a.time||""));
     const tw=wins.reduce((a,t)=>a+t.pnl,0),tl=Math.abs(losses.reduce((a,t)=>a+t.pnl,0));
     const pf=tl>0?(tw/tl).toFixed(2):"∞";
-    return{wins,losses,totalPnl:total,winRate:wr,avgRR:rr,gainsPct:gp,avgWin:aw,avgLoss:al,sorted:s,curBal:accBal+total,profitFactor:pf};
+    // streak
+    let stk={count:0,type:null};
+    if(s.length){const ft=s[0].pnl>0?"win":s[0].pnl<0?"loss":null;if(ft){let c=0;for(const t of s){const ty=t.pnl>0?"win":t.pnl<0?"loss":null;if(ty===ft)c++;else break;}stk={count:c,type:ft};}}
+    return{wins,losses,totalPnl:total,winRate:wr,avgRR:rr,gainsPct:gp,avgWin:aw,avgLoss:al,sorted:s,curBal:accBal+total,profitFactor:pf,streak:stk};
   },[trades,accBal]);
 
   const plusAction=tab==="notes"?()=>setOpenNote({title:"",body:"",updatedAt:new Date().toISOString()}):tab==="risk"?null:()=>setTradeModal({});
@@ -1165,7 +2253,7 @@ function App(){
   if(loading)return(
     <BPCtx.Provider value={{isDesktop}}>
       <div style={{background:"var(--page)",minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:14}}>
-        <div style={{width:38,height:38,borderRadius:"var(--r-sm)",background:"var(--green)",display:"flex",alignItems:"center",justifyContent:"center"}}><IcoTrendUp size={19} col="#000"/></div>
+        <div style={{width:42,height:42,borderRadius:"var(--r-md)",background:"linear-gradient(135deg,var(--accent),#8B5CF6)",display:"flex",alignItems:"center",justifyContent:"center"}}><IcoTrendUp size={20} col="#fff"/></div>
         <div style={{color:"var(--t3)",fontSize:13,fontWeight:500}}>Loading journal…</div>
       </div>
     </BPCtx.Provider>
@@ -1185,11 +2273,11 @@ function App(){
         {/* FAB */}
         {plusAction&&!isDesktop&&(
           <div className="fab-w" style={{position:"fixed",bottom:82,right:"max(16px,calc(50% - 224px))",zIndex:100}}>
-            <button onClick={plusAction} className="tap" style={{width:50,height:50,borderRadius:"var(--r-md)",background:activeAcc?.color||"var(--green)",border:"none",color:"#000",fontSize:22,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,boxShadow:`0 6px 24px ${activeAcc?.color||"#00E676"}55`}}>+</button>
+            <button onClick={plusAction} className="tap" style={{width:50,height:50,borderRadius:"var(--r-md)",background:"var(--accent)",border:"none",color:"#fff",fontSize:22,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,boxShadow:`0 6px 24px var(--accent)55`}}>+</button>
           </div>
         )}
 
-        <div className="desk-pad" style={{padding:"14px 14px 0"}}>
+        <div className="desk-pad" style={{padding:"16px 16px 0"}}>
         <div>
 
           {/* ── DASHBOARD ── */}
@@ -1201,25 +2289,24 @@ function App(){
                   {/* LEFT COLUMN */}
                   <div className="desk-col-left">
                     {/* Hero */}
-                    <div className="card" style={{padding:"24px",marginBottom:16,minWidth:0,overflow:"hidden"}}>
-                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20}}>
+                    <div className="card" style={{padding:"20px",marginBottom:14,minWidth:0,overflow:"hidden"}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
                         <div style={{flex:1,minWidth:0}}>
                           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
                             <div style={{fontSize:10,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase"}}>Balance</div>
-                            <button onClick={togglePnl} className="tap" title={pnlHidden?"Show P&L":"Hide P&L"} style={{background:"none",border:"none",padding:"2px 4px",borderRadius:4,color:"var(--t3)",fontSize:13,lineHeight:1,display:"flex",alignItems:"center"}}>{pnlHidden?"👁":"👁"}<span style={{fontSize:9,marginLeft:3,fontWeight:600,letterSpacing:".04em"}}>{pnlHidden?"SHOW":"HIDE"}</span></button>
+                            <button onClick={togglePnl} className="tap" title={pnlHidden?"Show":"Hide"} style={{background:"none",border:"none",padding:"2px 4px",borderRadius:4,color:"var(--t3)",fontSize:13,lineHeight:1,display:"flex",alignItems:"center"}}>{pnlHidden?"👁":"👁"}<span style={{fontSize:9,marginLeft:3,fontWeight:600,letterSpacing:".04em"}}>{pnlHidden?"SHOW":"HIDE"}</span></button>
+                            <span style={{fontSize:10,color:"var(--t3)"}}>{trades.length} trades</span>
                           </div>
-                          <div className="mono" style={{fontSize:"clamp(28px,4vw,52px)",fontWeight:500,color:"var(--t1)",letterSpacing:"-2px",lineHeight:1}}>{fmtBal(curBal)}</div>
-                          <div style={{display:"flex",gap:12,marginTop:10,alignItems:"center"}}>
-                            <span className="mono" style={{fontSize:13,color:pnlHidden?"var(--t3)":"var(--t2)",fontWeight:500}}>{pnlHidden?PNL_MASK:fmt(totalPnl)}</span>
-                            <span className="mono" style={{fontSize:13,color:pnlHidden?"var(--t3)":"var(--t2)",fontWeight:500}}>{pnlHidden?PNL_MASK:fmtPct(parseFloat(gainsPct))}</span>
-                            <span style={{fontSize:11,color:"var(--t3)"}}>·</span>
-                            <span style={{fontSize:12,color:"var(--t3)"}}>{trades.length} trades</span>
+                          <div className="mono" style={{fontSize:"clamp(24px,3.5vw,42px)",fontWeight:700,color:"var(--t1)",letterSpacing:"-1.5px",lineHeight:1}}>{pnlHidden?PNL_MASK:fmtBal(curBal)}</div>
+                          <div style={{display:"flex",gap:10,marginTop:8,alignItems:"center"}}>
+                            <span className="mono" style={{fontSize:12,color:pnlHidden?"var(--t3)":clr(totalPnl),fontWeight:600}}>{pnlHidden?PNL_MASK:fmt(totalPnl)}</span>
+                            <span className="mono" style={{fontSize:12,color:"var(--t3)",fontWeight:500}}>{pnlHidden?PNL_MASK:fmtPct(parseFloat(gainsPct))}</span>
                           </div>
                         </div>
-                        <div style={{width:120,flexShrink:0,marginLeft:16,overflow:"hidden"}}><EquityCurve trades={trades} accountBalance={accBal}/></div>
+                        <div style={{width:140,flexShrink:0,marginLeft:16,overflow:"hidden"}}><EquityCurve trades={trades} accountBalance={accBal}/></div>
                       </div>
                       {accounts.length>1&&(
-                        <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:2,marginBottom:16}}>
+                        <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:2,marginBottom:14}}>
                           {accounts.map(acc=>{const ap=allTrades[acc.id]||[],apnl=ap.reduce((a,t)=>a+t.pnl,0),ia=acc.id===activeId;return(
                             <button key={acc.id} onClick={()=>handleSwitch(acc.id)} className="tap" style={{display:"flex",alignItems:"center",gap:5,padding:"5px 11px 5px 6px",borderRadius:99,border:`1px solid ${ia?acc.color+"55":"var(--line)"}`,background:ia?acc.color+"15":"transparent",flexShrink:0,whiteSpace:"nowrap"}}>
                               <div style={{width:12,height:12,borderRadius:"50%",background:acc.color,flexShrink:0}}/>
@@ -1230,38 +2317,45 @@ function App(){
                         </div>
                       )}
                       <div style={{display:"flex",gap:8}}>
-                        {[{l:"Set Balance",a:()=>setBalModal(true),col:"var(--green)"},{l:"Drawdown Settings",a:()=>setDdModal(true),col:"var(--red)"},{l:"+ Log Trade",a:()=>setTradeModal({}),primary:true}].map((x,i)=>(
-                          <button key={i} onClick={x.a} className="tap" style={{flex:1,padding:"10px 8px",background:x.primary?"var(--green)":"var(--elevated)",border:`1px solid ${x.primary?"transparent":"var(--line)"}`,borderRadius:"var(--r-md)",cursor:"pointer",fontSize:12,color:x.primary?"#000":x.col,fontWeight:700}}>{x.l}</button>
+                        {[{l:"Set Balance",a:()=>setBalModal(true),col:"var(--green)"},{l:"Drawdown",a:()=>setDdModal(true),col:"var(--red)"},{l:"+ Log Trade",a:()=>setTradeModal({}),primary:true}].map((x,i)=>(
+                          <button key={i} onClick={x.a} className="tap" style={{flex:1,padding:"9px 8px",background:x.primary?"var(--accent)":"var(--elevated)",border:`1px solid ${x.primary?"transparent":"var(--line)"}`,borderRadius:"var(--r-md)",cursor:"pointer",fontSize:12,color:x.primary?"#fff":x.col,fontWeight:700}}>{x.l}</button>
                         ))}
                       </div>
                     </div>
 
-                    {/* Stats row — 5 across */}
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:16}}>
+                    {/* Stats row — 6 across */}
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:8,marginBottom:14}}>
                       <StatCard label="Win Rate" value={`${winRate}%`} sub={`${wins.length}W · ${losses.length}L`} col={winRate>=50?"var(--green)":"var(--red)"}/>
                       <StatCard label="Avg R:R" value={`${avgRR}R`} sub={`${trades.length} trades`}/>
                       <StatCard label="Avg Win" value={avgWin?`$${Math.round(avgWin)}`:"—"} col="var(--green)"/>
                       <StatCard label="Avg Loss" value={avgLoss?`$${Math.abs(Math.round(avgLoss))}`:"—"} col="var(--red)"/>
                       <StatCard label="Prof. Factor" value={profitFactor} col={profitFactor==="∞"||parseFloat(profitFactor)>=1.5?"var(--green)":parseFloat(profitFactor)<1?"var(--red)":"var(--amber)"}/>
+                      <StatCard label="Streak" value={streak.count?`${streak.count}×`:"—"} sub={streak.type||""} col={streak.type==="win"?"var(--green)":streak.type==="loss"?"var(--red)":"var(--t2)"}/>
                     </div>
 
                     <AlertBanner sorted={sorted}/>
 
-                    {/* Recent trades — full list on desktop */}
+                    {/* Equity Curve full card */}
+                    <EquityCurveDashCard trades={trades} accountBalance={accBal}/>
+
+                    {/* Tradezella-style dashboard calendar */}
+                    <DashboardCalendar trades={trades} onLogTrade={()=>setTradeModal({})}/>
+
+                    {/* Recent trades below calendar */}
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                       <div className="sec" style={{marginBottom:0}}>Recent Trades</div>
-                      {sorted.length>10&&<button onClick={()=>handleSetTab("log")} className="tap" style={{fontSize:12,color:"var(--green)",fontWeight:600,background:"none",border:"none"}}>View all →</button>}
+                      {sorted.length>10&&<button onClick={()=>handleSetTab("log")} className="tap" style={{fontSize:12,color:"var(--accent)",fontWeight:600,background:"none",border:"none"}}>View all →</button>}
                     </div>
                     {sorted.length===0?(
-                      <div className="card" style={{padding:"56px 20px",textAlign:"center"}}>
+                      <div className="card" style={{padding:"56px 20px",textAlign:"center",marginBottom:16}}>
                         <IcoTrendUp size={36} col="var(--t3)"/>
                         <div style={{fontSize:15,fontWeight:700,color:"var(--t2)",margin:"14px 0 6px"}}>No trades yet</div>
                         <div style={{fontSize:13,color:"var(--t3)"}}>Use + Log Trade above to get started</div>
                       </div>
                     ):(
-                      <div className="card" style={{padding:"0 18px"}}>
+                      <div className="card" style={{padding:"0 18px",marginBottom:16}}>
                         {sorted.slice(0,12).map((t,i)=><TradeRow key={t.id} trade={t} onPress={()=>setTradeModal(t)} isLast={i===Math.min(sorted.length,12)-1}/>)}
-                        {sorted.length>12&&<div onClick={()=>handleSetTab("log")} style={{textAlign:"center",padding:"14px 0",borderTop:"1px solid var(--line)",color:"var(--green)",fontSize:13,fontWeight:600,cursor:"pointer"}}>View all {sorted.length} trades →</div>}
+                        {sorted.length>12&&<div onClick={()=>handleSetTab("log")} style={{textAlign:"center",padding:"14px 0",borderTop:"1px solid var(--line)",color:"var(--accent)",fontSize:13,fontWeight:600,cursor:"pointer"}}>View all {sorted.length} trades →</div>}
                       </div>
                     )}
                   </div>
@@ -1270,20 +2364,6 @@ function App(){
                   <div className="desk-col-right">
                     <DrawdownCard trades={trades} accountBalance={accBal} drawdownLimit={ddLim} totalPnl={totalPnl} consistencyLimit={clLim}/>
                     <BreakdownCard trades={trades}/>
-                    {/* Mini risk panel */}
-                    <div className="card" style={{padding:"18px",marginBottom:12}}>
-                      <div className="sec">Quick Risk</div>
-                      <div className="mono" style={{fontSize:28,fontWeight:500,color:"var(--t1)",letterSpacing:"-1px",marginBottom:4}}>{fmtBal(curBal)}</div>
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginTop:12}}>
-                        {["0.5","1","2"].map(p=>{const loss=curBal*(parseFloat(p)/100);return(
-                          <div key={p} className="elev" style={{padding:"10px 8px",textAlign:"center",borderRadius:"var(--r-md)"}}>
-                            <div style={{fontSize:10,color:"var(--t3)",fontWeight:600,marginBottom:4}}>{p}% risk</div>
-                            <div className="mono" style={{fontSize:13,fontWeight:500,color:"var(--amber)"}}>${Math.round(loss).toLocaleString()}</div>
-                          </div>
-                        );})}
-                      </div>
-                      <button onClick={()=>handleSetTab("risk")} className="tap" style={{width:"100%",marginTop:12,padding:"10px",background:"var(--amber-dim)",border:"none",borderRadius:"var(--r-md)",color:"var(--amber)",fontSize:12,fontWeight:700}}>Open Risk Calculator →</button>
-                    </div>
                   </div>
                 </div>
               ):(
@@ -1319,8 +2399,8 @@ function App(){
                       </div>
                     )}
                     <div style={{display:"flex",gap:6}}>
-                      {[{l:"Balance",a:()=>setBalModal(true)},{l:"Drawdown",a:()=>setDdModal(true),col:"var(--red)",bg:"var(--red-dim)"}].map((x,i)=>(
-                        <button key={i} onClick={x.a} className="tap" style={{flex:1,padding:"9px 6px",background:x.bg||"var(--green-dim)",border:"none",borderRadius:"var(--r-sm)",cursor:"pointer",fontSize:10,color:x.col||"var(--green)",fontWeight:700}}>{x.l}</button>
+                      {[{l:"Balance",a:()=>setBalModal(true),col:"var(--green)",bg:"var(--green-dim)"},{l:"Drawdown",a:()=>setDdModal(true),col:"var(--red)",bg:"var(--red-dim)"}].map((x,i)=>(
+                        <button key={i} onClick={x.a} className="tap" style={{flex:1,padding:"9px 6px",background:x.bg,border:`1px solid ${x.col}22`,borderRadius:"var(--r-sm)",cursor:"pointer",fontSize:10,color:x.col,fontWeight:700}}>{x.l}</button>
                       ))}
                     </div>
                   </div>
@@ -1329,17 +2409,19 @@ function App(){
                     <StatCard label="Win Rate" value={`${winRate}%`} sub={`${wins.length}W · ${losses.length}L`} col={winRate>=50?"var(--green)":"var(--red)"}/>
                     <StatCard label="Avg R:R" value={`${avgRR}R`} sub={`${trades.length} trades`}/>
                   </div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:14}}>
                     <StatCard label="Avg Win" value={avgWin?`$${Math.round(avgWin)}`:"—"} col="var(--green)"/>
                     <StatCard label="Avg Loss" value={avgLoss?`$${Math.abs(Math.round(avgLoss))}`:"—"} col="var(--red)"/>
                     <StatCard label="Prof. Factor" value={profitFactor} col={profitFactor==="∞"||parseFloat(profitFactor)>=1.5?"var(--green)":parseFloat(profitFactor)<1?"var(--red)":"var(--amber)"}/>
+                    <StatCard label="Streak" value={streak.count?`${streak.count}×`:"—"} sub={streak.type||""} col={streak.type==="win"?"var(--green)":streak.type==="loss"?"var(--red)":"var(--t2)"}/>
                   </div>
                   <AlertBanner sorted={sorted}/>
+                  <EquityCurveDashCard trades={trades} accountBalance={accBal}/>
                   <DrawdownCard trades={trades} accountBalance={accBal} drawdownLimit={ddLim} totalPnl={totalPnl} consistencyLimit={clLim}/>
                   <BreakdownCard trades={trades}/>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
                     <div className="sec" style={{marginBottom:0}}>Recent</div>
-                    {sorted.length>6&&<button onClick={()=>handleSetTab("log")} className="tap" style={{fontSize:12,color:"var(--green)",fontWeight:600,background:"none",border:"none"}}>View all →</button>}
+                    {sorted.length>6&&<button onClick={()=>handleSetTab("log")} className="tap" style={{fontSize:12,color:"var(--accent)",fontWeight:600,background:"none",border:"none"}}>View all →</button>}
                   </div>
                   {sorted.length===0?(
                     <div className="card" style={{padding:"44px 20px",textAlign:"center"}}>
@@ -1357,8 +2439,8 @@ function App(){
             </div>
           )}
 
-          {tab==="log"&&<div className="tab-content" style={{maxWidth:isDesktop?900:"none"}}><TradeLogView trades={sorted} onPress={t=>setTradeModal(t)} accountName={activeAcc?.name}/></div>}
-          {tab==="calendar"&&<div className="tab-content" style={{maxWidth:isDesktop?820:"none",margin:isDesktop?"0 auto":"unset"}}><CalendarView trades={trades}/></div>}
+          {tab==="log"&&<div className="tab-content" style={{maxWidth:isDesktop?900:"none"}}><TradeLogView trades={sorted} onPress={t=>setTradeModal(t)} accountName={activeAcc?.name} searchRef={searchRef}/></div>}
+          {tab==="analytics"&&<div className="tab-content" style={{maxWidth:isDesktop?900:"none",margin:isDesktop?"0 auto":"unset"}}><AnalyticsView trades={trades} accountBalance={accBal}/></div>}
 
           {tab==="notes"&&(
             <div className="tab-content">
@@ -1394,19 +2476,25 @@ function App(){
         </div>
         </div>
 
-        {/* ── Bottom Nav — icon only when inactive ── */}
-        <div className="bot-nav" style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"var(--surface)",borderTop:"1px solid var(--line)",display:"flex",padding:"8px 0 20px"}}>
-          {[{id:"dashboard",l:"Home",I:IcoHome},{id:"log",l:"Log",I:IcoLog},{id:"calendar",l:"Cal",I:IcoCal},{id:"risk",l:"Risk",I:IcoShield},{id:"notes",l:"Notes",I:IcoNote}].map(({id,l,I})=>{
+        {/* ── Bottom Nav ── */}
+        <div className="bot-nav" style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"var(--surface)",borderTop:"1px solid var(--line)",display:"flex",padding:"8px 6px 22px",gap:2}}>
+          {[{id:"dashboard",l:"Home",I:IcoHome},{id:"log",l:"Log",I:IcoLog},{id:"analytics",l:"Stats",I:IcoChart},{id:"risk",l:"Risk",I:IcoShield},{id:"notes",l:"Notes",I:IcoNote}].map(({id,l,I})=>{
             const a=tab===id;
             return(
-              <button key={id} onClick={()=>handleSetTab(id)} className="tap" style={{flex:1,background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"4px 0"}}>
-                <div style={{width:34,height:28,borderRadius:"var(--r-sm)",background:a?"var(--elevated)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"background .12s"}}>
-                  <I size={18} col={a?"var(--t1)":"var(--t3)"}/>
+              <button key={id} onClick={()=>handleSetTab(id)} className="tap" style={{flex:1,background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"5px 0",borderRadius:"var(--r-md)"}}>
+                <div style={{width:36,height:30,borderRadius:"var(--r-md)",background:a?"var(--accent-dim)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"background .12s"}}>
+                  <I size={17} col={a?"var(--accent)":"var(--t3)"}/>
                 </div>
-                {a&&<span style={{fontSize:10,fontWeight:600,color:"var(--t1)",letterSpacing:".02em"}}>{l}</span>}
+                <span style={{fontSize:9,fontWeight:700,color:a?"var(--accent)":"var(--t3)",letterSpacing:".02em"}}>{l}</span>
               </button>
             );
           })}
+          <button onClick={toggleDark} className="tap" style={{flex:1,background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"5px 0",borderRadius:"var(--r-md)"}}>
+            <div style={{width:36,height:30,borderRadius:"var(--r-md)",background:"transparent",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              {dark?<IcoSun size={17} col="var(--t3)"/>:<IcoMoon size={17} col="var(--t3)"/>}
+            </div>
+            <span style={{fontSize:9,fontWeight:700,color:"var(--t3)",letterSpacing:".02em"}}>{dark?"Light":"Dark"}</span>
+          </button>
         </div>
 
         {/* ── Modals ── */}
@@ -1415,6 +2503,10 @@ function App(){
         {dataModal&&<DataModal trades={trades} notes={notes} account={activeAcc} onImport={handleImport} onClearAll={handleClear} onClose={()=>setDataModal(false)}/>}
         {ddModal&&<DDModal drawdownLimit={ddLim} consistencyLimit={clLim} totalPnl={totalPnl} onSave={handleSaveDD} onClose={()=>setDdModal(false)}/>}
         {accModal&&<AccModal accounts={accounts} activeId={activeId} onSwitch={handleSwitch} onAdd={handleAddAcc} onEdit={handleEditAcc} onDelete={handleDelAcc} onClose={()=>setAccModal(false)}/>}
+        {/* Daily Kill Switch */}
+        <DailyKillSwitch trades={trades} accountBalance={accBal} drawdownLimit={ddLim}/>
+        {/* Keyboard shortcuts hint — desktop only */}
+        {isDesktop&&<KbdShortcutsHint/>}
       </div>
     </div>
     </ToastProvider>
