@@ -6,7 +6,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="theme-color" content="#0D0D0D"/>
-  <title>Trading Journal</title>
+  <title>Trade Journal</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -66,6 +66,9 @@
     input[type=number]::-webkit-inner-spin-button,
     input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none}
     input[type=date]::-webkit-calendar-picker-indicator{opacity:.4;filter:invert(1)}
+    input[type=time]{-webkit-datetime-edit-ampm-field{display:none!important};appearance:none}
+    input[type=time]::-webkit-datetime-edit-ampm-field{display:none!important}
+    input[type=time]::-webkit-clear-button{display:none}
     [data-theme="light"] input[type=date]::-webkit-calendar-picker-indicator{filter:none;opacity:.5}
     ::-webkit-scrollbar{width:4px}
     ::-webkit-scrollbar-track{background:transparent}
@@ -77,6 +80,7 @@
     @keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
     @keyframes toastIn{from{opacity:0;transform:translateY(8px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
     @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+    @keyframes marquee{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
 
     .tab-content{animation:fadeUp .15s ease forwards}
     .skeleton{background:linear-gradient(90deg,var(--elevated) 25%,var(--overlay) 50%,var(--elevated) 75%);background-size:600px 100%;animation:shimmer 1.3s infinite;border-radius:var(--r-md)}
@@ -163,6 +167,36 @@ function useWidth(){
 const SB_URL="https://ravlncpwpxdzwagojblh.supabase.co";
 const SB_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJhdmxuY3B3cHhkendhZ29qYmxoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4MTU3MDIsImV4cCI6MjA5MzM5MTcwMn0.n68uMBfS8iSC3ViYzkMKvZFKJrGfafyGtiIL8v82h2w";
 const SBH={"Content-Type":"application/json","apikey":SB_KEY,"Authorization":`Bearer ${SB_KEY}`};
+const SB_BUCKET="trade-journal"; // Supabase Storage bucket name
+
+/* ── Upload image to Supabase Storage, returns public URL ── */
+async function uploadScreenshot(base64DataUrl, tradeId, idx){
+  try{
+    // Convert base64 to blob
+    const res=await fetch(base64DataUrl);
+    const blob=await res.blob();
+    const ext="jpg";
+    const path=`screenshots/${tradeId}_${idx}_${Date.now()}.${ext}`;
+    const r=await fetch(`${SB_URL}/storage/v1/object/${SB_BUCKET}/${path}`,{
+      method:"POST",
+      headers:{"apikey":SB_KEY,"Authorization":`Bearer ${SB_KEY}`,"Content-Type":"image/jpeg","x-upsert":"true"},
+      body:blob
+    });
+    if(!r.ok){const e=await r.text();console.warn("Upload failed:",e);return null;}
+    return `${SB_URL}/storage/v1/object/public/${SB_BUCKET}/${path}`;
+  }catch(e){console.warn("uploadScreenshot error:",e);return null;}
+}
+
+/* ── Migrate: upload any base64 images in a trade, return trade with URLs ── */
+async function migrateTradeImages(trade){
+  if(!trade.images?.length)return trade;
+  const migrated=await Promise.all(trade.images.map(async(img,i)=>{
+    if(img.startsWith("http"))return img; // already a URL
+    const url=await uploadScreenshot(img,trade.id,i);
+    return url||img; // fallback to base64 if upload fails
+  }));
+  return{...trade,images:migrated};
+}
 const AK="nq-journal-accounts",AAK="nq-journal-active-account",TPK="nq-journal-trades-",NK="nq-journal-notes";
 const _st={};
 function saveData(key,data){
@@ -179,7 +213,7 @@ async function loadData(key,fb){
 
 /* ── Constants ── */
 const STRATS=["ICT / SMC","VWAP Fade","Opening Range","Trend Follow","Mean Revert","News Play","Scalp","Breakout","Other"];
-const TAGS=["A+ Setup","B Setup","C Setup","FOMO","Revenge","Overtraded","Early Exit","Late Entry","Patient","Tilted","News Driven","Breakeven"];
+const TAGS=["FOMO","Revenge","Overtraded","Early Exit","Late Entry","Patient","Tilted","News Driven","Breakeven"];
 const SESSIONS=["NY","London","Asia","Other"];
 const SCOL={NY:"#4D9FFF",London:"#A78BFA",Asia:"#FB923C",Other:"#666"};
 const INSTRS=["MNQ","NQ","ES","MES","XAUUSD","Other"];
@@ -189,6 +223,13 @@ const DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 const DEF_BAL=10000;
 const ACOLS=["#00E676","#4D9FFF","#A78BFA","#FB923C","#22D3EE","#F472B6","#86EFAC","#FFB830"];
 const DEF_ACC={id:"acc_default",name:"Main Account",color:ACOLS[0],balance:DEF_BAL,drawdownLimit:0,consistencyLimit:0};
+const INSTR_KEY="nq-custom-instruments";
+const DEF_INSTRS=["MNQ","NQ","ES","MES","XAUUSD","Other"];
+const InstrCtx=createContext({instrs:DEF_INSTRS,icol:{}});
+const useInstrs=()=>useContext(InstrCtx);
+const CHECKLIST_KEY="nq-trade-checklist";
+const DEF_CHECKLIST=["Sweep likuiditas + delivery dari FVG?","Momentum kuat tanpa chop saat tembus iFVG?","Target jelas (EQH/EQL/ITH/ITL/Data High/Low/LRLR)?","FVG tunggal (atau kombinasi dihitung satu area)?","Entry di area Premium/Discount yang tepat?","Risk ≤ 1% of account?","Tidak ada high-impact news dalam 15 menit?"];
+const FUNDED_TARGET_KEY="nq-funded-target";
 
 /* ── Helpers ── */
 const fmt=n=>{const a=Math.abs(n).toLocaleString("en-US",{maximumFractionDigits:0});return(n>=0?"+":"−")+"$"+a};
@@ -207,6 +248,94 @@ function fmtNoteDate(iso){
 }
 function calDays(y,m){const f=new Date(y,m,1).getDay(),t=new Date(y,m+1,0).getDate(),c=[];for(let i=0;i<f;i++)c.push(null);for(let d=1;d<=t;d++)c.push(d);return c}
 function newId(){return"acc_"+Date.now()+"_"+Math.random().toString(36).slice(2,7)}
+
+/* ── Trade Grade helper ── */
+// Computes A+/A/B/C/F based on checklist, R:R, and tags
+function calcTradeGrade(trade){
+  const {checklist={},rr=0,tags=[]} = trade;
+  const rules = (() => {try{const v=localStorage.getItem(CHECKLIST_KEY);return v?JSON.parse(v):DEF_CHECKLIST}catch{return DEF_CHECKLIST}})();
+  const checkPct = rules.length ? Math.round(rules.filter(r=>checklist[r]).length/rules.length*100) : 0;
+  const hasBadTag = ["FOMO","Revenge","Overtraded","Tilted"].some(t=>tags.includes(t));
+  const rrNum = parseFloat(rr)||0;
+  if(hasBadTag) return {grade:"C",color:"var(--red)",bg:"var(--red-dim)"};
+  if(checkPct===100 && rrNum>=2) return {grade:"A+",color:"#22C55E",bg:"rgba(34,197,94,0.15)"};
+  if(checkPct>=80 && rrNum>=1.5) return {grade:"A",color:"var(--green)",bg:"var(--green-dim)"};
+  if(checkPct>=60 && rrNum>=1) return {grade:"B",color:"var(--amber)",bg:"var(--amber-dim)"};
+  return {grade:"C",color:"var(--red)",bg:"var(--red-dim)"};
+}
+
+/* ── Funded Target Tracker ── */
+function FundedTargetTracker({trades,accountBalance}){
+  const pnlHidden=useContext(PnlCtx);
+  const FT_KEY=FUNDED_TARGET_KEY;
+  const[target,setTarget]=useState(()=>{try{const v=localStorage.getItem(FT_KEY);return v?JSON.parse(v):{amount:2500,label:"FundedNext Flex",startBalance:accountBalance,startDate:"2000-01-01"}}catch{return{amount:2500,label:"FundedNext Flex",startBalance:accountBalance,startDate:"2000-01-01"}}});
+  const[editing,setEditing]=useState(false);
+  const[editAmt,setEditAmt]=useState(String(target.amount));
+  const[editLabel,setEditLabel]=useState(target.label);
+
+  useEffect(()=>{loadData(FT_KEY,null).then(d=>{if(d){setTarget(d);setEditAmt(String(d.amount));setEditLabel(d.label)}});},[]);
+  const save=t=>{try{localStorage.setItem(FT_KEY,JSON.stringify(t))}catch{};saveData(FT_KEY,t)};
+
+  // P&L since start date
+  const startDate = target.startDate||"2000-01-01";
+  const currentPnl=useMemo(()=>trades.filter(t=>t.date>=startDate).reduce((a,t)=>a+t.pnl,0),[trades,startDate]);
+  const pct=Math.min(100,Math.max(0,Math.round((currentPnl/target.amount)*100)));
+  const remaining=Math.max(0,target.amount-currentPnl);
+  const isHit=currentPnl>=target.amount;
+
+  const handleSave=()=>{
+    const amt=parseFloat(editAmt)||2500;
+    const t={...target,amount:amt,label:editLabel||"FundedNext Flex"};
+    setTarget(t);save(t);setEditing(false);
+  };
+  const handleReset=()=>{
+    const t={...target,startDate:"2000-01-01",startBalance:accountBalance};
+    setTarget(t);save(t);
+  };
+
+  const barColor=isHit?"var(--green)":pct>=70?"var(--green)":pct>=40?"var(--amber)":"var(--blue)";
+
+  return(
+    <div className="card" style={{padding:"16px",marginBottom:12,border:isHit?"1px solid var(--green)44":"1px solid var(--line)",background:isHit?"var(--green-dim)":"var(--surface)"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+        <div>
+          <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:3}}>
+            <span style={{fontSize:12,fontWeight:800,color:isHit?"var(--green)":"var(--t1)"}}>{target.label}</span>
+            {isHit&&<span style={{fontSize:10,fontWeight:700,color:"var(--green)",background:"var(--green-dim)",padding:"2px 8px",borderRadius:99,border:"1px solid var(--green)44"}}>🎯 TARGET HIT!</span>}
+          </div>
+          <div style={{fontSize:10,color:"var(--t3)"}}>Since {target.startDate==="2000-01-01"?"all time":target.startDate||"—"}</div>
+        </div>
+        <div style={{display:"flex",gap:5}}>
+          <button onClick={handleReset} className="tap" style={{background:"var(--elevated)",border:"1px solid var(--line-md)",borderRadius:"var(--r-sm)",padding:"5px 9px",fontSize:10,color:"var(--t3)",fontWeight:600,cursor:"pointer"}}>Reset</button>
+          <button onClick={()=>setEditing(v=>!v)} className="tap" style={{background:"var(--elevated)",border:"1px solid var(--line-md)",borderRadius:"var(--r-sm)",padding:"5px 9px",fontSize:10,color:"var(--accent)",fontWeight:600,cursor:"pointer"}}>{editing?"Cancel":"Edit"}</button>
+        </div>
+      </div>
+
+      {editing&&(
+        <div style={{display:"flex",gap:7,marginBottom:12,flexWrap:"wrap"}}>
+          <input className="inp" placeholder="Label" value={editLabel} onChange={e=>setEditLabel(e.target.value)} style={{flex:2,minWidth:120,padding:"7px 10px",fontSize:12}}/>
+          <input className="inp mono" type="number" placeholder="Target $" value={editAmt} onChange={e=>setEditAmt(e.target.value)} style={{flex:1,minWidth:80,padding:"7px 10px",fontSize:12}}/>
+          <button onClick={handleSave} className="tap" style={{background:"var(--accent)",border:"none",borderRadius:"var(--r-sm)",padding:"7px 14px",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>Save</button>
+        </div>
+      )}
+
+      {/* Progress bar */}
+      <div style={{background:"var(--elevated)",borderRadius:99,height:10,overflow:"hidden",marginBottom:8}}>
+        <div style={{height:"100%",width:`${pct}%`,background:barColor,borderRadius:99,transition:"width .4s ease"}}/>
+      </div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div>
+          <span className="mono" style={{fontSize:18,fontWeight:700,color:pnlHidden?"var(--t3)":isHit?"var(--green)":clr(currentPnl)}}>{pnlHidden?"••••••":fmt(currentPnl)}</span>
+          <span style={{fontSize:11,color:"var(--t3)",marginLeft:5}}>/ ${target.amount.toLocaleString()}</span>
+        </div>
+        <div style={{textAlign:"right"}}>
+          <div className="mono" style={{fontSize:14,fontWeight:700,color:barColor}}>{pct}%</div>
+          {!isHit&&<div style={{fontSize:10,color:"var(--t3)"}}>{pnlHidden?"••••":("$"+Math.round(remaining).toLocaleString())} remaining</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /* ── Toast ── */
 function ToastProvider({children}){
@@ -248,6 +377,8 @@ const IcoHome=Ico(<><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><pol
 const IcoLog=Ico(<><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></>);
 const IcoCal=Ico(<><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>);
 const IcoShield=Ico(<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>);
+const IcoWallet=Ico(<><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 14a1 1 0 000 2 1 1 0 000-2z" fill="currentColor" stroke="none"/><path d="M22 11V7a2 2 0 00-2-2H4a2 2 0 00-2 2v4"/></>);
+const IcoNews=Ico(<><path d="M4 22h16a2 2 0 002-2V4a2 2 0 00-2-2H8a2 2 0 00-2 2v16a2 2 0 01-2 2zm0 0a2 2 0 01-2-2v-9c0-1.1.9-2 2-2h2"/><line x1="18" y1="14" x2="10" y2="14"/><line x1="15" y1="18" x2="10" y2="18"/><rect x="10" y="6" width="8" height="4"/></>);
 const IcoNote=Ico(<><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></>);
 const IcoPlus=Ico(<><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>);
 const IcoUp=Ico(<><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></>);
@@ -261,6 +392,7 @@ const IcoChL=Ico(<polyline points="15 18 9 12 15 6"/>);
 const IcoChR=Ico(<polyline points="9 18 15 12 9 6"/>);
 const IcoUser=Ico(<><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></>);
 const IcoTrash=Ico(<><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></>);
+const IcoGear=Ico(<><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></>);
 const IcoWarn=Ico(<><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></>);
 const IcoChart=Ico(<><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></>);
 
@@ -281,6 +413,7 @@ const TradeRow=React.memo(function TradeRow({trade,onPress,isLast}){
   const pnlHidden=useContext(PnlCtx);
   const win=trade.pnl>0,loss=trade.pnl<0;
   const cts=trade.contracts||1;
+  const grade=trade.checklist?calcTradeGrade(trade):null;
   return(
     <div onClick={onPress} className="tap" style={{display:"flex",alignItems:"center",gap:12,padding:"13px 0",borderBottom:isLast?"none":"1px solid var(--line)",cursor:"pointer"}}>
       <div style={{width:3,height:34,borderRadius:99,background:win?"var(--green)":loss?"var(--red)":"var(--t3)",flexShrink:0}}/>
@@ -291,14 +424,15 @@ const TradeRow=React.memo(function TradeRow({trade,onPress,isLast}){
             {trade.direction&&<span className="pill" style={{background:trade.direction==="long"?"var(--green-dim)":"var(--red-dim)",color:trade.direction==="long"?"var(--green)":"var(--red)"}}>{trade.direction==="long"?"▲ L":"▼ S"}</span>}
             {trade.session&&<span className="pill" style={{background:SCOL[trade.session]+"22",color:SCOL[trade.session]}}>{trade.session}</span>}
             {trade.instrument&&<span className="pill" style={{background:(ICOL[trade.instrument]||"#666")+"22",color:ICOL[trade.instrument]||"var(--t2)"}}>{trade.instrument}{cts>1?` ×${cts}`:""}</span>}
+            {grade&&<span style={{fontSize:11,fontWeight:800,color:grade.color,background:grade.bg,padding:"2px 7px",borderRadius:99,border:`1px solid ${grade.color}44`}}>{grade.grade}</span>}
           </div>
           <span className="mono" style={{fontSize:15,fontWeight:500,color:pnlHidden?"var(--t3)":"var(--t2)",flexShrink:0,marginLeft:8}}>{pnlHidden?PNL_MASK:fmt(trade.pnl)}</span>
         </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
             <span style={{fontSize:11,color:"var(--t2)"}}>{trade.strategy}</span>
-            {(trade.tags||[]).filter(t=>["A+ Setup","FOMO","Revenge","Patient","Tilted"].includes(t)).slice(0,2).map(tag=>{
-              const bad=["FOMO","Revenge","Tilted"].includes(tag),good=["A+ Setup","Patient"].includes(tag);
+            {(trade.tags||[]).filter(t=>["FOMO","Revenge","Patient","Tilted"].includes(t)).slice(0,2).map(tag=>{
+              const bad=["FOMO","Revenge","Tilted"].includes(tag),good=["Patient"].includes(tag);
               return<span key={tag} className="pill" style={{background:bad?"var(--red-dim)":good?"var(--green-dim)":"var(--elevated)",color:bad?"var(--red)":good?"var(--green)":"var(--t2)"}}>{tag}</span>;
             })}
             {trade.images?.length>0&&<span style={{fontSize:10,color:"var(--t3)",display:"flex",alignItems:"center",gap:2}}><IcoImg size={10} col="var(--t3)"/> {trade.images.length}</span>}
@@ -427,17 +561,6 @@ const DrawdownCard=React.memo(function DrawdownCard({trades,accountBalance,drawd
           <div style={{height:"100%",width:`${Math.min(used,100)}%`,background:safe?"var(--green)":warn?"var(--amber)":"var(--red)",borderRadius:99,transition:"width .3s"}}/>
         </div>
       </div>}
-      {ddLim>0&&(
-        <div style={{marginBottom:14}}>
-          <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
-            <span style={{fontSize:11,color:"var(--t2)"}}>DD Used</span>
-            <span className="mono" style={{fontSize:11,fontWeight:500,color:safe?"var(--green)":warn?"var(--amber)":"var(--red)"}}>{used.toFixed(1)}%</span>
-          </div>
-          <div style={{height:4,background:"var(--elevated)",borderRadius:99,overflow:"hidden"}}>
-            <div style={{height:"100%",width:`${used}%`,background:safe?"var(--green)":warn?"var(--amber)":"var(--red)",borderRadius:99,transition:"width .3s"}}/>
-          </div>
-        </div>
-      )}
       {cPts.length>2&&ddLim>0&&(
         <div style={{marginBottom:14}}>
           <div style={{display:"flex",gap:16,marginBottom:6}}>
@@ -825,6 +948,8 @@ function CalendarView({trades}){
 
 /* ── Trade Log View ── */
 const TradeLogView=React.memo(function TradeLogView({trades,onPress,accountName,searchRef}){
+  const{instrs}=useInstrs();
+  const[logTab,setLogTab]=useState("trades"); // trades | screenshots
   const[fTag,setFTag]=useState(""),fSess=useState(""),fRes=useState(""),fInstr=useState(""),fStrat=useState("");
   const[filterSess,setFilterSess]=fSess;
   const[filterResult,setFilterResult]=fRes;
@@ -861,6 +986,14 @@ const TradeLogView=React.memo(function TradeLogView({trades,onPress,accountName,
 
   return(
     <>
+      {/* Tab switcher: Trades | Screenshots */}
+      <div style={{display:"flex",gap:4,marginBottom:12,background:"var(--surface)",borderRadius:"var(--r-md)",padding:4,border:"1px solid var(--line)"}}>
+        {[{id:"trades",l:"📋 Trades"},{id:"screenshots",l:"📸 Screenshots"}].map(s=>(
+          <button key={s.id} onClick={()=>setLogTab(s.id)} className="tap" style={{flex:1,padding:"7px 6px",borderRadius:"var(--r-sm)",border:"none",background:logTab===s.id?"var(--elevated)":"transparent",color:logTab===s.id?"var(--t1)":"var(--t3)",fontSize:12,fontWeight:600}}>{s.l}</button>
+        ))}
+      </div>
+      {logTab==="screenshots"&&<TradeReviewView trades={trades}/>}
+      {logTab==="trades"&&<>
       <div className="card" style={{padding:"12px 14px",marginBottom:12}}>
         <div style={{display:"flex",gap:8,marginBottom:showFilters?10:0}}>
           <input ref={inpRef} className="inp" placeholder="Search notes, strategy, date… (/)" value={search} onChange={e=>setSearch(e.target.value)} style={{flex:1,padding:"9px 12px",fontSize:13}}/>
@@ -882,7 +1015,7 @@ const TradeLogView=React.memo(function TradeLogView({trades,onPress,accountName,
             <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:6}}>
               {["win","loss"].map(r=><button key={r} onClick={()=>fRes[1](fRes[0]===r?"":r)} className="tap" style={{padding:"4px 11px",borderRadius:99,fontSize:11,fontWeight:600,border:"none",background:fRes[0]===r?(r==="win"?"var(--green-dim)":"var(--red-dim)"):"var(--elevated)",color:fRes[0]===r?(r==="win"?"var(--green)":"var(--red)"):"var(--t2)"}}>{r==="win"?"✓ Win":"✗ Loss"}</button>)}
               {SESSIONS.map(s=><button key={s} onClick={()=>fSess[1](fSess[0]===s?"":s)} className="tap" style={{padding:"4px 11px",borderRadius:99,fontSize:11,fontWeight:600,border:"none",background:fSess[0]===s?SCOL[s]+"22":"var(--elevated)",color:fSess[0]===s?SCOL[s]:"var(--t2)"}}>{s}</button>)}
-              {INSTRS.map(s=><button key={s} onClick={()=>fInstr[1](fInstr[0]===s?"":s)} className="tap" style={{padding:"4px 11px",borderRadius:99,fontSize:11,fontWeight:600,border:"none",background:fInstr[0]===s?(ICOL[s]||"#666")+"22":"var(--elevated)",color:fInstr[0]===s?ICOL[s]||"var(--t2)":"var(--t2)"}}>{s}</button>)}
+              {instrs.map(s=><button key={s} onClick={()=>fInstr[1](fInstr[0]===s?"":s)} className="tap" style={{padding:"4px 11px",borderRadius:99,fontSize:11,fontWeight:600,border:"none",background:fInstr[0]===s?(ICOL[s]||"#666")+"22":"var(--elevated)",color:fInstr[0]===s?ICOL[s]||"var(--t2)":"var(--t2)"}}>{s}</button>)}
             </div>
             {/* Strategy filter */}
             {strategies.length>0&&<div style={{display:"flex",gap:4,flexWrap:"wrap",marginBottom:6}}>
@@ -907,16 +1040,28 @@ const TradeLogView=React.memo(function TradeLogView({trades,onPress,accountName,
         {filtered.map((t,i)=><TradeRow key={t.id} trade={t} onPress={()=>onPress(t)} isLast={i===filtered.length-1}/>)}
         {filtered.length===0&&<div style={{textAlign:"center",padding:"44px 0",fontSize:12,color:"var(--t3)"}}>{trades.length===0?"No trades yet":"No trades match filters"}</div>}
       </div>
+      </>}
     </>
   );
 });
 
 /* ── Trade Modal ── */
-function TradeModal({trade,onSave,onDelete,onClose}){
+function TradeModal({trade,onSave,onDelete,onClose,onManageInstrs}){
   const{isDesktop}=useBP(),toast=useToast(),isNew=!trade.id;
+  const{instrs,icol}=useInstrs();
   const imgRef=useRef(null);
   const[lb,setLb]=useState(null),[cDel,setCDel]=useState(false),[drag,setDrag]=useState(false);
-  const[form,setForm]=useState({date:trade.date||today(),time:trade.time||"",direction:trade.direction||"",pnl:trade.pnl!==undefined?String(trade.pnl):"",rr:trade.rr!==undefined?String(trade.rr):"",entryPrice:trade.entryPrice!==undefined?String(trade.entryPrice):"",stopLoss:trade.stopLoss!==undefined?String(trade.stopLoss):"",takeProfit:trade.takeProfit!==undefined?String(trade.takeProfit):"",strategy:trade.strategy||STRATS[0],session:trade.session||"",instrument:trade.instrument||"MNQ",contracts:trade.contracts!==undefined?String(trade.contracts):"1",tags:trade.tags||[],feelings:trade.feelings||"",notes:trade.notes||"",images:trade.images||[]});
+  const[modalTab,setModalTab]=useState("trade");
+
+  // — Checklist state (load rules once, track ticked per-trade) —
+  const[checkRules,setCheckRules]=useState(()=>{try{const v=localStorage.getItem(CHECKLIST_KEY);return v?JSON.parse(v):DEF_CHECKLIST}catch{return DEF_CHECKLIST}});
+  const[checkedItems,setCheckedItems]=useState(trade.checklist||{});
+  const[editingChecklist,setEditingChecklist]=useState(false);
+  const[newRule,setNewRule]=useState("");
+  const saveRules=r=>{setCheckRules(r);try{localStorage.setItem(CHECKLIST_KEY,JSON.stringify(r))}catch{}};
+  const allChecked=checkRules.length>0&&checkRules.every(r=>checkedItems[r]);
+
+  const[form,setForm]=useState({date:trade.date||today(),time:trade.time||"",direction:trade.direction||"",pnl:trade.pnl!==undefined?String(trade.pnl):"",rr:trade.rr!==undefined?String(trade.rr):"",entryPrice:trade.entryPrice!==undefined?String(trade.entryPrice):"",stopLoss:trade.stopLoss!==undefined?String(trade.stopLoss):"",takeProfit:trade.takeProfit!==undefined?String(trade.takeProfit):"",strategy:trade.strategy||STRATS[0],session:trade.session||"",instrument:trade.instrument||(instrs[0]||"MNQ"),contracts:trade.contracts!==undefined?String(trade.contracts):"1",tags:trade.tags||[],feelings:trade.feelings||"",notes:trade.notes||"",lesson:trade.lesson||"",images:trade.images||[]});
   // auto-calc RR from entry/SL/TP
   const autoRR=useMemo(()=>{
     const e=parseFloat(form.entryPrice),sl=parseFloat(form.stopLoss),tp=parseFloat(form.takeProfit);
@@ -931,8 +1076,21 @@ function TradeModal({trade,onSave,onDelete,onClose}){
     const h=e=>{const items=e.clipboardData?.items;if(!items)return;for(const item of Array.from(items)){if(item.type.startsWith("image/")){const r=new FileReader();r.onload=async ev=>{const c=await compressImage(ev.target.result);setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(item.getAsFile())}}};
     window.addEventListener("paste",h);return()=>window.removeEventListener("paste",h);
   },[]);
-  const addFiles=files=>Array.from(files).forEach(f=>{if(!f.type.startsWith("image/"))return;const r=new FileReader();r.onload=async ev=>{const c=await compressImage(ev.target.result);setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
-  const save=()=>{if(!form.date||form.pnl===""){toast("Fill date and P&L","warn");return}onSave({id:trade.id||Date.now(),date:form.date,time:form.time||"",direction:form.direction||"",pnl:parseFloat(form.pnl)||0,rr:parseFloat(autoRR||form.rr)||0,entryPrice:parseFloat(form.entryPrice)||0,stopLoss:parseFloat(form.stopLoss)||0,takeProfit:parseFloat(form.takeProfit)||0,strategy:form.strategy,session:form.session,instrument:form.instrument,contracts:Math.max(1,parseInt(form.contracts)||1),tags:form.tags,feelings:form.feelings,notes:form.notes,images:form.images});toast(isNew?"Trade logged":"Updated")};
+  const addFiles=files=>Array.from(files).forEach(f=>{if(!f.type.startsWith("image/"))return;const r=new FileReader();r.onload=async ev=>{const c=await compressImage(ev.target.result);// store base64 temporarily; uploaded to Supabase on save
+setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
+  const[saving,setSaving]=React.useState(false);
+  const save=async()=>{if(!form.date||form.pnl===""){toast("Fill date and P&L","warn");return}
+    setSaving(true);
+    const tradeId=trade.id||Date.now();
+    // Upload any base64 images to Supabase Storage
+    const uploadedImages=await Promise.all(form.images.map(async(img,i)=>{
+      if(img.startsWith("http"))return img;
+      const url=await uploadScreenshot(img,tradeId,i);
+      return url||img;
+    }));
+    onSave({id:tradeId,date:form.date,time:form.time||"",direction:form.direction||"",pnl:parseFloat(form.pnl)||0,rr:parseFloat(autoRR||form.rr)||0,entryPrice:parseFloat(form.entryPrice)||0,stopLoss:parseFloat(form.stopLoss)||0,takeProfit:parseFloat(form.takeProfit)||0,strategy:form.strategy,session:form.session,instrument:form.instrument,contracts:Math.max(1,parseInt(form.contracts)||1),tags:form.tags,feelings:form.feelings,notes:form.notes,lesson:form.lesson,images:uploadedImages,checklist:checkedItems});
+    setSaving(false);
+    toast(isNew?"Trade logged":"Updated")};
   const lbl={fontSize:10,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase",marginBottom:7,display:"block"};
   const pnlVal=parseFloat(form.pnl);
   return(
@@ -944,7 +1102,21 @@ function TradeModal({trade,onSave,onDelete,onClose}){
           <span style={{fontSize:17,fontWeight:800,color:"var(--t1)"}}>{isNew?"Log Trade":"Edit Trade"}</span>
           {!isNew&&(cDel?<div style={{display:"flex",gap:6}}><button onClick={()=>setCDel(false)} className="tap" style={{background:"var(--elevated)",border:"none",borderRadius:"var(--r-sm)",color:"var(--t2)",fontSize:12,fontWeight:600,padding:"7px 12px"}}>Cancel</button><button onClick={()=>{onDelete(trade.id);toast("Deleted","error")}} className="tap" style={{background:"var(--red)",border:"none",borderRadius:"var(--r-sm)",color:"#fff",fontSize:12,fontWeight:700,padding:"7px 12px"}}>Delete</button></div>:<button onClick={()=>setCDel(true)} className="tap" style={{background:"var(--red-dim)",border:"none",borderRadius:"var(--r-sm)",color:"var(--red)",fontSize:12,fontWeight:600,padding:"7px 12px",display:"flex",alignItems:"center",gap:5}}><IcoTrash size={12} col="var(--red)"/> Delete</button>)}
         </div>
+        {/* ── Tab Pills ── */}
+        <div style={{display:"flex",gap:4,background:"var(--elevated)",borderRadius:"var(--r-md)",padding:4,marginBottom:20}}>
+          {[{id:"trade",label:"Trade",dot:(!form.date||form.pnl==="")?"var(--red)":null},{id:"review",label:"Review",dot:null},{id:"notes",label:"Notes",dot:null}].map(({id,label,dot})=>{
+            const a=modalTab===id;
+            return(
+              <button key={id} onClick={()=>setModalTab(id)} className="tap" style={{flex:1,padding:"8px 6px",borderRadius:"var(--r-sm)",fontSize:13,fontWeight:700,border:"none",background:a?"var(--surface)":"transparent",color:a?"var(--t1)":"var(--t3)",boxShadow:a?"0 1px 3px rgba(0,0,0,.25)":"none",transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+                {label}
+                {dot&&<div style={{width:5,height:5,borderRadius:"50%",background:dot,flexShrink:0}}/>}
+              </button>
+            );
+          })}
+        </div>
         <div style={{display:"flex",flexDirection:"column",gap:16}}>
+          {/* ── TAB 1: TRADE ── */}
+          {modalTab==="trade"&&<>
           <div><label style={lbl}>Date</label><input type="date" value={form.date} onChange={e=>set("date",e.target.value)} className="inp"/></div>
           {/* Direction + Time */}
           <div style={{display:"flex",gap:10}}>
@@ -957,8 +1129,48 @@ function TradeModal({trade,onSave,onDelete,onClose}){
                 })}
               </div>
             </div>
-            <div style={{flex:1}}><label style={lbl}>Time</label><input type="time" value={form.time} onChange={e=>set("time",e.target.value)} className="inp mono" style={{colorScheme:"dark"}}/></div>
+            <div style={{flex:1}}><label style={lbl}>Time</label><input type="text" inputMode="numeric" placeholder="HH:MM" maxLength={5} value={form.time} onChange={e=>{let v=e.target.value.replace(/[^0-9:]/g,"");const digits=v.replace(/[^0-9]/g,"");let out=digits.slice(0,2);if(digits.length>=3)out+=":"+digits.slice(2,4);const parts=out.split(":");if(parts[0]&&parseInt(parts[0])>23)return;if(parts[1]&&parseInt(parts[1])>59)return;set("time",out)}} className="inp mono" style={{letterSpacing:"0.1em"}}/></div>
           </div>
+          {/* ── Pre-trade Checklist (moved up) ── */}
+          {checkRules.length>0&&(
+            <div style={{background:allChecked?"var(--green-dim)":"var(--elevated)",border:`1px solid ${allChecked?"var(--green)33":"var(--line)"}`,borderRadius:"var(--r-md)",padding:"14px",transition:"all .2s"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                <div style={{display:"flex",alignItems:"center",gap:7}}>
+                  <span style={{fontSize:11,fontWeight:700,color:allChecked?"var(--green)":"var(--t2)",textTransform:"uppercase",letterSpacing:".07em"}}>Pre-trade Checklist</span>
+                  {allChecked&&<span style={{fontSize:10,fontWeight:700,color:"var(--green)",background:"var(--green-dim)",padding:"2px 8px",borderRadius:99}}>✓ All clear</span>}
+                </div>
+                <button onClick={()=>setEditingChecklist(v=>!v)} style={{background:"none",border:"none",fontSize:10,color:"var(--t3)",cursor:"pointer",fontWeight:600,fontFamily:"var(--sans)"}}>{editingChecklist?"Done":"Edit"}</button>
+              </div>
+              {editingChecklist?(
+                <div>
+                  {checkRules.map((r,i)=>(
+                    <div key={i} style={{display:"flex",alignItems:"center",gap:7,marginBottom:7}}>
+                      <input className="inp" value={r} onChange={e=>{const n=[...checkRules];n[i]=e.target.value;saveRules(n)}} style={{flex:1,padding:"7px 10px",fontSize:12}}/>
+                      <button onClick={()=>saveRules(checkRules.filter((_,j)=>j!==i))} style={{background:"var(--red-dim)",border:"none",borderRadius:"var(--r-sm)",padding:"7px 8px",cursor:"pointer",flexShrink:0}}><IcoX size={11} col="var(--red)"/></button>
+                    </div>
+                  ))}
+                  <div style={{display:"flex",gap:6,marginTop:4}}>
+                    <input className="inp" placeholder="Add rule…" value={newRule} onChange={e=>setNewRule(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newRule.trim()){saveRules([...checkRules,newRule.trim()]);setNewRule("")}}} style={{flex:1,padding:"7px 10px",fontSize:12}}/>
+                    <button onClick={()=>{if(newRule.trim()){saveRules([...checkRules,newRule.trim()]);setNewRule("")}}} style={{background:"var(--green)",border:"none",borderRadius:"var(--r-sm)",padding:"7px 12px",color:"#000",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Add</button>
+                  </div>
+                </div>
+              ):(
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  {checkRules.map(r=>{
+                    const checked=!!checkedItems[r];
+                    return(
+                      <button key={r} onClick={()=>setCheckedItems(p=>({...p,[r]:!p[r]}))} className="tap" style={{display:"flex",alignItems:"center",gap:10,background:"none",border:"none",padding:0,cursor:"pointer",textAlign:"left"}}>
+                        <div style={{width:20,height:20,borderRadius:6,border:`2px solid ${checked?"var(--green)":"var(--line-md)"}`,background:checked?"var(--green)":"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",transition:"all .12s"}}>
+                          {checked&&<span style={{color:"#000",fontSize:11,fontWeight:800,lineHeight:1}}>✓</span>}
+                        </div>
+                        <span style={{fontSize:12,color:checked?"var(--t2)":"var(--t1)",fontWeight:checked?400:500,textDecoration:checked?"line-through":"none"}}>{r}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
           {/* Entry / SL / TP */}
           <div>
             <label style={lbl}>Entry Price / SL / TP <span style={{color:"var(--t3)",fontWeight:400,textTransform:"none",letterSpacing:0}}>(optional)</span></label>
@@ -970,13 +1182,16 @@ function TradeModal({trade,onSave,onDelete,onClose}){
             
           </div>
           <div>
-            <label style={lbl}>Instrument & Contracts</label>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
+              <label style={{...lbl,marginBottom:0}}>Instrument & Contracts</label>
+              {onManageInstrs&&<button onClick={onManageInstrs} style={{background:"none",border:"none",fontSize:10,color:"var(--accent)",cursor:"pointer",fontWeight:600,fontFamily:"var(--sans)"}}>+ Manage</button>}
+            </div>
             <div style={{display:"flex",gap:6,marginBottom:8,flexWrap:"wrap"}}>
-              {INSTRS.map(s=>{const a=form.instrument===s,c=ICOL[s]||"var(--t2)";return<button key={s} onClick={()=>set("instrument",s)} className="tap" style={{padding:"6px 12px",borderRadius:"var(--r-sm)",fontSize:12,fontWeight:600,border:`1px solid ${a?c:"var(--line-md)"}`,background:a?c+"22":"var(--elevated)",color:a?c:"var(--t2)"}}>{s}</button>})}
+              {instrs.map(s=>{const a=form.instrument===s,c=icol[s]||ICOL[s]||"var(--t2)";return<button key={s} onClick={()=>set("instrument",s)} className="tap" style={{padding:"6px 12px",borderRadius:"var(--r-sm)",fontSize:12,fontWeight:600,border:`1px solid ${a?c:"var(--line-md)"}`,background:a?c+"22":"var(--elevated)",color:a?c:"var(--t2)"}}>{s}</button>})}
             </div>
             <div style={{display:"flex",alignItems:"center",gap:7}}>
               <span style={{fontSize:11,color:"var(--t3)",fontWeight:600,whiteSpace:"nowrap"}}>Qty:</span>
-              {[1,2,3,4,5].map(n=>{const a=form.contracts===String(n),c=ICOL[form.instrument]||"var(--green)";return<button key={n} onClick={()=>set("contracts",String(n))} className="tap" style={{width:36,height:36,borderRadius:"var(--r-sm)",border:`1px solid ${a?c:"var(--line-md)"}`,background:a?c+"22":"var(--elevated)",color:a?c:"var(--t2)",fontSize:14,fontWeight:700,flexShrink:0}}>{n}</button>})}
+              {[1,2,3,4,5].map(n=>{const a=form.contracts===String(n),c=icol[form.instrument]||ICOL[form.instrument]||"var(--green)";return<button key={n} onClick={()=>set("contracts",String(n))} className="tap" style={{width:36,height:36,borderRadius:"var(--r-sm)",border:`1px solid ${a?c:"var(--line-md)"}`,background:a?c+"22":"var(--elevated)",color:a?c:"var(--t2)",fontSize:14,fontWeight:700,flexShrink:0}}>{n}</button>})}
               <input type="number" min="1" placeholder="6+" value={[1,2,3,4,5].map(String).includes(form.contracts)?"":(form.contracts||"")} onChange={e=>set("contracts",e.target.value||"1")} className="inp" style={{width:56,padding:"8px 8px",fontSize:13,textAlign:"center"}}/>
             </div>
           </div>
@@ -984,6 +1199,56 @@ function TradeModal({trade,onSave,onDelete,onClose}){
             <div style={{flex:1}}><label style={lbl}>P&L ($)</label><input type="number" placeholder="250 or -100" value={form.pnl} onChange={e=>set("pnl",e.target.value)} className="inp mono" style={{color:form.pnl?clr(pnlVal):"var(--t1)",borderColor:form.pnl?(pnlVal>0?"var(--green)":pnlVal<0?"var(--red)":"var(--line-md)"):"var(--line-md)"}}/></div>
             <div style={{flex:1}}><label style={lbl}>R:R {autoRR&&<span style={{fontSize:9,padding:"2px 6px",background:"var(--amber)22",color:"var(--amber)",borderRadius:99,fontWeight:700}}>AUTO</span>}</label><div className="inp mono" style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--elevated)",borderColor:autoRR?"var(--amber)44":"var(--line-md)",cursor:"default"}}>{autoRR?(<><span style={{color:"var(--amber)",fontWeight:700}}>{autoRR}R</span><span style={{fontSize:10,color:"var(--t3)"}}>from E/SL/TP</span></>):(<span style={{color:"var(--t3)",fontSize:12}}>Fill Entry/SL/TP</span>)}</div></div>
           </div>
+          </>}
+          {/* ── TAB 2: REVIEW ── */}
+          {modalTab==="review"&&<>
+          {/* ── News Blackout Warning ── */}
+          {(()=>{
+            if(!form.time)return null;
+            const[hh,mm]=form.time.split(":").map(Number);
+            if(isNaN(hh)||isNaN(mm))return null;
+            const tradeMin=hh*60+mm;
+            const HIGH_EVENTS=[
+              {label:"NFP",times:[[21,30]]}, // UTC+7: 21:30 WIB first Fri
+              {label:"CPI",times:[[21,30]]},
+              {label:"FOMC",times:[[3,0],[2,0]]},
+              {label:"PPI",times:[[21,30]]},
+              {label:"Retail Sales",times:[[21,30]]},
+            ];
+            // More practical: check user's date vs today's Finnhub events via localStorage cache
+            const cachedKey=`finnhub-events-${form.date}`;
+            let warnEvents=[];
+            try{
+              const cached=localStorage.getItem(cachedKey);
+              if(cached){
+                const evts=JSON.parse(cached);
+                warnEvents=evts.filter(e=>{
+                  const imp=(e.impact||"").toLowerCase();
+                  if(!imp.includes("high")&&imp!=="3")return false;
+                  if(!e.time)return false;
+                  try{
+                    const s=e.time.replace(" ","T");
+                    const utcStr=s.endsWith("Z")?s:s+"Z";
+                    const d=new Date(utcStr);
+                    const wib=new Date(d.getTime()+7*3600000);
+                    const evMin=wib.getUTCHours()*60+wib.getUTCMinutes();
+                    return Math.abs(evMin-tradeMin)<=15;
+                  }catch{return false;}
+                });
+              }
+            }catch{}
+            if(warnEvents.length===0)return null;
+            return(
+              <div style={{background:"var(--amber-dim)",border:"1px solid var(--amber)55",borderRadius:"var(--r-md)",padding:"11px 14px",display:"flex",gap:10,alignItems:"flex-start"}}>
+                <span style={{fontSize:18,flexShrink:0}}>⚠️</span>
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,color:"var(--amber)",marginBottom:3}}>High-impact news dalam 15 menit!</div>
+                  {warnEvents.map((e,i)=><div key={i} style={{fontSize:11,color:"var(--t2)"}}>{e.event} · {(()=>{try{const s=e.time.replace(" ","T");const d=new Date((s.endsWith("Z")?s:s+"Z"));const w=new Date(d.getTime()+7*3600000);return`${String(w.getUTCHours()).padStart(2,"0")}:${String(w.getUTCMinutes()).padStart(2,"0")} WIB`}catch{return""}})()}</div>)}
+                  <div style={{fontSize:10,color:"var(--t3)",marginTop:3}}>Pastikan ini bukan revenge trade saat volatile.</div>
+                </div>
+              </div>
+            );
+          })()}
           <div>
             <label style={lbl}>Strategy</label>
             <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
@@ -999,7 +1264,7 @@ function TradeModal({trade,onSave,onDelete,onClose}){
           <div>
             <label style={lbl}>Tags</label>
             <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-              {TAGS.map(tag=>{const a=form.tags.includes(tag),bad=["FOMO","Revenge","Overtraded","Tilted","Late Entry"].includes(tag),good=["A+ Setup","Patient"].includes(tag);return<button key={tag} onClick={()=>set("tags",a?form.tags.filter(t=>t!==tag):[...form.tags,tag])} className="tap" style={{padding:"5px 10px",borderRadius:99,fontSize:11,fontWeight:600,border:"none",background:a?(bad?"var(--red)":good?"var(--green)":"var(--overlay)"):"var(--elevated)",color:a?(bad||good?"#000":"var(--t1)"):"var(--t2)"}}>{tag}</button>})}
+              {TAGS.map(tag=>{const a=form.tags.includes(tag),bad=["FOMO","Revenge","Overtraded","Tilted","Late Entry"].includes(tag),good=["Patient"].includes(tag);return<button key={tag} onClick={()=>set("tags",a?form.tags.filter(t=>t!==tag):[...form.tags,tag])} className="tap" style={{padding:"5px 10px",borderRadius:99,fontSize:11,fontWeight:600,border:"none",background:a?(bad?"var(--red)":good?"var(--green)":"var(--overlay)"):"var(--elevated)",color:a?(bad||good?"#000":"var(--t1)"):"var(--t2)"}}>{tag}</button>})}
             </div>
           </div>
           <div>
@@ -1012,7 +1277,17 @@ function TradeModal({trade,onSave,onDelete,onClose}){
             </div>
             <textarea placeholder="Describe your mental state, hesitation, confidence level…" value={form.feelings} onChange={e=>set("feelings",e.target.value)} rows={2} className="inp" style={{resize:"none",lineHeight:1.6}}/>
           </div>
-          <div><label style={lbl}>Notes</label><textarea placeholder="Setup, execution, lessons…" value={form.notes} onChange={e=>set("notes",e.target.value)} rows={3} className="inp" style={{resize:"none",lineHeight:1.6}}/></div>
+          </>}
+          {/* ── TAB 3: NOTES ── */}
+          {modalTab==="notes"&&<>
+          <div><label style={lbl}>Notes</label><textarea placeholder="Setup, execution, what happened…" value={form.notes} onChange={e=>set("notes",e.target.value)} rows={3} className="inp" style={{resize:"none",lineHeight:1.6}}/></div>
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}>
+              <label style={{...lbl,marginBottom:0}}>Lesson Learned</label>
+              <span style={{fontSize:10,color:"var(--amber)",fontWeight:700,background:"var(--amber-dim)",padding:"2px 8px",borderRadius:99,letterSpacing:".04em"}}>📚 Jangan diulang</span>
+            </div>
+            <textarea placeholder="Apa yang bisa diperbaiki? Kesalahan apa yang tidak boleh diulang besok?" value={form.lesson} onChange={e=>set("lesson",e.target.value)} rows={3} className="inp" style={{resize:"none",lineHeight:1.6,borderColor:form.lesson?"var(--amber)44":"var(--line-md)",background:form.lesson?"rgba(245,158,11,0.04)":"var(--elevated)"}}/>
+          </div>
           <div>
             <label style={lbl}>Screenshots</label>
             <input ref={imgRef} type="file" accept="image/*" multiple onChange={e=>{addFiles(e.target.files);e.target.value=""}} style={{display:"none"}}/>
@@ -1028,8 +1303,41 @@ function TradeModal({trade,onSave,onDelete,onClose}){
               ))}
             </div>}
           </div>
+          {/* ── Live Grade Preview ── */}
+          {(()=>{
+            const checkPct=checkRules.length?Math.round(checkRules.filter(r=>checkedItems[r]).length/checkRules.length*100):0;
+            const rrNum=parseFloat(autoRR||form.rr)||0;
+            const hasBadTag=["FOMO","Revenge","Overtraded","Tilted"].some(t=>form.tags.includes(t));
+            let g,gc,gb,gdesc;
+            if(hasBadTag){g="C";gc="var(--red)";gb="var(--red-dim)";gdesc="Tag negatif ditemukan";}
+            else if(checkPct===100&&rrNum>=2){g="A+";gc="#22C55E";gb="rgba(34,197,94,0.15)";gdesc="Setup sempurna! Semua checklist ✓ + R:R ≥ 2";}
+            else if(checkPct>=80&&rrNum>=1.5){g="A";gc="var(--green)";gb="var(--green-dim)";gdesc=`${checkPct}% checklist + R:R ${rrNum.toFixed(1)}`;}
+            else if(checkPct>=60&&rrNum>=1){g="B";gc="var(--amber)";gb="var(--amber-dim)";gdesc=`${checkPct}% checklist + R:R ${rrNum.toFixed(1)}`;}
+            else{g="C";gc="var(--red)";gb="var(--red-dim)";gdesc=`${checkPct}% checklist${rrNum<1?" · R:R kurang":""}`;}
+            if(!form.pnl&&!checkedItems[checkRules[0]])return null;
+            return(
+              <div style={{background:gb,border:`1px solid ${gc}44`,borderRadius:"var(--r-md)",padding:"12px 16px",display:"flex",alignItems:"center",gap:14}}>
+                <div style={{width:48,height:48,borderRadius:"var(--r-md)",background:gc+"22",border:`2px solid ${gc}55`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  <span style={{fontSize:22,fontWeight:900,color:gc,fontFamily:"var(--mono)"}}>{g}</span>
+                </div>
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,color:gc,marginBottom:2}}>Trade Grade: {g}</div>
+                  <div style={{fontSize:11,color:"var(--t2)"}}>{gdesc}</div>
+                </div>
+              </div>
+            );
+          })()}
+          </>}
         </div>
-        <button onClick={save} className="tap" style={{width:"100%",marginTop:22,padding:"15px",background:"var(--accent)",border:"none",borderRadius:"var(--r-md)",color:"#fff",fontSize:15,fontWeight:700,letterSpacing:".01em"}}>{isNew?"Save Trade":"Update Trade"}</button>
+        {/* ── Tab Nav Buttons ── */}
+        <div style={{display:"flex",gap:8,marginTop:20}}>
+          {modalTab!=="trade"&&<button onClick={()=>setModalTab(modalTab==="notes"?"review":"trade")} className="tap" style={{flex:1,padding:"13px",background:"var(--elevated)",border:"1px solid var(--line-md)",borderRadius:"var(--r-md)",color:"var(--t2)",fontSize:14,fontWeight:700}}>← Back</button>}
+          {modalTab!=="notes"
+            ?<button onClick={()=>setModalTab(modalTab==="trade"?"review":"notes")} className="tap" style={{flex:2,padding:"13px",background:"var(--accent)",border:"none",borderRadius:"var(--r-md)",color:"#fff",fontSize:14,fontWeight:700}}>Next →</button>
+            :<button onClick={save} className="tap" style={{flex:2,padding:"13px",background:"var(--accent)",border:"none",borderRadius:"var(--r-md)",color:"#fff",fontSize:15,fontWeight:700,letterSpacing:".01em"}}>{saving?(isNew?"Uploading…":"Saving…"):(isNew?"Save Trade":"Update Trade")}</button>
+          }
+        </div>
+        {modalTab!=="notes"&&<button onClick={save} className="tap" style={{width:"100%",marginTop:8,padding:"9px",background:"none",border:"none",color:"var(--t3)",fontSize:12,fontWeight:600}}>{saving?"Saving…":"Save now"}</button>}
       </div>
     </div>
     {lb!==null&&(
@@ -1301,51 +1609,783 @@ const NotesList=React.memo(function NotesList({notes,onOpen}){
   );
 });
 
-/* ── Risk Management ── */
-function RiskManagement({accountBalance,totalPnl}){
-  const bal=accountBalance+totalPnl;
-  const[useMan,setUseMan]=useState(false),[manBal,setManBal]=useState(""),[pct,setPct]=useState("1"),[result,setResult]=useState(null);
-  const activeBal=useMan?(parseFloat(manBal)||0):bal;
-  const calc=()=>{const b=activeBal,p=parseFloat(pct)/100;if(b>0&&p>0)setResult({b,pct:parseFloat(pct),loss:b*p})};
+/* ── Wallet ── */
+function Wallet({accountBalance,totalPnl,activeId,onUpdateBalance}){
+  const toast=useToast();
+  const WK="nq-wallet-txns-";
+  const key=WK+(activeId||"default");
+  const[txns,setTxns]=useState(()=>{try{const v=localStorage.getItem(key);return v?JSON.parse(v):[]}catch{return[]}});
+  const[depAmt,setDepAmt]=useState(""),[witAmt,setWitAmt]=useState(""),[witCapital,setWitCapital]=useState(false);
+  useEffect(()=>{loadData(key,[]).then(d=>{if(d&&d.length>0){setTxns(d);try{localStorage.setItem(key,JSON.stringify(d))}catch{}}});},[key]);
+  const saveTxns=t=>{try{localStorage.setItem(key,JSON.stringify(t))}catch{};saveData(key,t)};
+  const curBal=accountBalance+totalPnl;
+  const totalDep=txns.filter(t=>t.type==="deposit").reduce((a,t)=>a+t.amount,0);
+  const totalWit=txns.filter(t=>t.type==="withdraw").reduce((a,t)=>a+t.amount,0);
+  const netFlow=totalDep-totalWit;
+
+  function doDeposit(){
+    const amt=parseFloat(depAmt);
+    if(!amt||amt<=0){toast("Enter deposit amount","warn");return;}
+    const t=[{id:Date.now(),type:"deposit",amount:amt,date:new Date().toISOString(),status:"success"},...txns];
+    setTxns(t);saveTxns(t);setDepAmt("");
+    onUpdateBalance(accountBalance+amt);
+    toast("Deposit successful");
+  }
+  function doWithdraw(){
+    const amt=parseFloat(witAmt);
+    if(!amt||amt<=0){toast("Enter withdraw amount","warn");return;}
+    if(!witCapital&&amt>curBal){toast("Insufficient balance","warn");return;}
+    const t=[{id:Date.now(),type:"withdraw",amount:amt,date:new Date().toISOString(),status:"success",isCapital:witCapital},...txns];
+    setTxns(t);saveTxns(t);setWitAmt("");setWitCapital(false);
+    onUpdateBalance(Math.max(0,accountBalance-amt));
+    toast("Withdraw successful");
+  }
+  function delTxn(id){
+    const txn=txns.find(x=>x.id===id);
+    if(!txn)return;
+    const t=txns.filter(x=>x.id!==id);
+    setTxns(t);saveTxns(t);
+    // reverse the balance effect
+    if(txn.type==="deposit")onUpdateBalance(accountBalance-txn.amount);
+    else if(txn.type==="withdraw")onUpdateBalance(accountBalance+txn.amount);
+  }
+
+  const fmtDate=iso=>{const d=new Date(iso);return d.toLocaleDateString("en-US",{day:"numeric",month:"short",year:"numeric"})+" · "+d.toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit",hour12:false})};
+
   return(
     <div>
-      <div className="card" style={{padding:"20px",marginBottom:12}}>
-        <div style={{fontSize:10,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase",marginBottom:6}}>Account Value</div>
-        <div className="mono" style={{fontSize:40,fontWeight:500,color:"var(--t1)",letterSpacing:"-1.5px",marginBottom:8}}>{fmtBal(bal)}</div>
-        <div style={{display:"flex",gap:16}}>
-          <span style={{fontSize:12,color:"var(--t3)"}}>Base <span className="mono" style={{color:"var(--t2)"}}>{fmtBal(accountBalance)}</span></span>
-          <span style={{fontSize:12,color:"var(--t3)"}}>P&L <span className="mono" style={{color:clr(totalPnl)}}>{fmt(totalPnl)}</span></span>
+      {/* Balance summary */}
+      <div className="card" style={{padding:"20px",marginBottom:14}}>
+        <div style={{fontSize:10,color:"var(--t3)",fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",marginBottom:6}}>Current Balance</div>
+        <div className="mono" style={{fontSize:38,fontWeight:500,color:"var(--t1)",letterSpacing:"-1.5px",marginBottom:10}}>{fmtBal(curBal)}</div>
+        <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <div style={{width:8,height:8,borderRadius:"50%",background:"var(--green)"}}/>
+            <span style={{fontSize:11,color:"var(--t3)"}}>Total Deposit <span className="mono" style={{color:"var(--green)",fontWeight:600}}>{fmtBal(totalDep)}</span></span>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <div style={{width:8,height:8,borderRadius:"50%",background:"var(--amber)"}}/>
+            <span style={{fontSize:11,color:"var(--t3)"}}>Total Withdraw <span className="mono" style={{color:"var(--amber)",fontWeight:600}}>{fmtBal(totalWit)}</span></span>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <div style={{width:8,height:8,borderRadius:"50%",background:netFlow>=0?"var(--green)":"var(--red)"}}/>
+            <span style={{fontSize:11,color:"var(--t3)"}}>Net Flow <span className="mono" style={{color:netFlow>=0?"var(--green)":"var(--red)",fontWeight:600}}>{netFlow>=0?"+":""}{fmtBal(netFlow)}</span></span>
+          </div>
         </div>
       </div>
-      <div className="card" style={{padding:"16px",marginBottom:10}}>
-        <div className="sec">Balance source</div>
-        <div style={{display:"flex",gap:6,marginBottom:useMan?12:0}}>
-          {[["Dashboard",false],["Manual",true]].map(([l,v])=><button key={l} onClick={()=>{setUseMan(v);setResult(null)}} className="tap" style={{flex:1,padding:"10px",borderRadius:"var(--r-sm)",fontSize:12,fontWeight:600,border:"none",background:useMan===v?"var(--green-dim)":"var(--elevated)",color:useMan===v?"var(--green)":"var(--t2)"}}>{l}</button>)}
+
+      {/* Deposit & Withdraw cards */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+        {/* Deposit */}
+        <div className="card" style={{padding:"18px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+            <div style={{width:30,height:30,borderRadius:"var(--r-sm)",background:"var(--green-dim)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <span style={{fontSize:18,lineHeight:1,color:"var(--green)",fontWeight:700}}>+</span>
+            </div>
+            <span style={{fontSize:15,fontWeight:800,color:"var(--green)"}}>Deposit</span>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:8,background:"var(--elevated)",borderRadius:"var(--r-md)",border:"1px solid var(--line-md)",padding:"10px 12px",marginBottom:10}}>
+            <span style={{fontSize:13,color:"var(--t3)",fontWeight:600}}>$</span>
+            <input type="number" placeholder="0.00" value={depAmt} onChange={e=>setDepAmt(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doDeposit()} className="mono" style={{flex:1,background:"none",border:"none",outline:"none",color:"var(--t1)",fontSize:15,fontWeight:500}}/>
+          </div>
+          <button onClick={doDeposit} className="tap" style={{width:"100%",padding:"11px",background:"var(--green)",border:"none",borderRadius:"var(--r-md)",color:"#000",fontSize:13,fontWeight:800}}>Deposit</button>
         </div>
-        {useMan&&<input type="number" placeholder="Enter balance" value={manBal} onChange={e=>{setManBal(e.target.value);setResult(null)}} className="inp mono" style={{marginTop:10}}/>}
-      </div>
-      <div className="card" style={{padding:"16px",marginBottom:12}}>
-        <div className="sec">Risk per trade</div>
-        <div style={{display:"flex",gap:6}}>
-          {["0.5","1","2"].map(p=><button key={p} onClick={()=>{setPct(p);setResult(null)}} className="tap" style={{flex:1,padding:"10px",borderRadius:"var(--r-sm)",fontSize:13,fontWeight:700,border:"none",background:pct===p?"var(--amber-dim)":"var(--elevated)",color:pct===p?"var(--amber)":"var(--t2)"}}>{p}%</button>)}
-          <input type="number" step="0.1" value={["0.5","1","2"].includes(pct)?"":(pct||"")} onChange={e=>{setPct(e.target.value);setResult(null)}} placeholder="%" className="inp mono" style={{flex:1,padding:"10px",fontSize:13,textAlign:"center"}}/>
+
+        {/* Withdraw */}
+        <div className="card" style={{padding:"18px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+            <div style={{width:30,height:30,borderRadius:"var(--r-sm)",background:"var(--amber-dim)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <span style={{fontSize:18,lineHeight:1,color:"var(--amber)",fontWeight:700}}>−</span>
+            </div>
+            <span style={{fontSize:15,fontWeight:800,color:"var(--amber)"}}>Withdraw</span>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:8,background:"var(--elevated)",borderRadius:"var(--r-md)",border:"1px solid var(--line-md)",padding:"10px 12px",marginBottom:10}}>
+            <span style={{fontSize:13,color:"var(--t3)",fontWeight:600}}>$</span>
+            <input type="number" placeholder="0.00" value={witAmt} onChange={e=>setWitAmt(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doWithdraw()} className="mono" style={{flex:1,background:"none",border:"none",outline:"none",color:"var(--t1)",fontSize:15,fontWeight:500}}/>
+          </div>
+          <label style={{display:"flex",alignItems:"center",gap:7,marginBottom:10,cursor:"pointer"}}>
+            <input type="checkbox" checked={witCapital} onChange={e=>setWitCapital(e.target.checked)} style={{width:14,height:14,accentColor:"var(--amber)",cursor:"pointer"}}/>
+            <span style={{fontSize:11,color:"var(--t2)",fontWeight:500}}>Withdraw from initial capital</span>
+          </label>
+          <button onClick={doWithdraw} className="tap" style={{width:"100%",padding:"11px",background:"var(--amber)",border:"none",borderRadius:"var(--r-md)",color:"#000",fontSize:13,fontWeight:800}}>Withdraw</button>
         </div>
       </div>
-      <button onClick={calc} className="tap" style={{width:"100%",padding:"15px",background:"var(--accent)",border:"none",borderRadius:"var(--r-md)",color:"#fff",fontSize:15,fontWeight:700,marginBottom:14}}>Calculate →</button>
-      {result&&(
-        <div className="card" style={{padding:"22px",textAlign:"center",border:"1px solid var(--amber)33"}}>
-          <div style={{fontSize:10,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase",marginBottom:8}}>Max Risk</div>
-          <div className="mono" style={{fontSize:42,fontWeight:500,color:"var(--amber)",letterSpacing:"-1.5px",marginBottom:6}}>${result.loss.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
-          <div style={{fontSize:12,color:"var(--t2)",marginBottom:12}}>{fmtBal(result.b)} × {result.pct}%</div>
-          <div style={{padding:"10px 12px",background:"var(--elevated)",borderRadius:"var(--r-sm)",fontSize:11,color:"var(--t3)"}}>If max loss → balance <span className="mono" style={{color:"var(--red)"}}>{fmtBal(result.b-result.loss)}</span></div>
+
+      {/* Transaction History */}
+      <div className="card" style={{padding:"18px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+          <div style={{fontSize:14,fontWeight:700,color:"var(--t1)"}}>Transaction History</div>
+          <span style={{fontSize:11,color:"var(--t3)",fontWeight:600}}>{txns.length} transactions</span>
+        </div>
+        {txns.length===0?(
+          <div style={{textAlign:"center",padding:"36px 0"}}>
+            <div style={{fontSize:28,marginBottom:8}}>💳</div>
+            <div style={{fontSize:13,color:"var(--t3)"}}>No transactions yet</div>
+          </div>
+        ):(
+          <>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,padding:"8px 0",borderBottom:"1px solid var(--line)",marginBottom:4}}>
+              {["Date","Type","Status","Amount"].map((h,i)=>(
+                <div key={h} style={{fontSize:10,color:"var(--t3)",fontWeight:700,letterSpacing:".07em",textTransform:"uppercase",textAlign:i===3?"right":"left"}}>{h}</div>
+              ))}
+            </div>
+            {txns.map((t,i)=>{
+              const isD=t.type==="deposit";
+              return(
+                <div key={t.id} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,padding:"12px 0",borderBottom:i<txns.length-1?"1px solid var(--line)":"none",alignItems:"center"}}>
+                  <div>
+                    <div style={{fontSize:12,fontWeight:600,color:"var(--t1)"}}>{fmtDate(t.date).split(" · ")[0]}</div>
+                    <div style={{fontSize:10,color:"var(--t3)"}}>{fmtDate(t.date).split(" · ")[1]}</div>
+                  </div>
+                  <div>
+                    <span style={{display:"inline-flex",alignItems:"center",padding:"3px 10px",borderRadius:99,fontSize:11,fontWeight:700,background:isD?"var(--green-dim)":"var(--amber-dim)",color:isD?"var(--green)":"var(--amber)"}}>
+                      {isD?"Deposit":t.isCapital?"Capital Withdraw":"Withdraw"}
+                    </span>
+                  </div>
+                  <div>
+                    <span style={{display:"inline-flex",padding:"3px 10px",borderRadius:99,fontSize:11,fontWeight:700,background:"rgba(34,197,94,0.12)",color:"var(--green)",textTransform:"uppercase",letterSpacing:".05em"}}>Success</span>
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:8}}>
+                    <span className="mono" style={{fontSize:13,fontWeight:700,color:isD?"var(--green)":"var(--amber)"}}>{isD?"+":"-"}{fmtBal(t.amount)}</span>
+                    <button onClick={()=>delTxn(t.id)} className="tap" style={{background:"none",border:"none",padding:"2px",cursor:"pointer",opacity:.4,lineHeight:1}}><IcoX size={11} col="var(--t3)"/></button>
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        )}
+      </div>
+      {/* Payout Tracker */}
+      <PayoutTracker activeId={activeId}/>
+    </div>
+  );
+}
+/* ── Payout Tracker ── */
+function PayoutTracker({activeId}){
+  const toast=useToast();
+  const PK="nq-payouts-"+(activeId||"default");
+  const[payouts,setPayouts]=useState(()=>{try{const v=localStorage.getItem(PK);return v?JSON.parse(v):[]}catch{return[]}});
+  const[adding,setAdding]=useState(false);
+  const[form,setForm]=useState({amount:"",date:today(),note:"",status:"pending"});
+  useEffect(()=>{loadData(PK,[]).then(d=>{if(d&&d.length){setPayouts(d);try{localStorage.setItem(PK,JSON.stringify(d))}catch{}}});},[PK]);
+  const save=p=>{try{localStorage.setItem(PK,JSON.stringify(p))}catch{};saveData(PK,p)};
+  const pnlHidden=useContext(PnlCtx);
+
+  function addPayout(){
+    const amt=parseFloat(form.amount);
+    if(!amt||amt<=0){toast("Masukkan jumlah payout","warn");return;}
+    const p=[{id:Date.now(),amount:amt,date:form.date,note:form.note,status:form.status},...payouts];
+    setPayouts(p);save(p);setAdding(false);setForm({amount:"",date:today(),note:"",status:"pending"});
+    toast("Payout ditambahkan");
+  }
+  function delPayout(id){const p=payouts.filter(x=>x.id!==id);setPayouts(p);save(p);}
+  function toggleStatus(id){
+    const p=payouts.map(x=>x.id===id?{...x,status:x.status==="pending"?"received":x.status==="received"?"rejected":"pending"}:x);
+    setPayouts(p);save(p);
+  }
+
+  const totalReceived=payouts.filter(p=>p.status==="received").reduce((a,p)=>a+p.amount,0);
+  const totalPending=payouts.filter(p=>p.status==="pending").reduce((a,p)=>a+p.amount,0);
+  const statusStyle={
+    pending:{bg:"var(--amber-dim)",col:"var(--amber)",label:"Pending"},
+    received:{bg:"var(--green-dim)",col:"var(--green)",label:"Received"},
+    rejected:{bg:"var(--red-dim)",col:"var(--red)",label:"Rejected"},
+  };
+  const fmtD=iso=>{try{const d=new Date(iso);return d.toLocaleDateString("en-US",{day:"numeric",month:"short",year:"numeric"})}catch{return iso}};
+
+  return(
+    <div className="card" style={{padding:"18px",marginTop:14}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+        <div>
+          <div style={{fontSize:14,fontWeight:700,color:"var(--t1)"}}>Payout Tracker</div>
+          <div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>FundedNext / Prop firm payouts</div>
+        </div>
+        <button onClick={()=>setAdding(v=>!v)} className="tap" style={{padding:"7px 14px",background:adding?"var(--elevated)":"var(--accent)",border:`1px solid ${adding?"var(--line-md)":"transparent"}`,borderRadius:"var(--r-sm)",color:adding?"var(--t2)":"#fff",fontSize:12,fontWeight:700}}>{adding?"Cancel":"+ Request"}</button>
+      </div>
+
+      {/* Summary */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+        <div style={{background:"var(--green-dim)",border:"1px solid var(--green)22",borderRadius:"var(--r-md)",padding:"12px 14px"}}>
+          <div style={{fontSize:9,color:"var(--green)",fontWeight:700,letterSpacing:".07em",textTransform:"uppercase",marginBottom:4}}>Total Received</div>
+          <div className="mono" style={{fontSize:20,fontWeight:700,color:pnlHidden?"var(--t3)":"var(--green)"}}>{pnlHidden?"••••••":fmtBal(totalReceived)}</div>
+          <div style={{fontSize:10,color:"var(--t3)",marginTop:2}}>{payouts.filter(p=>p.status==="received").length} payout</div>
+        </div>
+        <div style={{background:"var(--amber-dim)",border:"1px solid var(--amber)22",borderRadius:"var(--r-md)",padding:"12px 14px"}}>
+          <div style={{fontSize:9,color:"var(--amber)",fontWeight:700,letterSpacing:".07em",textTransform:"uppercase",marginBottom:4}}>Pending</div>
+          <div className="mono" style={{fontSize:20,fontWeight:700,color:pnlHidden?"var(--t3)":"var(--amber)"}}>{pnlHidden?"••••••":fmtBal(totalPending)}</div>
+          <div style={{fontSize:10,color:"var(--t3)",marginTop:2}}>{payouts.filter(p=>p.status==="pending").length} payout</div>
+        </div>
+      </div>
+
+      {/* Add form */}
+      {adding&&(
+        <div style={{background:"var(--elevated)",borderRadius:"var(--r-md)",padding:"14px",marginBottom:14,border:"1px solid var(--line)"}}>
+          <div style={{display:"flex",gap:8,marginBottom:10}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".07em",textTransform:"uppercase",marginBottom:5}}>Jumlah ($)</div>
+              <input className="inp mono" type="number" placeholder="0.00" value={form.amount} onChange={e=>setForm(f=>({...f,amount:e.target.value}))} style={{padding:"8px 10px",fontSize:14}} autoFocus/>
+            </div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".07em",textTransform:"uppercase",marginBottom:5}}>Tanggal Request</div>
+              <input className="inp" type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} style={{padding:"8px 10px",fontSize:13}}/>
+            </div>
+          </div>
+          <div style={{marginBottom:10}}>
+            <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".07em",textTransform:"uppercase",marginBottom:5}}>Status</div>
+            <div style={{display:"flex",gap:6}}>
+              {["pending","received","rejected"].map(s=>(
+                <button key={s} onClick={()=>setForm(f=>({...f,status:s}))} className="tap" style={{flex:1,padding:"7px 4px",borderRadius:"var(--r-sm)",border:"none",background:form.status===s?statusStyle[s].bg:"var(--overlay)",color:form.status===s?statusStyle[s].col:"var(--t3)",fontSize:11,fontWeight:700,textTransform:"capitalize"}}>{statusStyle[s].label}</button>
+              ))}
+            </div>
+          </div>
+          <input className="inp" placeholder="Catatan (opsional, misal: bulan Mei, akun 1)" value={form.note} onChange={e=>setForm(f=>({...f,note:e.target.value}))} style={{marginBottom:10,padding:"8px 10px",fontSize:13}}/>
+          <button onClick={addPayout} className="tap" style={{width:"100%",padding:"10px",background:"var(--accent)",border:"none",borderRadius:"var(--r-md)",color:"#fff",fontSize:13,fontWeight:700}}>Simpan</button>
         </div>
       )}
-      <div style={{padding:"12px 14px",background:"var(--elevated)",borderRadius:"var(--r-md)",marginTop:12,border:"1px solid var(--line)"}}>
-        <div style={{fontSize:11,color:"var(--t3)",lineHeight:1.7}}>📌 Prop firm standard: 0.5–1% per trade. Keep risk consistent to protect trailing drawdown.</div>
+
+      {/* Payout list */}
+      {payouts.length===0?(
+        <div style={{textAlign:"center",padding:"32px 0"}}>
+          <div style={{fontSize:28,marginBottom:8}}>💰</div>
+          <div style={{fontSize:13,color:"var(--t3)"}}>Belum ada payout — tap + Request untuk tambah</div>
+        </div>
+      ):(
+        <div style={{display:"flex",flexDirection:"column",gap:0}}>
+          {payouts.map((p,i)=>{
+            const ss=statusStyle[p.status]||statusStyle.pending;
+            return(
+              <div key={p.id} style={{display:"flex",alignItems:"center",gap:12,padding:"13px 0",borderBottom:i<payouts.length-1?"1px solid var(--line)":"none"}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+                    <span className="mono" style={{fontSize:15,fontWeight:700,color:pnlHidden?"var(--t3)":ss.col}}>{pnlHidden?"••••••":fmtBal(p.amount)}</span>
+                    <button onClick={()=>toggleStatus(p.id)} className="tap" style={{display:"inline-flex",padding:"2px 9px",borderRadius:99,fontSize:10,fontWeight:700,background:ss.bg,color:ss.col,border:`1px solid ${ss.col}33`,cursor:"pointer"}}>{ss.label}</button>
+                  </div>
+                  <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                    <span className="mono" style={{fontSize:11,color:"var(--t3)"}}>{fmtD(p.date)}</span>
+                    {p.note&&<span style={{fontSize:11,color:"var(--t3)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>· {p.note}</span>}
+                  </div>
+                </div>
+                <button onClick={()=>delPayout(p.id)} className="tap" style={{background:"none",border:"none",padding:"4px",cursor:"pointer",opacity:.4,flexShrink:0}}><IcoX size={12} col="var(--t3)"/></button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+function NewsTicker(){
+  const[events,setEvents]=useState([]);
+  useEffect(()=>{
+    const now=new Date();
+    const day=now.getDay();
+    const mon=new Date(now);
+    mon.setDate(now.getDate()-((day===0?7:day)-1));
+    mon.setHours(0,0,0,0);
+    const fri=new Date(mon);fri.setDate(mon.getDate()+6);
+    const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    fetch(`https://finnhub.io/api/v1/calendar/economic?from=${fmt(mon)}&to=${fmt(fri)}&token=${FINNHUB_KEY}`)
+      .then(r=>r.json()).then(d=>{
+        const evs=(d.economicCalendar||[])
+          .filter(e=>(e.country||"").toUpperCase()==="US")
+          .filter(e=>{const i=(e.impact||"").toLowerCase();const name=(e.event||"").toLowerCase();return i.includes("high")||i==="3"||i.includes("medium")||i==="2"||name.includes("speak")||name.includes("testimony")||name.includes("press conf")||name.includes("holiday")||name.includes("bank holiday")||name.includes("market holiday");})
+          .sort((a,b)=>new Date(a.time.replace(" ","T")+"Z")-new Date(b.time.replace(" ","T")+"Z"));
+        setEvents(evs);
+        // cache per date for news blackout warning in trade modal
+        try{const byDate={};evs.forEach(e=>{if(!e.time)return;const d=e.time.slice(0,10);if(!byDate[d])byDate[d]=[];byDate[d].push(e)});Object.entries(byDate).forEach(([d,evArr])=>localStorage.setItem(`finnhub-events-${d}`,JSON.stringify(evArr)))}catch{}
+      }).catch(()=>{});
+  },[]);
+
+  if(!events.length)return null;
+
+  const impColor=(imp,name)=>{const l=(imp||"").toLowerCase();const n=(name||"").toLowerCase();if(n.includes("holiday"))return"var(--blue)";return(l.includes("high")||l==="3")?"var(--red)":"var(--amber)";};
+  const todayKey=finnhubDateWIB(new Date().toISOString().slice(0,19));
+
+  const items=events.map((e,i)=>{
+    const wib=finnhubToWIB(e.time);
+    const date=finnhubDateWIB(e.time);
+    const isToday=date===todayKey;
+    const ic=impColor(e.impact,e.event);
+    return(
+      <span key={i} style={{display:"inline-flex",alignItems:"center",gap:6,marginRight:48,whiteSpace:"nowrap",
+        padding:isToday?"3px 10px 3px 8px":"0",
+        borderRadius:isToday?99:0,
+        background:isToday?"var(--elevated)":"transparent",
+        border:isToday?`1px solid ${ic}44`:"none",
+        boxSizing:"border-box"}}>
+        <span style={{width:7,height:7,borderRadius:"50%",background:ic,display:"inline-block",flexShrink:0,boxShadow:isToday?`0 0 6px ${ic}`:"none"}}/>
+        {isToday&&<span style={{fontSize:9,fontWeight:800,color:ic,letterSpacing:".06em"}}>TODAY</span>}
+        {!isToday&&<span style={{color:"var(--t3)",fontSize:10,fontWeight:600}}>{date}</span>}
+        <span style={{color:isToday?"var(--t1)":"var(--t2)",fontSize:11,fontWeight:isToday?700:600}}>{e.event}</span>
+        <span style={{color:isToday?"var(--t2)":"var(--t3)",fontSize:10}}>{wib}</span>
+        {e.estimate!=null&&e.estimate!==""&&<span style={{color:"var(--t3)",fontSize:10}}>F: <span style={{color:"var(--t2)"}}>{e.estimate}</span></span>}
+      </span>
+    );
+  });
+
+  const todayEvents=events.filter(e=>finnhubDateWIB(e.time)===todayKey);
+  const allItems=items; // all week
+
+  return(
+    <div style={{marginBottom:14}}>
+      {/* ── TODAY section ── */}
+      {todayEvents.length>0&&(
+        <div className="card" style={{padding:"8px 12px",marginBottom:6,borderLeft:"3px solid var(--accent)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+            <span style={{fontSize:9,fontWeight:800,color:"var(--accent)",letterSpacing:".1em",textTransform:"uppercase"}}>Today's News</span>
+            <span style={{fontSize:9,color:"var(--t3)",fontWeight:600}}>{new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</span>
+          </div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+            {todayEvents.map((e,i)=>{
+              const ic=impColor(e.impact,e.event);
+              const isHigh=(e.impact||"").toLowerCase().includes("high")||(e.impact||"")==="3";
+              const isHoliday=(e.event||"").toLowerCase().includes("holiday");
+              return(
+                <div key={i} style={{display:"inline-flex",alignItems:"center",gap:6,
+                  padding:"5px 10px",borderRadius:99,
+                  background:isHoliday?"var(--blue-dim)":isHigh?"var(--red-dim)":"var(--amber-dim)",
+                  border:`1px solid ${ic}33`}}>
+                  <span style={{width:6,height:6,borderRadius:"50%",background:ic,flexShrink:0,boxShadow:`0 0 5px ${ic}`}}/>
+                  <span style={{fontSize:11,fontWeight:700,color:"var(--t1)"}}>{e.event}</span>
+                  <span style={{fontSize:10,color:"var(--t2)",fontFamily:"var(--mono)"}}>{finnhubToWIB(e.time)}</span>
+                  {e.estimate!=null&&e.estimate!==""&&(
+                    <span style={{fontSize:10,color:"var(--t3)"}}>F <span style={{color:"var(--t2)",fontFamily:"var(--mono)"}}>{e.estimate}</span></span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {/* ── Week ticker ── */}
+      <div style={{borderRadius:"var(--r-md)",border:"1px solid var(--line)",background:"var(--surface)",overflow:"hidden",position:"relative",height:30,display:"flex",alignItems:"center"}}>
+        <div style={{position:"absolute",left:0,top:0,bottom:0,width:16,background:"linear-gradient(to right,var(--surface),transparent)",zIndex:2,pointerEvents:"none"}}/>
+        <div style={{position:"absolute",right:0,top:0,bottom:0,width:32,background:"linear-gradient(to left,var(--surface) 60%,transparent)",zIndex:2,pointerEvents:"none"}}/>
+        <div style={{display:"inline-flex",paddingLeft:12,animation:`marquee ${Math.max(25,events.length*7)}s linear infinite`,willChange:"transform"}}>
+          {allItems}{allItems}
+        </div>
       </div>
     </div>
   );
 }
+
+/* ── News / Economic Calendar ── */
+const FINNHUB_KEY="d8eihdpr01qth3chh170d8eihdpr01qth3chh17g";
+
+/* ── Settings Context ── */
+const SettingsCtx=React.createContext({utcOffset:7,setUtcOffset:()=>{}});
+function useSettings(){return React.useContext(SettingsCtx);}
+
+/* ── Timezone: Finnhub sends UTC, convert to WIB (UTC+7) ── */
+function finnhubToWIB(isoOrStr){
+  if(!isoOrStr)return"—";
+  try{
+    const s=isoOrStr.replace(" ","T");
+    const utcStr=s.endsWith("Z")?s:s+"Z";
+    const d=new Date(utcStr);
+    if(isNaN(d))return isoOrStr.slice(11,16)||"—";
+    const wib=new Date(d.getTime()+7*3600000);
+    return`${String(wib.getUTCHours()).padStart(2,"0")}:${String(wib.getUTCMinutes()).padStart(2,"0")} WIB`;
+  }catch{return isoOrStr.slice(11,16)||"—"}
+}
+function finnhubDateWIB(isoOrStr){
+  if(!isoOrStr)return"";
+  try{
+    const s=isoOrStr.replace(" ","T");
+    const utcStr=s.endsWith("Z")?s:s+"Z";
+    const d=new Date(utcStr);
+    if(isNaN(d))return isoOrStr.slice(0,10);
+    const wib=new Date(d.getTime()+7*3600000);
+    return wib.toLocaleDateString("en-US",{weekday:"short",day:"numeric",month:"short",timeZone:"UTC"});
+  }catch{return isoOrStr.slice(0,10)}
+}
+
+/* ── Trade Review View ── */
+function TradeReviewView({trades}){
+  const pnlHidden=useContext(PnlCtx);
+  const[filter,setFilter]=useState("all"); // all | win | loss
+  const[stratFilter,setStratFilter]=useState("");
+  const[lb,setLb]=useState(null); // {src, trade}
+  const[instrFilter,setInstrFilter]=useState("");
+
+  const withImages=useMemo(()=>trades.filter(t=>t.images?.length>0),[trades]);
+
+  const strategies=useMemo(()=>[...new Set(withImages.map(t=>t.strategy).filter(Boolean))],[withImages]);
+  const instrs=useMemo(()=>[...new Set(withImages.map(t=>t.instrument).filter(Boolean))],[withImages]);
+
+  const filtered=useMemo(()=>{
+    let r=withImages;
+    if(filter==="win")r=r.filter(t=>t.pnl>0);
+    if(filter==="loss")r=r.filter(t=>t.pnl<0);
+    if(stratFilter)r=r.filter(t=>t.strategy===stratFilter);
+    if(instrFilter)r=r.filter(t=>t.instrument===instrFilter);
+    return r;
+  },[withImages,filter,stratFilter,instrFilter]);
+
+  // Flatten all screenshots with trade metadata
+  const allShots=useMemo(()=>{
+    const shots=[];
+    filtered.forEach(t=>{
+      t.images.forEach((img,i)=>{
+        shots.push({src:img,trade:t,imgIdx:i,key:`${t.id}_${i}`});
+      });
+    });
+    return shots.sort((a,b)=>b.trade.date.localeCompare(a.trade.date));
+  },[filtered]);
+
+  const lbIdx=lb?allShots.findIndex(s=>s.key===lb.key):-1;
+
+  if(withImages.length===0)return(
+    <div className="card" style={{padding:"60px 20px",textAlign:"center"}}>
+      <div style={{fontSize:36,marginBottom:12}}>📸</div>
+      <div style={{fontSize:15,fontWeight:700,color:"var(--t2)",marginBottom:6}}>Belum ada screenshot</div>
+      <div style={{fontSize:12,color:"var(--t3)"}}>Upload screenshot chart saat log trade — semua muncul di sini untuk analisis pola setup.</div>
+    </div>
+  );
+
+  return(
+    <div>
+      {/* Header stats */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:12}}>
+        {[
+          {l:"Total Charts",v:allShots.length,c:"var(--t1)"},
+          {l:"Win Trades",v:withImages.filter(t=>t.pnl>0).length,c:"var(--green)"},
+          {l:"Loss Trades",v:withImages.filter(t=>t.pnl<0).length,c:"var(--red)"},
+        ].map(s=>(
+          <div key={s.l} className="card" style={{padding:"12px 14px"}}>
+            <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".07em",textTransform:"uppercase",marginBottom:4}}>{s.l}</div>
+            <div className="mono" style={{fontSize:20,fontWeight:700,color:s.c}}>{s.v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div className="card" style={{padding:"12px 14px",marginBottom:12,display:"flex",flexDirection:"column",gap:10}}>
+        {/* Win/Loss filter */}
+        <div style={{display:"flex",gap:5}}>
+          {[{v:"all",l:"All"},{v:"win",l:"✓ Win"},{v:"loss",l:"✗ Loss"}].map(f=>(
+            <button key={f.v} onClick={()=>setFilter(f.v)} className="tap" style={{padding:"6px 14px",borderRadius:99,fontSize:11,fontWeight:700,border:"none",
+              background:filter===f.v?(f.v==="win"?"var(--green-dim)":f.v==="loss"?"var(--red-dim)":"var(--accent-dim)"):"var(--elevated)",
+              color:filter===f.v?(f.v==="win"?"var(--green)":f.v==="loss"?"var(--red)":"var(--accent)"):"var(--t3)"}}>{f.l}</button>
+          ))}
+        </div>
+        {/* Strategy filter */}
+        {strategies.length>1&&(
+          <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+            {strategies.map(s=>(
+              <button key={s} onClick={()=>setStratFilter(stratFilter===s?"":s)} className="tap" style={{padding:"4px 10px",borderRadius:99,fontSize:10,fontWeight:600,border:"none",
+                background:stratFilter===s?"var(--blue-dim)":"var(--elevated)",color:stratFilter===s?"var(--blue)":"var(--t3)"}}>{s}</button>
+            ))}
+          </div>
+        )}
+        {/* Instrument filter */}
+        {instrs.length>1&&(
+          <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+            {instrs.map(s=>(
+              <button key={s} onClick={()=>setInstrFilter(instrFilter===s?"":s)} className="tap" style={{padding:"4px 10px",borderRadius:99,fontSize:10,fontWeight:600,border:"none",
+                background:instrFilter===s?"var(--amber-dim)":"var(--elevated)",color:instrFilter===s?"var(--amber)":"var(--t3)"}}>{s}</button>
+            ))}
+          </div>
+        )}
+        {(stratFilter||instrFilter||filter!=="all")&&(
+          <button onClick={()=>{setFilter("all");setStratFilter("");setInstrFilter("")}} className="tap" style={{alignSelf:"flex-start",padding:"4px 12px",borderRadius:99,fontSize:10,fontWeight:700,border:"none",background:"var(--red-dim)",color:"var(--red)"}}>✕ Reset</button>
+        )}
+      </div>
+
+      {/* Count */}
+      <div style={{fontSize:10,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase",marginBottom:8}}>
+        {allShots.length} screenshot · {filtered.length} trades
+      </div>
+
+      {/* Grid */}
+      {allShots.length===0?(
+        <div className="card" style={{padding:"44px 20px",textAlign:"center",fontSize:12,color:"var(--t3)"}}>Tidak ada trade yang cocok dengan filter ini</div>
+      ):(
+        <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8}}>
+          {allShots.map((shot,i)=>{
+            const t=shot.trade;
+            const won=t.pnl>0;
+            const col=won?"var(--green)":"var(--red)";
+            return(
+              <div key={shot.key} onClick={()=>setLb(shot)} className="tap" style={{borderRadius:"var(--r-md)",overflow:"hidden",background:"var(--surface)",border:`1px solid ${col}33`,cursor:"pointer",position:"relative"}}>
+                {/* Screenshot */}
+                <div style={{aspectRatio:"16/10",background:"#000",overflow:"hidden"}}>
+                  <img src={shot.src} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block",transition:"transform .2s"}}
+                    onMouseEnter={e=>e.currentTarget.style.transform="scale(1.03)"}
+                    onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}/>
+                </div>
+                {/* Win/Loss badge */}
+                <div style={{position:"absolute",top:6,left:6,padding:"2px 8px",borderRadius:99,fontSize:10,fontWeight:800,background:won?"var(--green)":"var(--red)",color:"#000"}}>
+                  {won?"W":"L"}
+                </div>
+                {/* Multiple screenshots indicator */}
+                {t.images.length>1&&(
+                  <div style={{position:"absolute",top:6,right:6,padding:"2px 7px",borderRadius:99,fontSize:9,fontWeight:700,background:"rgba(0,0,0,.6)",color:"rgba(255,255,255,.8)"}}>
+                    {shot.imgIdx+1}/{t.images.length}
+                  </div>
+                )}
+                {/* Metadata strip */}
+                <div style={{padding:"8px 10px",background:"var(--surface)"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:2}}>
+                    <span className="mono" style={{fontSize:10,color:"var(--t2)"}}>{t.date}</span>
+                    <span className="mono" style={{fontSize:11,fontWeight:700,color:col}}>{pnlHidden?"••••":fmt(t.pnl)}</span>
+                  </div>
+                  <div style={{display:"flex",gap:5,alignItems:"center"}}>
+                    <span style={{fontSize:9,color:"var(--t3)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.strategy}</span>
+                    {t.instrument&&<><span style={{fontSize:9,color:"var(--t3)"}}>·</span><span style={{fontSize:9,color:"var(--t3)"}}>{t.instrument}</span></>}
+                    {t.rr>0&&<><span style={{fontSize:9,color:"var(--t3)"}}>·</span><span className="mono" style={{fontSize:9,color:"var(--t3)"}}>{t.rr}R</span></>}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lb&&(
+        <div onClick={()=>setLb(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.97)",zIndex:500,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:16}}>
+          {/* Top bar */}
+          <div style={{position:"absolute",top:0,left:0,right:0,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 16px",background:"linear-gradient(to bottom,rgba(0,0,0,.8),transparent)",zIndex:1}}>
+            <div>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+                <div style={{width:8,height:8,borderRadius:"50%",background:lb.trade.pnl>0?"var(--green)":"var(--red)"}}/>
+                <span className="mono" style={{fontSize:12,color:"white",fontWeight:700}}>{fmt(lb.trade.pnl)}</span>
+                <span style={{fontSize:11,color:"rgba(255,255,255,.5)"}}>{lb.trade.date} · {lb.trade.strategy} · {lb.trade.instrument}</span>
+              </div>
+              {lb.trade.notes&&<div style={{fontSize:11,color:"rgba(255,255,255,.5)",maxWidth:400,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{lb.trade.notes}</div>}
+            </div>
+            <div style={{display:"flex",gap:8,flexShrink:0}}>
+              <a href={lb.src} download={`chart-${lb.trade.date}.jpg`} onClick={e=>e.stopPropagation()} style={{background:"rgba(255,255,255,.12)",border:"none",borderRadius:"50%",width:36,height:36,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"white",textDecoration:"none",fontSize:15}}>↓</a>
+              <button onClick={()=>setLb(null)} style={{background:"rgba(255,255,255,.12)",border:"none",borderRadius:"50%",width:36,height:36,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><IcoX size={14} col="white"/></button>
+            </div>
+          </div>
+          {/* Prev */}
+          {lbIdx>0&&<button onClick={e=>{e.stopPropagation();setLb(allShots[lbIdx-1])}} style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,.15)",border:"none",borderRadius:"50%",width:44,height:44,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1}}><IcoChL size={18} col="white"/></button>}
+          <img src={lb.src} alt="" style={{maxWidth:"100%",maxHeight:"80vh",borderRadius:"var(--r-md)",objectFit:"contain",userSelect:"none"}} onClick={e=>e.stopPropagation()}/>
+          {/* Next */}
+          {lbIdx<allShots.length-1&&<button onClick={e=>{e.stopPropagation();setLb(allShots[lbIdx+1])}} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,.15)",border:"none",borderRadius:"50%",width:44,height:44,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1}}><IcoChR size={18} col="white"/></button>}
+          {/* Bottom: lesson if exists */}
+          {lb.trade.lesson&&(
+            <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"14px 20px 28px",background:"linear-gradient(to top,rgba(0,0,0,.85),transparent)"}}>
+              <div style={{display:"flex",gap:8,alignItems:"flex-start",maxWidth:600,margin:"0 auto"}}>
+                <span style={{fontSize:16,flexShrink:0}}>💡</span>
+                <span style={{fontSize:12,color:"rgba(255,255,255,.8)",lineHeight:1.6}}>{lb.trade.lesson}</span>
+              </div>
+            </div>
+          )}
+          {/* Counter */}
+          <div style={{position:"absolute",bottom:lb.trade.lesson?70:20,display:"flex",gap:5,alignItems:"center"}}>
+            <span style={{fontSize:10,color:"rgba(255,255,255,.3)",fontWeight:600}}>{lbIdx+1} / {allShots.length}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NewsView(){
+  const[events,setEvents]=useState([]);
+  const[loading,setLoading]=useState(false);
+  const[error,setError]=useState(null);
+  const[filter,setFilter]=useState({high:true,medium:true});
+  const[weekOffset,setWeekOffset]=useState(0);
+
+  const getWeekRange=(offset=0)=>{
+    const now=new Date();
+    const day=now.getDay();
+    const mon=new Date(now);
+    mon.setDate(now.getDate()-((day===0?7:day)-1)+offset*7);
+    mon.setHours(0,0,0,0);
+    const fri=new Date(mon);
+    fri.setDate(mon.getDate()+6);
+    fri.setHours(23,59,59,999);
+    const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    return{from:fmt(mon),to:fmt(fri),monDate:mon,friDate:fri};
+  };
+
+  const fetchEvents=async(offset=0)=>{
+    setLoading(true);setError(null);
+    const{from,to}=getWeekRange(offset);
+    try{
+      const r=await fetch(`https://finnhub.io/api/v1/calendar/economic?from=${from}&to=${to}&token=${FINNHUB_KEY}`);
+      if(!r.ok)throw new Error("API error "+r.status);
+      const d=await r.json();
+      const evs=(d.economicCalendar||[]).sort((a,b)=>new Date(a.time)-new Date(b.time));
+      setEvents(evs);
+      try{const byDate={};evs.forEach(e=>{if(!e.time)return;const dk=e.time.slice(0,10);if(!byDate[dk])byDate[dk]=[];byDate[dk].push(e)});Object.entries(byDate).forEach(([dk,evArr])=>localStorage.setItem(`finnhub-events-${dk}`,JSON.stringify(evArr)))}catch{}
+    }catch(e){setError(e.message);}
+    setLoading(false);
+  };
+
+  useEffect(()=>{fetchEvents(weekOffset);},[weekOffset]);
+
+  const{from,to,monDate,friDate}=getWeekRange(weekOffset);
+  const fmtWkLabel=()=>{
+    const opt={day:"numeric",month:"short"};
+    return monDate.toLocaleDateString("en-US",opt)+" – "+friDate.toLocaleDateString("en-US",opt)+" "+friDate.getFullYear();
+  };
+
+  const impactColor=imp=>{
+    if(!imp)return"var(--t3)";
+    const l=imp.toLowerCase();
+    if(l.includes("high")||l==="3")return"var(--red)";
+    if(l.includes("medium")||l==="2")return"var(--amber)";
+    return"var(--blue)";
+  };
+  const impactLabel=imp=>{
+    if(!imp)return"Low";
+    const l=imp.toLowerCase();
+    if(l.includes("high")||l==="3")return"High";
+    if(l.includes("medium")||l==="2")return"Med";
+    return"Low";
+  };
+
+  const fmtEventTime=iso=>finnhubToWIB(iso);
+  const fmtEventDate=iso=>finnhubDateWIB(iso);
+
+  const filtered=events.filter(e=>{
+    if((e.country||"").toUpperCase()!=="US")return false; // always USD only
+    const imp=(e.impact||"").toLowerCase();
+    const isHigh=imp.includes("high")||imp==="3";
+    const isMed=imp.includes("medium")||imp==="2";
+    const isSpeech=(e.event||"").toLowerCase().match(/speak|testimony|press conf|holiday/);
+    if(isHigh)return filter.high;
+    if(isMed)return filter.medium;
+    if(isSpeech)return filter.high||filter.medium; // speeches follow if any impact filter on
+    return false;
+  });
+
+  // group by date
+  const grouped=filtered.reduce((acc,e)=>{
+    const dk=fmtEventDate(e.time);
+    if(!acc[dk])acc[dk]=[];
+    acc[dk].push(e);
+    return acc;
+  },{});
+
+  const todayStr=finnhubDateWIB(new Date().toISOString().replace("Z","").slice(0,19));
+
+  return(
+    <div>
+      {/* Header controls */}
+      <div className="card" style={{padding:"14px 16px",marginBottom:12}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <button onClick={()=>setWeekOffset(w=>w-1)} className="tap" style={{background:"var(--elevated)",border:"1px solid var(--line-md)",width:28,height:28,borderRadius:"var(--r-sm)",display:"flex",alignItems:"center",justifyContent:"center"}}><IcoChL size={11} col="var(--t2)"/></button>
+            <div style={{textAlign:"center"}}>
+              <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",minWidth:200,textAlign:"center"}}>{fmtWkLabel()}</div>
+            </div>
+            <button onClick={()=>setWeekOffset(w=>w+1)} className="tap" style={{background:"var(--elevated)",border:"1px solid var(--line-md)",width:28,height:28,borderRadius:"var(--r-sm)",display:"flex",alignItems:"center",justifyContent:"center"}}><IcoChR size={11} col="var(--t2)"/></button>
+          </div>
+          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            {weekOffset!==0&&<button onClick={()=>setWeekOffset(0)} className="tap" style={{padding:"4px 10px",borderRadius:99,background:"var(--accent-dim)",border:"1px solid var(--accent)33",fontSize:10,color:"var(--accent)",fontWeight:700}}>This Week</button>}
+            <button onClick={()=>fetchEvents(weekOffset)} className="tap" style={{padding:"4px 10px",borderRadius:99,background:"var(--elevated)",border:"1px solid var(--line)",fontSize:10,color:"var(--t2)",fontWeight:600,display:"flex",alignItems:"center",gap:4}}>
+              ↻ Refresh
+            </button>
+          </div>
+        </div>
+        {/* Impact filter */}
+        <div style={{display:"flex",gap:5,alignItems:"center"}}>
+          {[{v:"high",l:"High",c:"var(--red)"},{v:"medium",l:"Medium",c:"var(--amber)"}].map(f=>(
+            <button key={f.v} onClick={()=>setFilter(p=>({...p,[f.v]:!p[f.v]}))} className="tap"
+              style={{padding:"5px 12px",borderRadius:99,fontSize:11,fontWeight:700,border:`1px solid ${filter[f.v]?f.c+"88":"var(--line)"}`,
+                background:filter[f.v]?"transparent":"var(--elevated)",
+                color:filter[f.v]?f.c:"var(--t3)",display:"flex",alignItems:"center",gap:5}}>
+              <div style={{width:7,height:7,borderRadius:"50%",background:filter[f.v]?f.c:"var(--t3)"}}/>
+              {f.l}
+            </button>
+          ))}
+          <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:14}}>
+            {[{c:"var(--red)",l:"High"},{c:"var(--amber)",l:"Med"}].map(x=>(
+              <div key={x.l} style={{display:"flex",alignItems:"center",gap:4}}>
+                <div style={{width:8,height:8,borderRadius:"50%",background:x.c}}/>
+                <span style={{fontSize:10,color:"var(--t3)"}}>{x.l}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Events */}
+      {loading?(
+        <div className="card" style={{padding:"60px 20px",textAlign:"center"}}>
+          <div style={{fontSize:13,color:"var(--t3)",animation:"pulse 1.5s infinite"}}>Loading economic calendar…</div>
+        </div>
+      ):error?(
+        <div className="card" style={{padding:"32px 20px",textAlign:"center"}}>
+          <div style={{fontSize:13,color:"var(--red)",marginBottom:8}}>⚠ {error}</div>
+          <button onClick={()=>fetchEvents(weekOffset)} className="tap" style={{padding:"8px 18px",background:"var(--elevated)",border:"1px solid var(--line)",borderRadius:"var(--r-sm)",color:"var(--t2)",fontSize:12,fontWeight:600}}>Retry</button>
+        </div>
+      ):filtered.length===0?(
+        <div className="card" style={{padding:"60px 20px",textAlign:"center"}}>
+          <div style={{fontSize:32,marginBottom:8}}>📭</div>
+          <div style={{fontSize:13,color:"var(--t3)"}}>No events this week</div>
+        </div>
+      ):(
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {Object.entries(grouped).map(([dateKey,dayEvents])=>{
+            const isToday=dateKey===todayStr;
+            return(
+              <div key={dateKey} className="card" style={{overflow:"hidden",border:isToday?"1px solid var(--accent)44":"1px solid var(--line)"}}>
+                {/* Day header */}
+                <div style={{padding:"10px 16px",background:isToday?"var(--accent-dim)":"var(--elevated)",borderBottom:"1px solid var(--line)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    {isToday&&<div style={{width:6,height:6,borderRadius:"50%",background:"var(--accent)"}}/>}
+                    <span style={{fontSize:12,fontWeight:800,color:isToday?"var(--accent)":"var(--t1)"}}>{dateKey}</span>
+                    {isToday&&<span style={{fontSize:10,color:"var(--accent)",fontWeight:700,background:"var(--accent)22",padding:"1px 7px",borderRadius:99}}>TODAY</span>}
+                  </div>
+                  <span style={{fontSize:10,color:"var(--t3)",fontWeight:600}}>{dayEvents.length} events</span>
+                </div>
+                {/* Events list */}
+                {dayEvents.map((ev,i)=>{
+                  const ic=impactColor(ev.impact);
+                  const hasActual=ev.actual!==null&&ev.actual!==undefined&&ev.actual!=="";
+                  const beat=hasActual&&ev.estimate&&parseFloat(ev.actual)>parseFloat(ev.estimate);
+                  const miss=hasActual&&ev.estimate&&parseFloat(ev.actual)<parseFloat(ev.estimate);
+                  return(
+                    <div key={i} style={{display:"grid",gridTemplateColumns:"72px 14px 1fr auto",gap:10,padding:"11px 16px",borderBottom:i<dayEvents.length-1?"1px solid var(--line)":"none",alignItems:"center"}}>
+                      {/* Time */}
+                      <div className="mono" style={{fontSize:11,color:"var(--t3)",fontWeight:500}}>{fmtEventTime(ev.time)}</div>
+                      {/* Impact dot */}
+                      <div style={{width:8,height:8,borderRadius:"50%",background:ic,flexShrink:0,boxShadow:`0 0 5px ${ic}88`}}/>
+                      {/* Event name + currency */}
+                      <div style={{minWidth:0}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
+                          <span style={{fontSize:10,color:"var(--t3)",fontWeight:700,background:"var(--elevated)",padding:"1px 6px",borderRadius:4,flexShrink:0}}>{ev.country||"USD"}</span>
+                          <span style={{fontSize:12,fontWeight:600,color:"var(--t1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.event}</span>
+                        </div>
+                        {(ev.estimate!==null&&ev.estimate!==undefined&&ev.estimate!==""||ev.prev!==null&&ev.prev!==undefined&&ev.prev!=="")&&(
+                          <div style={{display:"flex",gap:10}}>
+                            {ev.estimate!==null&&ev.estimate!==undefined&&ev.estimate!==""&&<span style={{fontSize:10,color:"var(--t3)"}}>Forecast <span className="mono" style={{color:"var(--t2)"}}>{ev.estimate}</span></span>}
+                            {ev.prev!==null&&ev.prev!==undefined&&ev.prev!==""&&<span style={{fontSize:10,color:"var(--t3)"}}>Prev <span className="mono" style={{color:"var(--t2)"}}>{ev.prev}</span></span>}
+                          </div>
+                        )}
+                      </div>
+                      {/* Actual */}
+                      <div style={{textAlign:"right",flexShrink:0}}>
+                        {hasActual?(
+                          <div>
+                            <div className="mono" style={{fontSize:13,fontWeight:700,color:beat?"var(--green)":miss?"var(--red)":"var(--t1)"}}>{ev.actual}</div>
+                            {(beat||miss)&&<div style={{fontSize:9,color:beat?"var(--green)":"var(--red)",fontWeight:700}}>{beat?"▲ BEAT":"▼ MISS"}</div>}
+                          </div>
+                        ):(
+                          <span style={{fontSize:11,color:"var(--t3)",fontStyle:"italic"}}>Pending</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Settings View ── */
 /* ── Goal Tracker ── */
 function GoalTracker({trades,accountBalance}){
   const pnlHidden=useContext(PnlCtx);
@@ -1355,7 +2395,8 @@ function GoalTracker({trades,accountBalance}){
   const[form,setForm]=useState({label:"",target:"",period:"monthly",type:"pnl"});
   const toast=useToast();
 
-  const save=g=>{try{localStorage.setItem(SK,JSON.stringify(g))}catch{}};
+  useEffect(()=>{loadData(SK,[]).then(g=>{if(g&&g.length>0){setGoals(g);try{localStorage.setItem(SK,JSON.stringify(g))}catch{}}});},[]);
+  const save=g=>{try{localStorage.setItem(SK,JSON.stringify(g))}catch{};saveData(SK,g)};
 
   const now=new Date();
   const monthKey=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
@@ -1625,7 +2666,6 @@ function AnalyticsView({trades,accountBalance}){
 
   return(
     <div>
-      <GoalTracker trades={trades} accountBalance={accountBalance}/>
       <div style={{display:"flex",background:"var(--surface)",borderRadius:"var(--r-md)",padding:4,border:"1px solid var(--line)",marginBottom:16,gap:2}}>
         {[{id:"7d",l:"7D"},{id:"30d",l:"30D"},{id:"90d",l:"90D"},{id:"all",l:"All Time"}].map(p=>(
           <button key={p.id} onClick={()=>setPeriod(p.id)} className="tap" style={{flex:1,padding:"7px 6px",borderRadius:"var(--r-sm)",border:"none",background:period===p.id?"var(--elevated)":"transparent",color:period===p.id?"var(--t1)":"var(--t3)",fontSize:12,fontWeight:700,cursor:"pointer"}}>{p.l}</button>
@@ -1787,7 +2827,7 @@ function AnalyticsView({trades,accountBalance}){
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
             {tagData.map((t,i)=>{
               const bad=["FOMO","Revenge","Tilted","Overtraded","Late Entry"].includes(t.l);
-              const good=["A+ Setup","Patient","B Setup"].includes(t.l);
+              const good=["Patient"].includes(t.l);
               const col=bad?"var(--red)":good?"var(--green)":"var(--t2)";
               return(
                 <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 12px",background:"var(--elevated)",borderRadius:"var(--r-sm)"}}>
@@ -1807,7 +2847,7 @@ function AnalyticsView({trades,accountBalance}){
       {filtered.length>0&&(()=>{
         const HOURS=Array.from({length:14},(_,i)=>i+8); // 08:00 - 21:00
         const WDAYS=["Mon","Tue","Wed","Thu","Fri"];
-        const hm={};
+        const hm={},hourTotals={};
         filtered.forEach(t=>{
           if(!t.time)return;
           const hr=parseInt(t.time.split(":")[0]);
@@ -1816,15 +2856,20 @@ function AnalyticsView({trades,accountBalance}){
           const key=`${dow}-${hr}`;
           if(!hm[key])hm[key]={pnl:0,n:0};
           hm[key].pnl+=t.pnl;hm[key].n++;
+          if(!hourTotals[hr])hourTotals[hr]={pnl:0,n:0};
+          hourTotals[hr].pnl+=t.pnl;hourTotals[hr].n++;
         });
         const hasTimes=Object.keys(hm).length>0;
         if(!hasTimes)return null;
         const vals=Object.values(hm).map(v=>Math.abs(v.pnl));
         const maxV=Math.max(...vals,1);
+        const hourEntries=Object.entries(hourTotals).sort((a,b)=>a[0]-b[0]);
+        const bestHr=hourEntries.length?[...hourEntries].sort((a,b)=>b[1].pnl-a[1].pnl)[0]:null;
+        const worstHr=hourEntries.length?[...hourEntries].sort((a,b)=>a[1].pnl-b[1].pnl)[0]:null;
         return(
           <div className="card" style={{padding:"18px",marginBottom:12}}>
-            <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",marginBottom:4}}>Trading Heatmap</div>
-            <div style={{fontSize:11,color:"var(--t3)",marginBottom:14}}>P&L by hour & day (requires time on trades)</div>
+            <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",marginBottom:2}}>Trading Heatmap</div>
+            <div style={{fontSize:11,color:"var(--t3)",marginBottom:14}}>P&L by hour & day of week (requires time on trades)</div>
             <div style={{overflowX:"auto"}}>
               <div style={{minWidth:320}}>
                 {/* Hour labels */}
@@ -1851,12 +2896,29 @@ function AnalyticsView({trades,accountBalance}){
                     </div>
                   );
                 })}
-                <div style={{display:"flex",alignItems:"center",gap:8,marginTop:10,justifyContent:"flex-end"}}>
-                  <span style={{fontSize:9,color:"var(--t3)"}}>Loss</span>
-                  {[.8,.5,.2].map(o=><div key={o} style={{width:12,height:12,borderRadius:3,background:`rgba(239,68,68,${o})`}}/>)}
-                  <div style={{width:12,height:12,borderRadius:3,background:"var(--elevated)"}}/>
-                  {[.2,.5,.8].map(o=><div key={o} style={{width:12,height:12,borderRadius:3,background:`rgba(34,197,94,${o})`}}/>)}
-                  <span style={{fontSize:9,color:"var(--t3)"}}>Win</span>
+                {/* Hour totals bar */}
+                <div style={{display:"flex",alignItems:"center",gap:2,marginTop:6}}>
+                  <div style={{width:32,fontSize:8,color:"var(--t3)",fontWeight:700,flexShrink:0}}>Total</div>
+                  {HOURS.map(hr=>{
+                    const ht=hourTotals[hr];
+                    const maxHr=Math.max(...Object.values(hourTotals).map(v=>Math.abs(v.pnl)),1);
+                    const intensity=ht?Math.min((Math.abs(ht.pnl)/maxHr)*0.85+0.15,1):0;
+                    const bg=ht?(ht.pnl>=0?`rgba(34,197,94,${intensity})`:`rgba(239,68,68,${intensity})`):"var(--elevated)";
+                    return<div key={hr} title={ht?`${fmt(ht.pnl)} (${ht.n}T)`:"No trades"} style={{flex:1,height:16,borderRadius:3,background:bg}}/>;
+                  })}
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginTop:10,justifyContent:"space-between",flexWrap:"wrap"}}>
+                  <div style={{display:"flex",gap:12}}>
+                    {bestHr&&<div style={{fontSize:10,color:"var(--t3)"}}>Best hour <span className="mono" style={{color:"var(--green)",fontWeight:700}}>{bestHr[0]}:00</span> ({pnlHidden?PNL_MASK:fmt(bestHr[1].pnl)})</div>}
+                    {worstHr&&<div style={{fontSize:10,color:"var(--t3)"}}>Worst <span className="mono" style={{color:"var(--red)",fontWeight:700}}>{worstHr[0]}:00</span> ({pnlHidden?PNL_MASK:fmt(worstHr[1].pnl)})</div>}
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:9,color:"var(--t3)"}}>Loss</span>
+                    {[.8,.5,.2].map(o=><div key={o} style={{width:12,height:12,borderRadius:3,background:`rgba(239,68,68,${o})`}}/>)}
+                    <div style={{width:12,height:12,borderRadius:3,background:"var(--elevated)"}}/>
+                    {[.2,.5,.8].map(o=><div key={o} style={{width:12,height:12,borderRadius:3,background:`rgba(34,197,94,${o})`}}/>)}
+                    <span style={{fontSize:9,color:"var(--t3)"}}>Win</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1875,20 +2937,21 @@ const Sidebar=React.memo(function Sidebar({tab,setTab,onBackup,syncStatus,plusAc
     {id:"dashboard",l:"Dashboard",I:IcoHome},
     {id:"log",l:"Trade Log",I:IcoLog},
     {id:"analytics",l:"Analytics",I:IcoChart},
-    {id:"risk",l:"Risk",I:IcoShield},
-    {id:"notes",l:"Notes",I:IcoNote}
+    {id:"wallet",l:"Wallet",I:IcoWallet},
+    {id:"notes",l:"Notes",I:IcoNote},
+    {id:"news",l:"News",I:IcoNews}
   ];
   const acc=accounts.find(a=>a.id===activeId);
   return(
     <div className="sidebar" style={{display:"none",width:"var(--sidebar-w)",background:"var(--surface)",borderRight:"1px solid var(--line)",position:"fixed",top:0,left:0,bottom:0,flexDirection:"column",zIndex:50}}>
       {/* Logo */}
-      <div style={{padding:"18px 20px 14px",borderBottom:"1px solid var(--line)"}}>
+      <div style={{padding:"14px 16px 12px",borderBottom:"1px solid var(--line)"}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
           <div style={{width:30,height:30,borderRadius:"var(--r-sm)",background:"linear-gradient(135deg,var(--accent),#8B5CF6)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
             <IcoTrendUp size={15} col="#fff"/>
           </div>
           <div>
-            <div style={{fontSize:14,fontWeight:800,color:"var(--t1)",letterSpacing:"-.4px",lineHeight:1}}>Trading Journal</div>
+            <div style={{fontSize:14,fontWeight:800,color:"var(--t1)",letterSpacing:"-.4px",lineHeight:1}}>Trade Journal</div>
             <div style={{fontSize:10,color:"var(--t3)",fontWeight:500,marginTop:1}}>Performance Tracker</div>
           </div>
         </div>
@@ -1896,7 +2959,7 @@ const Sidebar=React.memo(function Sidebar({tab,setTab,onBackup,syncStatus,plusAc
 
       {/* Account pill */}
       {acc&&(
-        <div style={{padding:"12px 14px",borderBottom:"1px solid var(--line)"}}>
+        <div style={{padding:"8px 12px",borderBottom:"1px solid var(--line)"}}>
           <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",marginBottom:7}}>Active Account</div>
           <button onClick={onManage} className="tap nav-item" style={{width:"100%",display:"flex",alignItems:"center",gap:9,padding:"9px 10px",borderRadius:"var(--r-md)",background:"var(--elevated)",border:"1px solid var(--line)",cursor:"pointer"}}>
             <div style={{width:26,height:26,borderRadius:"50%",background:acc.color,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
@@ -1913,10 +2976,10 @@ const Sidebar=React.memo(function Sidebar({tab,setTab,onBackup,syncStatus,plusAc
 
       {/* Nav */}
       <div style={{flex:1,padding:"10px 10px",overflowY:"auto"}}>
-        <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".09em",textTransform:"uppercase",padding:"6px 6px 8px"}}>Menu</div>
+        <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".09em",textTransform:"uppercase",padding:"4px 6px 6px"}}>Menu</div>
         {NAV.map(({id,l,I})=>{const a=tab===id;return(
-          <button key={id} onClick={()=>setTab(id)} className="tap nav-item" style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"9px 10px",borderRadius:"var(--r-md)",border:"none",background:a?"var(--accent-dim)":"transparent",cursor:"pointer",marginBottom:2,fontFamily:"var(--sans)"}}>
-            <div style={{width:28,height:28,borderRadius:"var(--r-sm)",background:a?"var(--accent-dim)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+          <button key={id} onClick={()=>setTab(id)} className="tap nav-item" style={{width:"100%",display:"flex",alignItems:"center",gap:8,padding:"7px 8px",borderRadius:"var(--r-md)",border:"none",background:a?"var(--accent-dim)":"transparent",cursor:"pointer",marginBottom:1,fontFamily:"var(--sans)"}}>
+            <div style={{width:24,height:24,borderRadius:"var(--r-sm)",background:a?"var(--accent-dim)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
               <I size={14} col={a?"var(--accent)":"var(--t3)"}/>
             </div>
             <span style={{fontSize:13,fontWeight:600,color:a?"var(--t1)":"var(--t2)"}}>{l}</span>
@@ -1926,13 +2989,13 @@ const Sidebar=React.memo(function Sidebar({tab,setTab,onBackup,syncStatus,plusAc
       </div>
 
       {/* Bottom util */}
-      <div style={{padding:"10px 10px 18px",borderTop:"1px solid var(--line)"}}>
-        <div style={{display:"flex",alignItems:"center",gap:6,padding:"7px 10px",borderRadius:"var(--r-md)",background:"var(--elevated)",border:"1px solid var(--line)",marginBottom:6}}>
+      <div style={{padding:"8px 10px 14px",borderTop:"1px solid var(--line)"}}>
+        <div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 8px",borderRadius:"var(--r-md)",background:"var(--elevated)",border:"1px solid var(--line)",marginBottom:6}}>
           <div style={{width:6,height:6,borderRadius:"50%",background:syncStatus==="ok"?"var(--green)":syncStatus==="offline"?"var(--red)":"var(--amber)",flexShrink:0,animation:syncStatus==="syncing"?"pulse 1.5s infinite":"none"}}/>
           <span style={{fontSize:11,color:"var(--t2)",fontWeight:600}}>{syncStatus==="ok"?"Cloud Sync Active":syncStatus==="offline"?"Offline":"Connecting…"}</span>
         </div>
         {[{l:"Backup & Import",I:IcoUp,a:onBackup},{l:darkMode?"Light Mode":"Dark Mode",I:darkMode?IcoSun:IcoMoon,a:onToggleDark}].map(({l,I,a})=>(
-          <button key={l} onClick={a} className="tap nav-item" style={{width:"100%",display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:"var(--r-md)",border:"none",background:"transparent",cursor:"pointer",fontFamily:"var(--sans)",color:"var(--t2)",marginBottom:2}}>
+          <button key={l} onClick={a} className="tap nav-item" style={{width:"100%",display:"flex",alignItems:"center",gap:8,padding:"6px 8px",borderRadius:"var(--r-md)",border:"none",background:"transparent",cursor:"pointer",fontFamily:"var(--sans)",color:"var(--t2)",marginBottom:1}}>
             <I size={13} col="var(--t3)"/><span style={{fontSize:12,fontWeight:600}}>{l}</span>
           </button>
         ))}
@@ -1942,10 +3005,12 @@ const Sidebar=React.memo(function Sidebar({tab,setTab,onBackup,syncStatus,plusAc
 });
 
 /* ── Header ── */
-const AppHeader=React.memo(function AppHeader({tab,syncStatus,account,onSwitchAccount,darkMode,onToggleDark,onBackup}){
+const AppHeader=React.memo(function AppHeader({tab,syncStatus,account,onSwitchAccount,darkMode,onToggleDark,onBackup,todayPnl}){
   const{isDesktop}=useBP();
-  const TITLES={dashboard:"Dashboard",log:"Trade Log",analytics:"Analytics",risk:"Risk Calculator",notes:"Notebook"};
-  const SUBTITLES={dashboard:"Performance overview",log:"All your trades",analytics:"Detailed performance analysis",risk:"Position sizing",notes:"Journal & notes"};
+  const pnlHidden=useContext(PnlCtx);
+  const TITLES={dashboard:"Dashboard",log:"Trade Log",analytics:"Analytics",wallet:"Wallet",notes:"Notebook",news:"Economic Calendar"};
+  const SUBTITLES={dashboard:"Performance overview",log:"All your trades",analytics:"Detailed performance analysis",wallet:"Deposit & Withdraw",notes:"Journal & notes",news:"Forex Factory style calendar"};
+  const hasTrades=todayPnl!==0;
   return(
     <div style={{
       padding:isDesktop?"16px 24px":"52px 16px 14px",
@@ -1960,10 +3025,19 @@ const AppHeader=React.memo(function AppHeader({tab,syncStatus,account,onSwitchAc
       zIndex:40,
       backdropFilter:"blur(12px)"
     }}>
-      {/* Left: page title */}
-      <div style={{minWidth:0}}>
-        <div style={{fontSize:isDesktop?18:16,fontWeight:800,color:"var(--t1)",letterSpacing:"-.4px",lineHeight:1}}>{TITLES[tab]||"Journal"}</div>
-        {isDesktop&&<div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>{SUBTITLES[tab]||""}</div>}
+      {/* Left: page title + today PnL chip */}
+      <div style={{display:"flex",alignItems:"center",gap:10,minWidth:0}}>
+        <div style={{minWidth:0}}>
+          <div style={{fontSize:isDesktop?18:16,fontWeight:800,color:"var(--t1)",letterSpacing:"-.4px",lineHeight:1}}>{TITLES[tab]||"Journal"}</div>
+          {isDesktop&&<div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>{SUBTITLES[tab]||""}</div>}
+        </div>
+        {isDesktop&&(hasTrades||true)&&(
+          <div style={{display:"flex",alignItems:"center",gap:7,padding:"5px 11px 5px 8px",borderRadius:99,background:todayPnl>0?"var(--green-dim)":todayPnl<0?"var(--red-dim)":"var(--elevated)",border:`1px solid ${todayPnl>0?"var(--green)33":todayPnl<0?"var(--red)33":"var(--line-md)"}`,flexShrink:0}}>
+            <div style={{width:6,height:6,borderRadius:"50%",background:todayPnl>0?"var(--green)":todayPnl<0?"var(--red)":"var(--t3)",flexShrink:0}}/>
+            <span style={{fontSize:10,fontWeight:700,color:"var(--t3)",letterSpacing:".06em",textTransform:"uppercase"}}>Today</span>
+            <span className="mono" style={{fontSize:13,fontWeight:700,color:todayPnl>0?"var(--green)":todayPnl<0?"var(--red)":"var(--t2)",letterSpacing:"-.3px"}}>{pnlHidden?PNL_MASK:fmt(todayPnl)}</span>
+          </div>
+        )}
       </div>
 
       {/* Right: action buttons */}
@@ -1981,14 +3055,11 @@ const AppHeader=React.memo(function AppHeader({tab,syncStatus,account,onSwitchAc
             <span style={{fontSize:11,fontWeight:700,color:account.color,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{account.name}</span>
           </button>
         )}
-
-        <button onClick={onBackup} className="tap topbar-btn">
-          <IcoUp size={13}/>{isDesktop&&"Backup"}
-        </button>
-        <button onClick={onToggleDark} className="tap topbar-btn">
-          {darkMode?<IcoSun size={13}/>:<IcoMoon size={13}/>}
-          {isDesktop&&(darkMode?"Light":"Dark")}
-        </button>
+        {/* Mobile only: Backup + Dark */}
+        {!isDesktop&&<>
+          <button onClick={onBackup} className="tap topbar-btn"><IcoUp size={13}/></button>
+          <button onClick={onToggleDark} className="tap topbar-btn">{darkMode?<IcoSun size={13}/>:<IcoMoon size={13}/>}</button>
+        </>}
       </div>
     </div>
   );
@@ -2138,8 +3209,8 @@ function KbdShortcutsHint(){
     {key:"1",desc:"Dashboard"},
     {key:"2",desc:"Trade Log"},
     {key:"3",desc:"Analytics"},
-    {key:"4",desc:"Risk"},
-    {key:"5",desc:"Notes"},
+    {key:"4",desc:"Wallet"},
+    {key:"5",desc:"Notes"},{key:"6",desc:"News"},{key:"6",desc:"News"},
   ];
   return(
     <div style={{position:"fixed",bottom:24,right:24,background:"var(--surface)",border:"1px solid var(--line-md)",borderRadius:"var(--r-lg)",padding:"14px 16px",zIndex:200,minWidth:200,boxShadow:"0 8px 32px rgba(0,0,0,.3)"}}>
@@ -2157,6 +3228,56 @@ function KbdShortcutsHint(){
   );
 }
 
+/* ── Instrument Manager Modal ── */
+function InstrumentModal({instrs,onSave,onClose}){
+  const[list,setList]=useState([...instrs]);
+  const[newName,setNewName]=useState("");
+  const toast=useToast();
+  const PRESET_COLORS=["#22D3EE","#4D9FFF","#A78BFA","#C084FC","#FFB830","#FB923C","#F472B6","#86EFAC","#00E676","#EF4444"];
+  const[newColor,setNewColor]=useState(PRESET_COLORS[0]);
+  const add=()=>{
+    const n=newName.trim().toUpperCase();
+    if(!n){toast("Enter instrument name","warn");return;}
+    if(list.includes(n)){toast("Already exists","warn");return;}
+    setList(p=>[...p,n]);setNewName("");
+  };
+  const remove=s=>setList(p=>p.filter(x=>x!==s));
+  const move=(i,dir)=>{setList(p=>{const n=[...p];const j=i+dir;if(j<0||j>=n.length)return p;[n[i],n[j]]=[n[j],n[i]];return n})};
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.72)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:300,backdropFilter:"blur(8px)"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div style={{width:"100%",maxWidth:480,margin:"0 auto",background:"var(--surface)",borderRadius:"var(--r-xl) var(--r-xl) 0 0",padding:"20px 20px 48px",maxHeight:"85vh",overflowY:"auto",border:"1px solid var(--line-md)"}}>
+        <div style={{width:36,height:4,background:"var(--overlay)",borderRadius:99,margin:"0 auto 18px"}}/>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+          <div style={{fontSize:16,fontWeight:700,color:"var(--t1)"}}>Manage Instruments</div>
+          <button onClick={()=>{onSave(list);onClose()}} style={{background:"var(--accent)",border:"none",borderRadius:"var(--r-sm)",color:"#fff",fontSize:12,fontWeight:700,padding:"7px 16px",cursor:"pointer"}}>Save</button>
+        </div>
+        <div style={{fontSize:11,color:"var(--t3)",marginBottom:12}}>Drag to reorder · Tap × to remove · Default instruments cannot be removed</div>
+        <div style={{display:"flex",flexDirection:"column",gap:5,marginBottom:14}}>
+          {list.map((s,i)=>{
+            const isDefault=DEF_INSTRS.includes(s);
+            const col=ICOL[s]||"#A78BFA";
+            return(
+              <div key={s} style={{display:"flex",alignItems:"center",gap:8,padding:"9px 12px",background:"var(--elevated)",borderRadius:"var(--r-md)",border:"1px solid var(--line)"}}>
+                <div style={{width:10,height:10,borderRadius:"50%",background:col,flexShrink:0}}/>
+                <span style={{flex:1,fontSize:13,fontWeight:600,color:"var(--t1)",fontFamily:"var(--mono)"}}>{s}</span>
+                <div style={{display:"flex",gap:3}}>
+                  <button onClick={()=>move(i,-1)} disabled={i===0} style={{background:"none",border:"none",padding:"3px 6px",color:i===0?"var(--t3)":"var(--t2)",cursor:i===0?"default":"pointer",fontSize:12}}>↑</button>
+                  <button onClick={()=>move(i,1)} disabled={i===list.length-1} style={{background:"none",border:"none",padding:"3px 6px",color:i===list.length-1?"var(--t3)":"var(--t2)",cursor:i===list.length-1?"default":"pointer",fontSize:12}}>↓</button>
+                  {!isDefault&&<button onClick={()=>remove(s)} style={{background:"var(--red-dim)",border:"none",borderRadius:"var(--r-sm)",padding:"3px 7px",cursor:"pointer",display:"flex",alignItems:"center"}}><IcoX size={10} col="var(--red)"/></button>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{display:"flex",gap:7,alignItems:"center"}}>
+          <input className="inp mono" placeholder="Symbol (e.g. CL, BTC)" value={newName} onChange={e=>setNewName(e.target.value.toUpperCase())} onKeyDown={e=>e.key==="Enter"&&add()} style={{flex:1,padding:"9px 11px",fontSize:13,textTransform:"uppercase"}}/>
+          <button onClick={add} style={{padding:"10px 16px",background:"var(--green)",border:"none",borderRadius:"var(--r-md)",color:"#000",fontSize:13,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>+ Add</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── MAIN APP ── */
 function App(){
   const w=useWidth(),isDesktop=w>=1024,isTablet=w>=768&&w<1024;
@@ -2168,6 +3289,13 @@ function App(){
   const togglePnl=()=>setPnlHidden(h=>{const n=!h;try{localStorage.setItem("nq-pnl-hidden",n?"1":"0")}catch{}return n;});
   const[loading,setLoading]=useState(true),[sync,setSync]=useState("syncing");
   const[dark,setDark]=useState(()=>{try{return localStorage.getItem("nq-theme")!=="light"}catch{return true}});
+  const[utcOffset,setUtcOffset]=useState(()=>{try{const v=parseFloat(localStorage.getItem("nq-utc-offset"));return isNaN(v)?7:v;}catch{return 7;}});
+  // Custom instruments
+  const[customInstrs,setCustomInstrs]=useState(()=>{try{const v=localStorage.getItem(INSTR_KEY);return v?JSON.parse(v):DEF_INSTRS}catch{return DEF_INSTRS}});
+  const[instrModal,setInstrModal]=useState(false);
+  const saveInstrs=i=>{setCustomInstrs(i);try{localStorage.setItem(INSTR_KEY,JSON.stringify(i))}catch{};saveData(INSTR_KEY,i)};
+  // icol — merge defaults with custom (custom get accent color)
+  const instrCtxVal=useMemo(()=>{const ic={...ICOL};customInstrs.forEach(s=>{if(!ic[s])ic[s]="#A78BFA"});return{instrs:customInstrs,icol:ic}},[customInstrs]);
 
   useEffect(()=>{document.documentElement.setAttribute("data-theme",dark?"dark":"light");try{localStorage.setItem("nq-theme",dark?"dark":"light")}catch{}},[dark]);
 
@@ -2177,13 +3305,15 @@ function App(){
 
   useEffect(()=>{
     fetch(`${SB_URL}/rest/v1/journal_data?limit=1`,{headers:SBH}).then(r=>setSync(r.ok?"ok":"offline")).catch(()=>setSync("offline"));
-    Promise.all([loadData(AK,null),loadData(AAK,null),loadData(NK,[]),loadData("nq-journal-trades",null),loadData("nq-journal-balance",null),loadData("nq-journal-drawdown",null),loadData("nq-journal-consistency-limit",null)])
-      .then(async([sa,sai,sn,lt,lb,ldd,lcl])=>{
+    Promise.all([loadData(AK,null),loadData(AAK,null),loadData(NK,[]),loadData("nq-journal-trades",null),loadData("nq-journal-balance",null),loadData("nq-journal-drawdown",null),loadData("nq-journal-consistency-limit",null),loadData(INSTR_KEY,null)])
+      .then(async([sa,sai,sn,lt,lb,ldd,lcl,si])=>{
         let fa=sa,fai=sai;
         if(!fa){const m={...DEF_ACC,balance:typeof lb==="number"?lb:DEF_BAL,drawdownLimit:ldd||0,consistencyLimit:lcl||0};fa=[m];fai=m.id}
         const trs=await Promise.all(fa.map(a=>loadData(TPK+a.id,null)));
         const to={};fa.forEach((a,i)=>{let t=trs[i];if(t===null&&a.id==="acc_default"&&lt)t=lt;to[a.id]=t||[]});
-        setAccounts(fa);setActiveId(fai||fa[0].id);setAllTrades(to);setNotes(sn||[]);setLoading(false);
+        setAccounts(fa);setActiveId(fai||fa[0].id);setAllTrades(to);setNotes(sn||[]);
+        if(si&&Array.isArray(si)&&si.length>0){setCustomInstrs(si);try{localStorage.setItem(INSTR_KEY,JSON.stringify(si))}catch{}}
+        setLoading(false);
       });
   },[]);
 
@@ -2224,8 +3354,10 @@ function App(){
       if(e.key==="1")handleSetTab("dashboard");
       if(e.key==="2")handleSetTab("log");
       if(e.key==="3")handleSetTab("analytics");
-      if(e.key==="4")handleSetTab("risk");
+      if(e.key==="4")handleSetTab("wallet");
       if(e.key==="5")handleSetTab("notes");
+      if(e.key==="6")handleSetTab("news");
+      if(e.key==="6")handleSetTab("news");
     };
     window.addEventListener("keydown",h);
     return()=>window.removeEventListener("keydown",h);
@@ -2248,7 +3380,9 @@ function App(){
     return{wins,losses,totalPnl:total,winRate:wr,avgRR:rr,gainsPct:gp,avgWin:aw,avgLoss:al,sorted:s,curBal:accBal+total,profitFactor:pf,streak:stk};
   },[trades,accBal]);
 
-  const plusAction=tab==="notes"?()=>setOpenNote({title:"",body:"",updatedAt:new Date().toISOString()}):tab==="risk"?null:()=>setTradeModal({});
+  const appTodayPnl=useMemo(()=>trades.filter(t=>t.date===today()).reduce((a,t)=>a+t.pnl,0),[trades]);
+
+  const plusAction=tab==="notes"?()=>setOpenNote({title:"",body:"",updatedAt:new Date().toISOString()}):tab==="wallet"||tab==="news"?null:()=>setTradeModal({});
 
   if(loading)return(
     <BPCtx.Provider value={{isDesktop}}>
@@ -2261,6 +3395,8 @@ function App(){
 
   return(
     <BPCtx.Provider value={{isDesktop}}>
+    <SettingsCtx.Provider value={{utcOffset,setUtcOffset}}>
+    <InstrCtx.Provider value={instrCtxVal}>
     <PnlCtx.Provider value={pnlHidden}>
     <ToastProvider>
     <div style={{minHeight:"100vh"}}>
@@ -2268,7 +3404,7 @@ function App(){
       <div className="shell" style={{background:"var(--page)",minHeight:"100vh",paddingBottom:isDesktop?40:96,maxWidth:isDesktop?"none":isTablet?"640px":"480px",margin:isDesktop?0:"0 auto"}}>
 
         {openNote!==null&&<NoteEditor note={openNote} onBack={()=>setOpenNote(null)} onSave={handleSaveNote} onDelete={handleDelNote}/>}
-        <AppHeader tab={tab} syncStatus={sync} account={activeAcc} onSwitchAccount={()=>setAccModal(true)} darkMode={dark} onToggleDark={toggleDark} onBackup={()=>setDataModal(true)}/>
+        <AppHeader tab={tab} syncStatus={sync} account={activeAcc} onSwitchAccount={()=>setAccModal(true)} darkMode={dark} onToggleDark={toggleDark} onBackup={()=>setDataModal(true)} todayPnl={appTodayPnl}/>
 
         {/* FAB */}
         {plusAction&&!isDesktop&&(
@@ -2283,6 +3419,7 @@ function App(){
           {/* ── DASHBOARD ── */}
           {tab==="dashboard"&&(
             <div className="tab-content">
+              <NewsTicker/>
               {isDesktop?(
                 /* ── Desktop: 2-col grid ── */
                 <div className="desk-grid">
@@ -2334,6 +3471,7 @@ function App(){
                     </div>
 
                     <AlertBanner sorted={sorted}/>
+                    <FundedTargetTracker trades={trades} accountBalance={accBal}/>
 
                     {/* Equity Curve full card */}
                     <EquityCurveDashCard trades={trades} accountBalance={accBal}/>
@@ -2416,6 +3554,7 @@ function App(){
                     <StatCard label="Streak" value={streak.count?`${streak.count}×`:"—"} sub={streak.type||""} col={streak.type==="win"?"var(--green)":streak.type==="loss"?"var(--red)":"var(--t2)"}/>
                   </div>
                   <AlertBanner sorted={sorted}/>
+                  <FundedTargetTracker trades={trades} accountBalance={accBal}/>
                   <EquityCurveDashCard trades={trades} accountBalance={accBal}/>
                   <DrawdownCard trades={trades} accountBalance={accBal} drawdownLimit={ddLim} totalPnl={totalPnl} consistencyLimit={clLim}/>
                   <BreakdownCard trades={trades}/>
@@ -2445,7 +3584,7 @@ function App(){
           {tab==="notes"&&(
             <div className="tab-content">
               <div style={{display:"flex",gap:4,marginBottom:12,background:"var(--surface)",borderRadius:"var(--r-md)",padding:4,border:"1px solid var(--line)"}}>
-                {[{id:"personal",l:"My Notes"},{id:"trade",l:"Trade Notes"}].map(s=>(
+                {[{id:"personal",l:"My Notes"},{id:"trade",l:"Trade Notes"},{id:"lessons",l:"📚 Lessons"}].map(s=>(
                   <button key={s.id} onClick={()=>setNoteTab(s.id)} className="tap" style={{flex:1,padding:"7px 6px",borderRadius:"var(--r-sm)",border:"none",background:noteTab===s.id?"var(--elevated)":"transparent",color:noteTab===s.id?"var(--t1)":"var(--t3)",fontSize:12,fontWeight:600}}>{s.l}</button>
                 ))}
               </div>
@@ -2468,17 +3607,75 @@ function App(){
                   {trades.filter(t=>t.notes?.trim()).length===0&&<div style={{padding:"40px 0",textAlign:"center",fontSize:12,color:"var(--t3)"}}>Add notes when logging trades</div>}
                 </div>
               )}
+              {noteTab==="lessons"&&(()=>{
+                const withLesson=[...trades].filter(t=>t.lesson?.trim()).sort((a,b)=>b.date.localeCompare(a.date));
+                if(withLesson.length===0)return(
+                  <div className="card" style={{padding:"44px 20px",textAlign:"center"}}>
+                    <div style={{fontSize:32,marginBottom:10}}>📚</div>
+                    <div style={{fontSize:14,fontWeight:700,color:"var(--t2)",marginBottom:6}}>Belum ada lesson</div>
+                    <div style={{fontSize:12,color:"var(--t3)"}}>Isi kolom "Lesson Learned" saat log trade untuk mencatat kesalahan yang tidak boleh diulang.</div>
+                  </div>
+                );
+                // group by month
+                const byMonth={};
+                withLesson.forEach(t=>{const mk=t.date.slice(0,7);if(!byMonth[mk])byMonth[mk]=[];byMonth[mk].push(t);});
+                return(
+                  <div>
+                    {Object.entries(byMonth).sort((a,b)=>b[0].localeCompare(a[0])).map(([mk,list])=>{
+                      const [yr,mo]=mk.split("-");
+                      const label=MONTHS[parseInt(mo)-1]+" "+yr;
+                      return(
+                        <div key={mk} style={{marginBottom:16}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                            <span style={{fontSize:10,fontWeight:700,color:"var(--amber)",letterSpacing:".08em",textTransform:"uppercase"}}>{label}</span>
+                            <div style={{flex:1,height:1,background:"var(--line)"}}/>
+                            <span style={{fontSize:10,color:"var(--t3)",fontWeight:600}}>{list.length} lesson</span>
+                          </div>
+                          <div className="card" style={{padding:"0 16px"}}>
+                            {list.map((t,i)=>(
+                              <div key={t.id} style={{padding:"14px 0",borderBottom:i<list.length-1?"1px solid var(--line)":"none"}}>
+                                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                                  <div style={{display:"flex",alignItems:"center",gap:7}}>
+                                    <div style={{width:6,height:6,borderRadius:"50%",background:t.pnl>=0?"var(--green)":"var(--red)",flexShrink:0}}/>
+                                    <span className="mono" style={{fontSize:11,color:"var(--t2)"}}>{t.date}</span>
+                                    <span style={{fontSize:11,color:"var(--t3)"}}>{t.instrument||""}</span>
+                                    <span style={{fontSize:11,color:"var(--t3)"}}>·</span>
+                                    <span style={{fontSize:11,color:"var(--t3)"}}>{t.strategy}</span>
+                                  </div>
+                                  <span className="mono" style={{fontSize:12,fontWeight:600,color:clr(t.pnl),flexShrink:0,marginLeft:8}}>{fmt(t.pnl)}</span>
+                                </div>
+                                <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
+                                  <div style={{width:24,height:24,borderRadius:6,background:"var(--amber-dim)",border:"1px solid var(--amber)33",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",marginTop:1}}>
+                                    <span style={{fontSize:13}}>💡</span>
+                                  </div>
+                                  <div style={{fontSize:13,color:"var(--t1)",lineHeight:1.7,fontWeight:500}}>{t.lesson}</div>
+                                </div>
+                                {t.tags?.length>0&&(
+                                  <div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:8}}>
+                                    {t.tags.map(tag=>{const bad=["FOMO","Revenge","Overtraded","Tilted","Late Entry"].includes(tag);return<span key={tag} className="pill" style={{background:bad?"var(--red-dim)":"var(--elevated)",color:bad?"var(--red)":"var(--t3)"}}>{tag}</span>})}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           )}
 
-          {tab==="risk"&&<div className="tab-content"><RiskManagement accountBalance={accBal} totalPnl={totalPnl}/></div>}
+          {tab==="wallet"&&<div className="tab-content"><Wallet accountBalance={accBal} totalPnl={totalPnl} activeId={activeId} onUpdateBalance={v=>{setAccounts(p=>{const n=p.map(a=>a.id===activeId?{...a,balance:v}:a);saveAccs(n);return n})}}/></div>}
+          {tab==="news"&&<div className="tab-content"><NewsView/></div>}
 
         </div>
         </div>
 
         {/* ── Bottom Nav ── */}
         <div className="bot-nav" style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"var(--surface)",borderTop:"1px solid var(--line)",display:"flex",padding:"8px 6px 22px",gap:2}}>
-          {[{id:"dashboard",l:"Home",I:IcoHome},{id:"log",l:"Log",I:IcoLog},{id:"analytics",l:"Stats",I:IcoChart},{id:"risk",l:"Risk",I:IcoShield},{id:"notes",l:"Notes",I:IcoNote}].map(({id,l,I})=>{
+          {[{id:"dashboard",l:"Home",I:IcoHome},{id:"log",l:"Log",I:IcoLog},{id:"analytics",l:"Stats",I:IcoChart},{id:"wallet",l:"Wallet",I:IcoWallet},{id:"notes",l:"Notes",I:IcoNote},{id:"news",l:"News",I:IcoNews}].map(({id,l,I})=>{
             const a=tab===id;
             return(
               <button key={id} onClick={()=>handleSetTab(id)} className="tap" style={{flex:1,background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"5px 0",borderRadius:"var(--r-md)"}}>
@@ -2489,20 +3686,16 @@ function App(){
               </button>
             );
           })}
-          <button onClick={toggleDark} className="tap" style={{flex:1,background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"5px 0",borderRadius:"var(--r-md)"}}>
-            <div style={{width:36,height:30,borderRadius:"var(--r-md)",background:"transparent",display:"flex",alignItems:"center",justifyContent:"center"}}>
-              {dark?<IcoSun size={17} col="var(--t3)"/>:<IcoMoon size={17} col="var(--t3)"/>}
-            </div>
-            <span style={{fontSize:9,fontWeight:700,color:"var(--t3)",letterSpacing:".02em"}}>{dark?"Light":"Dark"}</span>
-          </button>
+
         </div>
 
         {/* ── Modals ── */}
-        {tradeModal!==null&&<TradeModal trade={tradeModal} onSave={handleSaveTrade} onDelete={handleDelTrade} onClose={()=>setTradeModal(null)}/>}
+        {tradeModal!==null&&<TradeModal trade={tradeModal} onSave={handleSaveTrade} onDelete={handleDelTrade} onClose={()=>setTradeModal(null)} onManageInstrs={()=>setInstrModal(true)}/>}
         {balModal&&<BalanceModal current={accBal} onSave={handleSaveBal} onClose={()=>setBalModal(false)}/>}
         {dataModal&&<DataModal trades={trades} notes={notes} account={activeAcc} onImport={handleImport} onClearAll={handleClear} onClose={()=>setDataModal(false)}/>}
         {ddModal&&<DDModal drawdownLimit={ddLim} consistencyLimit={clLim} totalPnl={totalPnl} onSave={handleSaveDD} onClose={()=>setDdModal(false)}/>}
         {accModal&&<AccModal accounts={accounts} activeId={activeId} onSwitch={handleSwitch} onAdd={handleAddAcc} onEdit={handleEditAcc} onDelete={handleDelAcc} onClose={()=>setAccModal(false)}/>}
+        {instrModal&&<InstrumentModal instrs={customInstrs} onSave={saveInstrs} onClose={()=>setInstrModal(false)}/>}
         {/* Daily Kill Switch */}
         <DailyKillSwitch trades={trades} accountBalance={accBal} drawdownLimit={ddLim}/>
         {/* Keyboard shortcuts hint — desktop only */}
@@ -2511,6 +3704,8 @@ function App(){
     </div>
     </ToastProvider>
     </PnlCtx.Provider>
+    </InstrCtx.Provider>
+    </SettingsCtx.Provider>
     </BPCtx.Provider>
   );
 }
