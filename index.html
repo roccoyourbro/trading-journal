@@ -230,6 +230,7 @@ const useInstrs=()=>useContext(InstrCtx);
 const CHECKLIST_KEY="nq-trade-checklist";
 const DEF_CHECKLIST=["Sweep likuiditas + delivery dari FVG?","Momentum kuat tanpa chop saat tembus iFVG?","Target jelas (EQH/EQL/ITH/ITL/Data High/Low/LRLR)?","FVG tunggal (atau kombinasi dihitung satu area)?","Entry di area Premium/Discount yang tepat?","Risk ≤ 1% of account?","Tidak ada high-impact news dalam 15 menit?"];
 const FUNDED_TARGET_KEY="nq-funded-target";
+const DRAFT_KEY="nq-trade-draft";
 
 /* ── Helpers ── */
 const fmt=n=>{const a=Math.abs(n).toLocaleString("en-US",{maximumFractionDigits:0});return(n>=0?"+":"−")+"$"+a};
@@ -1052,6 +1053,7 @@ function TradeModal({trade,onSave,onDelete,onClose,onManageInstrs}){
   const imgRef=useRef(null);
   const[lb,setLb]=useState(null),[cDel,setCDel]=useState(false),[drag,setDrag]=useState(false);
   const[modalTab,setModalTab]=useState("trade");
+  const[confirmClose,setConfirmClose]=useState(false);
 
   // — Checklist state (load rules once, track ticked per-trade) —
   const[checkRules,setCheckRules]=useState(()=>{try{const v=localStorage.getItem(CHECKLIST_KEY);return v?JSON.parse(v):DEF_CHECKLIST}catch{return DEF_CHECKLIST}});
@@ -1061,7 +1063,12 @@ function TradeModal({trade,onSave,onDelete,onClose,onManageInstrs}){
   const saveRules=r=>{setCheckRules(r);try{localStorage.setItem(CHECKLIST_KEY,JSON.stringify(r))}catch{}};
   const allChecked=checkRules.length>0&&checkRules.every(r=>checkedItems[r]);
 
-  const[form,setForm]=useState({date:trade.date||today(),time:trade.time||"",direction:trade.direction||"",pnl:trade.pnl!==undefined?String(trade.pnl):"",rr:trade.rr!==undefined?String(trade.rr):"",entryPrice:trade.entryPrice!==undefined?String(trade.entryPrice):"",stopLoss:trade.stopLoss!==undefined?String(trade.stopLoss):"",takeProfit:trade.takeProfit!==undefined?String(trade.takeProfit):"",strategy:trade.strategy||STRATS[0],session:trade.session||"",instrument:trade.instrument||(instrs[0]||"MNQ"),contracts:trade.contracts!==undefined?String(trade.contracts):"1",tags:trade.tags||[],feelings:trade.feelings||"",notes:trade.notes||"",lesson:trade.lesson||"",images:trade.images||[]});
+  // — Draft restore: hanya untuk new trade —
+  const initForm=()=>{
+    if(isNew){try{const d=localStorage.getItem(DRAFT_KEY);if(d){const p=JSON.parse(d);return{...p,date:p.date||today()}}}catch{}}
+    return{date:trade.date||today(),time:trade.time||"",direction:trade.direction||"",pnl:trade.pnl!==undefined?String(trade.pnl):"",rr:trade.rr!==undefined?String(trade.rr):"",entryPrice:trade.entryPrice!==undefined?String(trade.entryPrice):"",stopLoss:trade.stopLoss!==undefined?String(trade.stopLoss):"",takeProfit:trade.takeProfit!==undefined?String(trade.takeProfit):"",strategy:trade.strategy||STRATS[0],session:trade.session||"",instrument:trade.instrument||(instrs[0]||"MNQ"),contracts:trade.contracts!==undefined?String(trade.contracts):"1",tags:trade.tags||[],feelings:trade.feelings||"",notes:trade.notes||"",lesson:trade.lesson||"",images:trade.images||[]};
+  };
+  const[form,setForm]=useState(initForm);
   // auto-calc RR from entry/SL/TP
   const autoRR=useMemo(()=>{
     const e=parseFloat(form.entryPrice),sl=parseFloat(form.stopLoss),tp=parseFloat(form.takeProfit);
@@ -1072,6 +1079,44 @@ function TradeModal({trade,onSave,onDelete,onClose,onManageInstrs}){
     return(reward/risk).toFixed(2);
   },[form.entryPrice,form.stopLoss,form.takeProfit]);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+
+  // — Auto-save draft (new trade only, every 800ms debounce) —
+  const draftTimer=useRef(null);
+  const[draftStatus,setDraftStatus]=useState(null); // null | "saving" | "saved"
+  useEffect(()=>{
+    if(!isNew)return;
+    setDraftStatus("saving");
+    clearTimeout(draftTimer.current);
+    draftTimer.current=setTimeout(()=>{
+      try{localStorage.setItem(DRAFT_KEY,JSON.stringify(form));setDraftStatus("saved");}catch{setDraftStatus(null);}
+      setTimeout(()=>setDraftStatus(null),1800);
+    },800);
+    return()=>clearTimeout(draftTimer.current);
+  },[form,isNew]);
+
+  // — isDirty: ada isian penting ga —
+  const isDirty=isNew?(form.pnl!==""||form.notes!==""||form.direction!==""||form.entryPrice!==""||form.tags.length>0)
+    :(form.pnl!==String(trade.pnl)||form.notes!==(trade.notes||"")||form.direction!==(trade.direction||"")||form.lesson!==(trade.lesson||"")||form.strategy!==(trade.strategy||""));
+
+  // — handleClose: cek dirty dulu —
+  const handleClose=()=>{if(isDirty){setConfirmClose(true)}else{if(isNew)try{localStorage.removeItem(DRAFT_KEY)}catch{}onClose()}};
+
+  // — Duplicate: pre-fill form dengan data trade existing, tanpa id/pnl/time —
+  const duplicate=()=>{
+    const d={date:today(),time:"",direction:form.direction,pnl:"",rr:"",entryPrice:form.entryPrice,stopLoss:form.stopLoss,takeProfit:form.takeProfit,strategy:form.strategy,session:form.session,instrument:form.instrument,contracts:form.contracts,tags:[],feelings:"",notes:"",lesson:"",images:[]};
+    try{localStorage.setItem(DRAFT_KEY,JSON.stringify(d))}catch{}
+    onClose();
+    setTimeout(()=>toast("Form di-duplicate, buka Log Trade lagi"),200);
+  };
+  // — DuplicateNew: duplikat dari new trade form (reset pnl/time tapi keep setup) —
+  const duplicateNew=()=>{
+    const d={date:today(),time:"",direction:form.direction,pnl:"",rr:"",entryPrice:form.entryPrice,stopLoss:form.stopLoss,takeProfit:form.takeProfit,strategy:form.strategy,session:form.session,instrument:form.instrument,contracts:form.contracts,tags:[],feelings:"",notes:"",lesson:"",images:[]};
+    try{localStorage.setItem(DRAFT_KEY,JSON.stringify(d))}catch{}
+    setForm({...d});
+    setCheckedItems({});
+    toast("Setup di-copy — isi P&L baru");
+  };
+
   useEffect(()=>{
     const h=e=>{const items=e.clipboardData?.items;if(!items)return;for(const item of Array.from(items)){if(item.type.startsWith("image/")){const r=new FileReader();r.onload=async ev=>{const c=await compressImage(ev.target.result);setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(item.getAsFile())}}};
     window.addEventListener("paste",h);return()=>window.removeEventListener("paste",h);
@@ -1089,18 +1134,28 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
       return url||img;
     }));
     onSave({id:tradeId,date:form.date,time:form.time||"",direction:form.direction||"",pnl:parseFloat(form.pnl)||0,rr:parseFloat(autoRR||form.rr)||0,entryPrice:parseFloat(form.entryPrice)||0,stopLoss:parseFloat(form.stopLoss)||0,takeProfit:parseFloat(form.takeProfit)||0,strategy:form.strategy,session:form.session,instrument:form.instrument,contracts:Math.max(1,parseInt(form.contracts)||1),tags:form.tags,feelings:form.feelings,notes:form.notes,lesson:form.lesson,images:uploadedImages,checklist:checkedItems});
+    if(isNew)try{localStorage.removeItem(DRAFT_KEY)}catch{}
     setSaving(false);
     toast(isNew?"Trade logged":"Updated")};
   const lbl={fontSize:10,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase",marginBottom:7,display:"block"};
   const pnlVal=parseFloat(form.pnl);
   return(
     <>
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.72)",display:"flex",alignItems:isDesktop?"center":"flex-end",justifyContent:"center",zIndex:200,backdropFilter:"blur(8px)",padding:isDesktop?"0 20px":0}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.72)",display:"flex",alignItems:isDesktop?"center":"flex-end",justifyContent:"center",zIndex:200,backdropFilter:"blur(8px)",padding:isDesktop?"0 20px":0}}>
       <div style={{width:"100%",maxWidth:isDesktop?500:480,margin:"0 auto",background:"var(--surface)",borderRadius:isDesktop?"var(--r-xl)":"var(--r-xl) var(--r-xl) 0 0",padding:isDesktop?"28px 24px":"20px 20px 44px",maxHeight:"92vh",overflowY:"auto",border:"1px solid var(--line-md)"}}>
         <div style={{width:36,height:4,background:"var(--overlay)",borderRadius:99,margin:"0 auto 20px"}}/>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-          <span style={{fontSize:17,fontWeight:800,color:"var(--t1)"}}>{isNew?"Log Trade":"Edit Trade"}</span>
-          {!isNew&&(cDel?<div style={{display:"flex",gap:6}}><button onClick={()=>setCDel(false)} className="tap" style={{background:"var(--elevated)",border:"none",borderRadius:"var(--r-sm)",color:"var(--t2)",fontSize:12,fontWeight:600,padding:"7px 12px"}}>Cancel</button><button onClick={()=>{onDelete(trade.id);toast("Deleted","error")}} className="tap" style={{background:"var(--red)",border:"none",borderRadius:"var(--r-sm)",color:"#fff",fontSize:12,fontWeight:700,padding:"7px 12px"}}>Delete</button></div>:<button onClick={()=>setCDel(true)} className="tap" style={{background:"var(--red-dim)",border:"none",borderRadius:"var(--r-sm)",color:"var(--red)",fontSize:12,fontWeight:600,padding:"7px 12px",display:"flex",alignItems:"center",gap:5}}><IcoTrash size={12} col="var(--red)"/> Delete</button>)}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:17,fontWeight:800,color:"var(--t1)"}}>{isNew?"Log Trade":"Edit Trade"}</span>
+            {isNew&&draftStatus==="saving"&&<span style={{fontSize:10,fontWeight:600,color:"var(--t3)",display:"flex",alignItems:"center",gap:4}}><span style={{width:6,height:6,borderRadius:"50%",background:"var(--amber)",display:"inline-block",animation:"pulse 1s infinite"}}/>menyimpan…</span>}
+            {isNew&&draftStatus==="saved"&&<span style={{fontSize:10,fontWeight:600,color:"var(--green)",display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:11}}>✓</span>draft tersimpan</span>}
+            {isNew&&!draftStatus&&(()=>{try{return!!localStorage.getItem(DRAFT_KEY)}catch{return false}})()&&<span style={{fontSize:10,fontWeight:700,color:"var(--accent)",background:"var(--accent-dim)",padding:"2px 8px",borderRadius:99}}>📋 Draft</span>}
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            {isNew&&isDirty&&<button onClick={duplicateNew} className="tap" style={{background:"var(--elevated)",border:"1px solid var(--line-md)",borderRadius:"var(--r-sm)",color:"var(--t2)",fontSize:11,fontWeight:600,padding:"5px 9px",display:"flex",alignItems:"center",gap:4}}>⧉ Duplikat</button>}
+            {!isNew&&(cDel?<div style={{display:"flex",gap:6}}><button onClick={()=>setCDel(false)} className="tap" style={{background:"var(--elevated)",border:"none",borderRadius:"var(--r-sm)",color:"var(--t2)",fontSize:12,fontWeight:600,padding:"7px 12px"}}>Cancel</button><button onClick={()=>{onDelete(trade.id);toast("Deleted","error")}} className="tap" style={{background:"var(--red)",border:"none",borderRadius:"var(--r-sm)",color:"#fff",fontSize:12,fontWeight:700,padding:"7px 12px"}}>Delete</button></div>:<div style={{display:"flex",gap:6}}><button onClick={duplicate} className="tap" style={{background:"var(--elevated)",border:"1px solid var(--line-md)",borderRadius:"var(--r-sm)",color:"var(--t2)",fontSize:11,fontWeight:600,padding:"6px 10px",display:"flex",alignItems:"center",gap:4}}>⧉ Duplikat</button><button onClick={()=>setCDel(true)} className="tap" style={{background:"var(--red-dim)",border:"none",borderRadius:"var(--r-sm)",color:"var(--red)",fontSize:12,fontWeight:600,padding:"7px 12px",display:"flex",alignItems:"center",gap:5}}><IcoTrash size={12} col="var(--red)"/> Delete</button></div>)}
+            <button onClick={handleClose} className="tap" style={{background:"var(--elevated)",border:"none",borderRadius:"50%",width:30,height:30,display:"flex",alignItems:"center",justifyContent:"center",color:"var(--t2)",fontSize:16,fontWeight:700,cursor:"pointer",flexShrink:0}}>✕</button>
+          </div>
         </div>
         {/* ── Tab Pills ── */}
         <div style={{display:"flex",gap:4,background:"var(--elevated)",borderRadius:"var(--r-md)",padding:4,marginBottom:20}}>
@@ -1340,6 +1395,18 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
         {modalTab!=="notes"&&<button onClick={save} className="tap" style={{width:"100%",marginTop:8,padding:"9px",background:"none",border:"none",color:"var(--t3)",fontSize:12,fontWeight:600}}>{saving?"Saving…":"Save now"}</button>}
       </div>
     </div>
+    {confirmClose&&(
+      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,backdropFilter:"blur(6px)",padding:"0 24px"}}>
+        <div style={{background:"var(--surface)",borderRadius:"var(--r-xl)",padding:"26px 24px",maxWidth:340,width:"100%",border:"1px solid var(--line-md)"}}>
+          <div style={{fontSize:15,fontWeight:800,color:"var(--t1)",marginBottom:6}}>Buang perubahan?</div>
+          <div style={{fontSize:13,color:"var(--t2)",marginBottom:20,lineHeight:1.5}}>Form yang udah lo isi bakal hilang. Lanjut?</div>
+          <div style={{display:"flex",gap:10}}>
+            <button onClick={()=>setConfirmClose(false)} className="tap" style={{flex:1,padding:"11px",background:"var(--elevated)",border:"1px solid var(--line-md)",borderRadius:"var(--r-md)",color:"var(--t2)",fontSize:13,fontWeight:700}}>Lanjut isi</button>
+            <button onClick={()=>{if(isNew)try{localStorage.removeItem(DRAFT_KEY)}catch{}onClose()}} className="tap" style={{flex:1,padding:"11px",background:"var(--red)",border:"none",borderRadius:"var(--r-md)",color:"#fff",fontSize:13,fontWeight:700}}>Buang</button>
+          </div>
+        </div>
+      </div>
+    )}
     {lb!==null&&(
       <div onClick={()=>setLb(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.97)",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
         {/* Top bar */}
@@ -1371,8 +1438,9 @@ function BalanceModal({current,onSave,onClose}){
   const[v,setV]=useState(String(current));const toast=useToast();
   const save=()=>{const n=parseFloat(v);if(!isNaN(n)&&n>0){onSave(n);toast("Balance updated")}};
   return(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.65)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,backdropFilter:"blur(8px)",padding:"0 20px"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.65)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,backdropFilter:"blur(8px)",padding:"0 20px"}}>
       <div style={{width:"100%",maxWidth:360,background:"var(--surface)",borderRadius:"var(--r-xl)",padding:"26px 22px",border:"1px solid var(--line-md)"}}>
+        <div style={{display:"flex",justifyContent:"flex-end",marginBottom:4}}><button onClick={onClose} className="tap" style={{background:"var(--elevated)",border:"none",borderRadius:"50%",width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",color:"var(--t2)",fontSize:15,fontWeight:700,cursor:"pointer"}}>✕</button></div>
         <div style={{textAlign:"center",marginBottom:20}}>
           <div style={{fontSize:15,fontWeight:700,color:"var(--t1)",marginBottom:3}}>Set Balance</div>
           <div style={{fontSize:12,color:"var(--t2)"}}>Starting or current account balance</div>
@@ -1394,10 +1462,13 @@ function DDModal({drawdownLimit,consistencyLimit,totalPnl,onSave,onClose}){
   const sug=totalPnl>0?Math.round(totalPnl*.5):null;
   const lbl={fontSize:10,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase",marginBottom:7,display:"block"};
   return(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.65)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:200,backdropFilter:"blur(8px)"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.65)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:200,backdropFilter:"blur(8px)"}}>
       <div style={{width:"100%",maxWidth:480,margin:"0 auto",background:"var(--surface)",borderRadius:"var(--r-xl) var(--r-xl) 0 0",padding:"20px 20px 44px",border:"1px solid var(--line-md)"}}>
-        <div style={{width:36,height:4,background:"var(--overlay)",borderRadius:99,margin:"0 auto 20px"}}/>
-        <div style={{fontSize:16,fontWeight:700,color:"var(--t1)",marginBottom:4}}>Trailing Drawdown</div>
+        <div style={{width:36,height:4,background:"var(--overlay)",borderRadius:99,margin:"0 auto 16px"}}/>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+          <div style={{fontSize:16,fontWeight:700,color:"var(--t1)"}}>Trailing Drawdown</div>
+          <button onClick={onClose} className="tap" style={{background:"var(--elevated)",border:"none",borderRadius:"50%",width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",color:"var(--t2)",fontSize:15,fontWeight:700,cursor:"pointer"}}>✕</button>
+        </div>
         <div style={{fontSize:12,color:"var(--t2)",marginBottom:14}}>Funded Next / FTMO style — floor trails up with balance, locks at starting balance.</div>
         {/* Visual explanation */}
         <div style={{background:"var(--elevated)",borderRadius:"var(--r-md)",padding:"12px 14px",marginBottom:18,border:"1px solid var(--line)"}}>
@@ -1428,13 +1499,16 @@ function AccModal({accounts,activeId,onSwitch,onAdd,onEdit,onDelete,onClose}){
   const save=()=>{if(!form.name.trim())return;const bal=parseFloat(form.balance)||DEF_BAL;if(mode==="add"){onAdd({name:form.name.trim(),color:form.color,balance:bal});toast("Created")}else{onEdit({...et,name:form.name.trim(),color:form.color,balance:bal});toast("Updated")}setMode("list")};
   const lbl={fontSize:10,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase",marginBottom:7,display:"block"};
   return(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.65)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:300,backdropFilter:"blur(8px)"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.65)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:300,backdropFilter:"blur(8px)"}}>
       <div style={{width:"100%",maxWidth:480,margin:"0 auto",background:"var(--surface)",borderRadius:"var(--r-xl) var(--r-xl) 0 0",padding:"20px 20px 48px",maxHeight:"85vh",overflowY:"auto",border:"1px solid var(--line-md)"}}>
-        <div style={{width:36,height:4,background:"var(--overlay)",borderRadius:99,margin:"0 auto 20px"}}/>
+        <div style={{width:36,height:4,background:"var(--overlay)",borderRadius:99,margin:"0 auto 16px"}}/>
         {mode==="list"&&<>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
             <div style={{fontSize:16,fontWeight:700,color:"var(--t1)"}}>Accounts</div>
-            <button onClick={openAdd} className="tap" style={{background:"var(--green)",border:"none",borderRadius:"var(--r-sm)",color:"#000",fontSize:12,fontWeight:700,padding:"7px 14px"}}>+ Add</button>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <button onClick={openAdd} className="tap" style={{background:"var(--green)",border:"none",borderRadius:"var(--r-sm)",color:"#000",fontSize:12,fontWeight:700,padding:"7px 14px"}}>+ Add</button>
+              <button onClick={onClose} className="tap" style={{background:"var(--elevated)",border:"none",borderRadius:"50%",width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",color:"var(--t2)",fontSize:15,fontWeight:700,cursor:"pointer"}}>✕</button>
+            </div>
           </div>
           {accounts.map(acc=>(
             <div key={acc.id} style={{display:"flex",alignItems:"center",gap:12,background:"var(--elevated)",border:`1px solid ${acc.id===activeId?acc.color+"44":"var(--line)"}`,borderRadius:"var(--r-md)",padding:"13px 14px",marginBottom:8,cursor:"pointer"}} onClick={()=>{onSwitch(acc.id);onClose()}}>
@@ -1509,10 +1583,13 @@ function DataModal({trades,notes,account,onImport,onClearAll,onClose}){
     };r.readAsArrayBuffer(f);e.target.value="";
   };
   return(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.65)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:200,backdropFilter:"blur(8px)"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.65)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:200,backdropFilter:"blur(8px)"}}>
       <div style={{width:"100%",maxWidth:480,margin:"0 auto",background:"var(--surface)",borderRadius:"var(--r-xl) var(--r-xl) 0 0",padding:"20px 20px 44px",maxHeight:"80vh",overflowY:"auto",border:"1px solid var(--line-md)"}}>
-        <div style={{width:36,height:4,background:"var(--overlay)",borderRadius:99,margin:"0 auto 20px"}}/>
-        <div style={{fontSize:16,fontWeight:700,color:"var(--t1)",marginBottom:4}}>Backup & Sync</div>
+        <div style={{width:36,height:4,background:"var(--overlay)",borderRadius:99,margin:"0 auto 16px"}}/>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+          <div style={{fontSize:16,fontWeight:700,color:"var(--t1)"}}>Backup & Sync</div>
+          <button onClick={onClose} className="tap" style={{background:"var(--elevated)",border:"none",borderRadius:"50%",width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",color:"var(--t2)",fontSize:15,fontWeight:700,cursor:"pointer"}}>✕</button>
+        </div>
         <div style={{fontSize:12,color:"var(--t2)",marginBottom:18}}>{account?.name} · {trades.length} trades</div>
         <div className="sec">Export</div>
         <button onClick={doExport} className="tap" style={{width:"100%",padding:"13px",background:"var(--green)",border:"none",borderRadius:"var(--r-md)",color:"#000",fontSize:14,fontWeight:700,marginBottom:8}}>Download .xlsx</button>
@@ -2931,6 +3008,7 @@ function AnalyticsView({trades,accountBalance}){
 }
 
 
+
 /* ── Desktop Sidebar ── */
 const Sidebar=React.memo(function Sidebar({tab,setTab,onBackup,syncStatus,plusAction,accounts,activeId,onSwitch,onManage,darkMode,onToggleDark}){
   const NAV=[
@@ -3244,12 +3322,15 @@ function InstrumentModal({instrs,onSave,onClose}){
   const remove=s=>setList(p=>p.filter(x=>x!==s));
   const move=(i,dir)=>{setList(p=>{const n=[...p];const j=i+dir;if(j<0||j>=n.length)return p;[n[i],n[j]]=[n[j],n[i]];return n})};
   return(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.72)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:300,backdropFilter:"blur(8px)"}} onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.72)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:300,backdropFilter:"blur(8px)"}}>
       <div style={{width:"100%",maxWidth:480,margin:"0 auto",background:"var(--surface)",borderRadius:"var(--r-xl) var(--r-xl) 0 0",padding:"20px 20px 48px",maxHeight:"85vh",overflowY:"auto",border:"1px solid var(--line-md)"}}>
         <div style={{width:36,height:4,background:"var(--overlay)",borderRadius:99,margin:"0 auto 18px"}}/>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
           <div style={{fontSize:16,fontWeight:700,color:"var(--t1)"}}>Manage Instruments</div>
-          <button onClick={()=>{onSave(list);onClose()}} style={{background:"var(--accent)",border:"none",borderRadius:"var(--r-sm)",color:"#fff",fontSize:12,fontWeight:700,padding:"7px 16px",cursor:"pointer"}}>Save</button>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <button onClick={()=>{onSave(list);onClose()}} style={{background:"var(--accent)",border:"none",borderRadius:"var(--r-sm)",color:"#fff",fontSize:12,fontWeight:700,padding:"7px 16px",cursor:"pointer"}}>Save</button>
+            <button onClick={onClose} className="tap" style={{background:"var(--elevated)",border:"none",borderRadius:"50%",width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",color:"var(--t2)",fontSize:15,fontWeight:700,cursor:"pointer"}}>✕</button>
+          </div>
         </div>
         <div style={{fontSize:11,color:"var(--t3)",marginBottom:12}}>Drag to reorder · Tap × to remove · Default instruments cannot be removed</div>
         <div style={{display:"flex",flexDirection:"column",gap:5,marginBottom:14}}>
