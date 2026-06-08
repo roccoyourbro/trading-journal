@@ -259,7 +259,7 @@ function calcTradeGrade(trade){
   const hasBadTag = ["FOMO","Revenge","Overtraded","Tilted"].some(t=>tags.includes(t));
   const rrNum = parseFloat(rr)||0;
   if(hasBadTag) return {grade:"C",color:"var(--red)",bg:"var(--red-dim)"};
-  if(checkPct===100 && rrNum>=2) return {grade:"A+",color:"#22C55E",bg:"rgba(34,197,94,0.15)"};
+  if(checkPct===100 && rrNum>=1) return {grade:"A+",color:"#22C55E",bg:"rgba(34,197,94,0.15)"};
   if(checkPct>=80 && rrNum>=1.5) return {grade:"A",color:"var(--green)",bg:"var(--green-dim)"};
   if(checkPct>=60 && rrNum>=1) return {grade:"B",color:"var(--amber)",bg:"var(--amber-dim)"};
   return {grade:"C",color:"var(--red)",bg:"var(--red-dim)"};
@@ -413,21 +413,23 @@ const StatCard=React.memo(function StatCard({label,value,sub,col,mono=true}){
 const TradeRow=React.memo(function TradeRow({trade,onPress,isLast}){
   const pnlHidden=useContext(PnlCtx);
   const win=trade.pnl>0,loss=trade.pnl<0;
+  const ntd=trade.noTradeDay===true;
   const cts=trade.contracts||1;
   const grade=trade.checklist?calcTradeGrade(trade):null;
   return(
     <div onClick={onPress} className="tap" style={{display:"flex",alignItems:"center",gap:12,padding:"13px 0",borderBottom:isLast?"none":"1px solid var(--line)",cursor:"pointer"}}>
-      <div style={{width:3,height:34,borderRadius:99,background:win?"var(--green)":loss?"var(--red)":"var(--t3)",flexShrink:0}}/>
+      <div style={{width:3,height:34,borderRadius:99,background:ntd?"var(--blue)":win?"var(--green)":loss?"var(--red)":"var(--t3)",flexShrink:0}}/>
       <div style={{flex:1,minWidth:0}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
           <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
             <span className="mono" style={{fontSize:13,fontWeight:500,color:"var(--t1)"}}>{trade.date}{trade.time&&<span style={{color:"var(--t3)",fontWeight:400,fontSize:11}}> {trade.time}</span>}</span>
-            {trade.direction&&<span className="pill" style={{background:trade.direction==="long"?"var(--green-dim)":"var(--red-dim)",color:trade.direction==="long"?"var(--green)":"var(--red)"}}>{trade.direction==="long"?"▲ L":"▼ S"}</span>}
+            {ntd&&<span className="pill" style={{background:"var(--blue-dim)",color:"var(--blue)",border:"1px solid var(--blue)33"}}>🚫 No Trade</span>}
+            {!ntd&&trade.direction&&<span className="pill" style={{background:trade.direction==="long"?"var(--green-dim)":"var(--red-dim)",color:trade.direction==="long"?"var(--green)":"var(--red)"}}>{trade.direction==="long"?"▲ L":"▼ S"}</span>}
             {trade.session&&<span className="pill" style={{background:SCOL[trade.session]+"22",color:SCOL[trade.session]}}>{trade.session}</span>}
             {trade.instrument&&<span className="pill" style={{background:(ICOL[trade.instrument]||"#666")+"22",color:ICOL[trade.instrument]||"var(--t2)"}}>{trade.instrument}{cts>1?` ×${cts}`:""}</span>}
-            {grade&&<span style={{fontSize:11,fontWeight:800,color:grade.color,background:grade.bg,padding:"2px 7px",borderRadius:99,border:`1px solid ${grade.color}44`}}>{grade.grade}</span>}
+            {!ntd&&grade&&<span style={{fontSize:11,fontWeight:800,color:grade.color,background:grade.bg,padding:"2px 7px",borderRadius:99,border:`1px solid ${grade.color}44`}}>{grade.grade}</span>}
           </div>
-          <span className="mono" style={{fontSize:15,fontWeight:500,color:pnlHidden?"var(--t3)":"var(--t2)",flexShrink:0,marginLeft:8}}>{pnlHidden?PNL_MASK:fmt(trade.pnl)}</span>
+          <span className="mono" style={{fontSize:15,fontWeight:500,color:ntd?"var(--blue)":pnlHidden?"var(--t3)":"var(--t2)",flexShrink:0,marginLeft:8}}>{ntd?"—":pnlHidden?PNL_MASK:fmt(trade.pnl)}</span>
         </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
@@ -439,8 +441,8 @@ const TradeRow=React.memo(function TradeRow({trade,onPress,isLast}){
             {trade.images?.length>0&&<span style={{fontSize:10,color:"var(--t3)",display:"flex",alignItems:"center",gap:2}}><IcoImg size={10} col="var(--t3)"/> {trade.images.length}</span>}
           </div>
           <div style={{display:"flex",gap:8,flexShrink:0}}>
-            <span className="mono" style={{fontSize:11,color:"var(--t3)"}}>{trade.rr}R</span>
-            {cts>1&&<span className="mono" style={{fontSize:11,color:"var(--t3)"}}>{pnlHidden?PNL_MASK:fmt(trade.pnl/cts)}/ct</span>}
+            {!ntd&&<span className="mono" style={{fontSize:11,color:"var(--t3)"}}>{trade.rr}R</span>}
+            {!ntd&&cts>1&&<span className="mono" style={{fontSize:11,color:"var(--t3)"}}>{pnlHidden?PNL_MASK:fmt(trade.pnl/cts)}/ct</span>}
           </div>
         </div>
       </div>
@@ -750,10 +752,11 @@ function DashboardCalendar({trades,onLogTrade}){
   const dm=useMemo(()=>{
     const m={};
     trades.forEach(t=>{
-      if(!m[t.date])m[t.date]={pnl:0,count:0,wins:0};
+      if(!m[t.date])m[t.date]={pnl:0,count:0,wins:0,ntdOnly:true};
       m[t.date].pnl+=t.pnl;
       m[t.date].count++;
       if(t.pnl>0)m[t.date].wins++;
+      if(!t.noTradeDay)m[t.date].ntdOnly=false; // at least one real trade
     });
     return m;
   },[trades]);
@@ -829,12 +832,17 @@ function DashboardCalendar({trades,onLogTrade}){
                 const entry=dm[key];
                 const isT=key===today();
                 const pnl=entry?.pnl;
+                const isNTD=entry?.ntdOnly===true;
                 const winPct=entry?Math.round((entry.wins/entry.count)*100):null;
-                const isWin=pnl>0,isLoss=pnl<0;
+                const isWin=!isNTD&&pnl>0,isLoss=!isNTD&&pnl<0;
                 return(
-                  <div key={key} style={{minHeight:68,padding:"7px 8px",borderRight:"1px solid var(--line)",borderBottom:rowBorder,background:isWin?"rgba(34,197,94,0.08)":isLoss?"rgba(239,68,68,0.08)":isT?"rgba(99,102,241,0.08)":"transparent",position:"relative"}}>
+                  <div key={key} style={{minHeight:68,padding:"7px 8px",borderRight:"1px solid var(--line)",borderBottom:rowBorder,background:isNTD?"rgba(59,130,246,0.08)":isWin?"rgba(34,197,94,0.08)":isLoss?"rgba(239,68,68,0.08)":isT?"rgba(99,102,241,0.08)":"transparent",position:"relative"}}>
                     <div style={{fontSize:11,fontWeight:isT?800:500,color:isT?"var(--accent)":"var(--t2)",marginBottom:3}}>{day}</div>
-                    {entry&&<>
+                    {entry&&isNTD&&<>
+                      <div style={{fontSize:9,fontWeight:700,color:"var(--blue)",lineHeight:1.2,marginBottom:2}}>🚫 NTD</div>
+                      <div style={{fontSize:9,color:"var(--t3)",lineHeight:1.3}}>{entry.count} entry</div>
+                    </>}
+                    {entry&&!isNTD&&<>
                       <div className="mono" style={{fontSize:11,fontWeight:700,color:pnlHidden?"var(--t3)":isWin?"var(--green)":"var(--red)",lineHeight:1.2,marginBottom:2}}>{pnlHidden?PNL_MASK:fmtK(pnl)}</div>
                       <div style={{fontSize:9,color:"var(--t3)",lineHeight:1.3}}>{entry.count} trade{entry.count>1?"s":""}</div>
                       <div style={{fontSize:9,color:"var(--t3)"}}>{winPct}%</div>
@@ -1066,7 +1074,7 @@ function TradeModal({trade,onSave,onDelete,onClose,onManageInstrs}){
   // — Draft restore: hanya untuk new trade —
   const initForm=()=>{
     if(isNew){try{const d=localStorage.getItem(DRAFT_KEY);if(d){const p=JSON.parse(d);return{...p,date:p.date||today()}}}catch{}}
-    return{date:trade.date||today(),time:trade.time||"",direction:trade.direction||"",pnl:trade.pnl!==undefined?String(trade.pnl):"",rr:trade.rr!==undefined?String(trade.rr):"",entryPrice:trade.entryPrice!==undefined?String(trade.entryPrice):"",stopLoss:trade.stopLoss!==undefined?String(trade.stopLoss):"",takeProfit:trade.takeProfit!==undefined?String(trade.takeProfit):"",strategy:trade.strategy||STRATS[0],session:trade.session||"",instrument:trade.instrument||(instrs[0]||"MNQ"),contracts:trade.contracts!==undefined?String(trade.contracts):"1",tags:trade.tags||[],feelings:trade.feelings||"",notes:trade.notes||"",lesson:trade.lesson||"",images:trade.images||[]};
+    return{date:trade.date||today(),time:trade.time||"",direction:trade.direction||"",pnl:trade.pnl!==undefined?String(trade.pnl):"",rr:trade.rr!==undefined?String(trade.rr):"",entryPrice:trade.entryPrice!==undefined?String(trade.entryPrice):"",stopLoss:trade.stopLoss!==undefined?String(trade.stopLoss):"",takeProfit:trade.takeProfit!==undefined?String(trade.takeProfit):"",strategy:trade.strategy||STRATS[0],session:trade.session||"",instrument:trade.instrument||(instrs[0]||"MNQ"),contracts:trade.contracts!==undefined?String(trade.contracts):"1",tags:trade.tags||[],feelings:trade.feelings||"",notes:trade.notes||"",lesson:trade.lesson||"",images:trade.images||[],noTradeDay:trade.noTradeDay||false};
   };
   const[form,setForm]=useState(initForm);
   // auto-calc RR from entry/SL/TP
@@ -1124,7 +1132,7 @@ function TradeModal({trade,onSave,onDelete,onClose,onManageInstrs}){
   const addFiles=files=>Array.from(files).forEach(f=>{if(!f.type.startsWith("image/"))return;const r=new FileReader();r.onload=async ev=>{const c=await compressImage(ev.target.result);// store base64 temporarily; uploaded to Supabase on save
 setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
   const[saving,setSaving]=React.useState(false);
-  const save=async()=>{if(!form.date||form.pnl===""){toast("Fill date and P&L","warn");return}
+  const save=async()=>{if(!form.date||(form.pnl===""&&!form.noTradeDay)){toast("Fill date and P&L","warn");return}
     setSaving(true);
     const tradeId=trade.id||Date.now();
     // Upload any base64 images to Supabase Storage
@@ -1133,7 +1141,7 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
       const url=await uploadScreenshot(img,tradeId,i);
       return url||img;
     }));
-    onSave({id:tradeId,date:form.date,time:form.time||"",direction:form.direction||"",pnl:parseFloat(form.pnl)||0,rr:parseFloat(autoRR||form.rr)||0,entryPrice:parseFloat(form.entryPrice)||0,stopLoss:parseFloat(form.stopLoss)||0,takeProfit:parseFloat(form.takeProfit)||0,strategy:form.strategy,session:form.session,instrument:form.instrument,contracts:Math.max(1,parseInt(form.contracts)||1),tags:form.tags,feelings:form.feelings,notes:form.notes,lesson:form.lesson,images:uploadedImages,checklist:checkedItems});
+    onSave({id:tradeId,date:form.date,time:form.time||"",direction:form.direction||"",pnl:form.noTradeDay?0:parseFloat(form.pnl)||0,rr:parseFloat(autoRR||form.rr)||0,entryPrice:parseFloat(form.entryPrice)||0,stopLoss:parseFloat(form.stopLoss)||0,takeProfit:parseFloat(form.takeProfit)||0,strategy:form.strategy,session:form.session,instrument:form.instrument,contracts:Math.max(1,parseInt(form.contracts)||1),tags:form.tags,feelings:form.feelings,notes:form.notes,lesson:form.lesson,images:uploadedImages,checklist:checkedItems,noTradeDay:form.noTradeDay||false});
     if(isNew)try{localStorage.removeItem(DRAFT_KEY)}catch{}
     setSaving(false);
     toast(isNew?"Trade logged":"Updated")};
@@ -1152,6 +1160,11 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
             {isNew&&!draftStatus&&(()=>{try{return!!localStorage.getItem(DRAFT_KEY)}catch{return false}})()&&<span style={{fontSize:10,fontWeight:700,color:"var(--accent)",background:"var(--accent-dim)",padding:"2px 8px",borderRadius:99}}>📋 Draft</span>}
           </div>
           <div style={{display:"flex",alignItems:"center",gap:6}}>
+            {/* No Trade Day toggle */}
+            <button onClick={()=>set("noTradeDay",!form.noTradeDay)} className="tap" style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:99,border:`1px solid ${form.noTradeDay?"var(--blue)44":"var(--line-md)"}`,background:form.noTradeDay?"var(--blue-dim)":"var(--elevated)",cursor:"pointer",transition:"all .15s"}}>
+              <span style={{fontSize:13}}>{form.noTradeDay?"🚫":"📊"}</span>
+              <span style={{fontSize:10,fontWeight:700,color:form.noTradeDay?"var(--blue)":"var(--t3)",letterSpacing:".04em",whiteSpace:"nowrap"}}>{form.noTradeDay?"NO TRADE":"Analisis"}</span>
+            </button>
             {isNew&&isDirty&&<button onClick={duplicateNew} className="tap" style={{background:"var(--elevated)",border:"1px solid var(--line-md)",borderRadius:"var(--r-sm)",color:"var(--t2)",fontSize:11,fontWeight:600,padding:"5px 9px",display:"flex",alignItems:"center",gap:4}}>⧉ Duplikat</button>}
             {!isNew&&(cDel?<div style={{display:"flex",gap:6}}><button onClick={()=>setCDel(false)} className="tap" style={{background:"var(--elevated)",border:"none",borderRadius:"var(--r-sm)",color:"var(--t2)",fontSize:12,fontWeight:600,padding:"7px 12px"}}>Cancel</button><button onClick={()=>{onDelete(trade.id);toast("Deleted","error")}} className="tap" style={{background:"var(--red)",border:"none",borderRadius:"var(--r-sm)",color:"#fff",fontSize:12,fontWeight:700,padding:"7px 12px"}}>Delete</button></div>:<div style={{display:"flex",gap:6}}><button onClick={duplicate} className="tap" style={{background:"var(--elevated)",border:"1px solid var(--line-md)",borderRadius:"var(--r-sm)",color:"var(--t2)",fontSize:11,fontWeight:600,padding:"6px 10px",display:"flex",alignItems:"center",gap:4}}>⧉ Duplikat</button><button onClick={()=>setCDel(true)} className="tap" style={{background:"var(--red-dim)",border:"none",borderRadius:"var(--r-sm)",color:"var(--red)",fontSize:12,fontWeight:600,padding:"7px 12px",display:"flex",alignItems:"center",gap:5}}><IcoTrash size={12} col="var(--red)"/> Delete</button></div>)}
             <button onClick={handleClose} className="tap" style={{background:"var(--elevated)",border:"none",borderRadius:"50%",width:30,height:30,display:"flex",alignItems:"center",justifyContent:"center",color:"var(--t2)",fontSize:16,fontWeight:700,cursor:"pointer",flexShrink:0}}>✕</button>
@@ -1251,7 +1264,16 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
             </div>
           </div>
           <div style={{display:"flex",gap:10}}>
-            <div style={{flex:1}}><label style={lbl}>P&L ($)</label><input type="number" placeholder="250 or -100" value={form.pnl} onChange={e=>set("pnl",e.target.value)} className="inp mono" style={{color:form.pnl?clr(pnlVal):"var(--t1)",borderColor:form.pnl?(pnlVal>0?"var(--green)":pnlVal<0?"var(--red)":"var(--line-md)"):"var(--line-md)"}}/></div>
+            <div style={{flex:1}}>
+              <label style={lbl}>P&L ($)</label>
+              {form.noTradeDay
+                ?<div className="inp mono" style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--blue-dim)",borderColor:"var(--blue)44",cursor:"not-allowed",opacity:.7}}>
+                  <span style={{color:"var(--blue)",fontWeight:700,fontSize:12}}>🚫 No Trade</span>
+                  <span style={{fontSize:10,color:"var(--blue)"}}>P&L = 0</span>
+                </div>
+                :<input type="number" placeholder="250 or -100" value={form.pnl} onChange={e=>set("pnl",e.target.value)} className="inp mono" style={{color:form.pnl?clr(pnlVal):"var(--t1)",borderColor:form.pnl?(pnlVal>0?"var(--green)":pnlVal<0?"var(--red)":"var(--line-md)"):"var(--line-md)"}}/>
+              }
+            </div>
             <div style={{flex:1}}><label style={lbl}>R:R {autoRR&&<span style={{fontSize:9,padding:"2px 6px",background:"var(--amber)22",color:"var(--amber)",borderRadius:99,fontWeight:700}}>AUTO</span>}</label><div className="inp mono" style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--elevated)",borderColor:autoRR?"var(--amber)44":"var(--line-md)",cursor:"default"}}>{autoRR?(<><span style={{color:"var(--amber)",fontWeight:700}}>{autoRR}R</span><span style={{fontSize:10,color:"var(--t3)"}}>from E/SL/TP</span></>):(<span style={{color:"var(--t3)",fontSize:12}}>Fill Entry/SL/TP</span>)}</div></div>
           </div>
           </>}
@@ -1365,7 +1387,7 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
             const hasBadTag=["FOMO","Revenge","Overtraded","Tilted"].some(t=>form.tags.includes(t));
             let g,gc,gb,gdesc;
             if(hasBadTag){g="C";gc="var(--red)";gb="var(--red-dim)";gdesc="Tag negatif ditemukan";}
-            else if(checkPct===100&&rrNum>=2){g="A+";gc="#22C55E";gb="rgba(34,197,94,0.15)";gdesc="Setup sempurna! Semua checklist ✓ + R:R ≥ 2";}
+            else if(checkPct===100&&rrNum>=1){g="A+";gc="#22C55E";gb="rgba(34,197,94,0.15)";gdesc=`Setup sempurna! Semua checklist ✓ + R:R ${rrNum.toFixed(1)}`; }
             else if(checkPct>=80&&rrNum>=1.5){g="A";gc="var(--green)";gb="var(--green-dim)";gdesc=`${checkPct}% checklist + R:R ${rrNum.toFixed(1)}`;}
             else if(checkPct>=60&&rrNum>=1){g="B";gc="var(--amber)";gb="var(--amber-dim)";gdesc=`${checkPct}% checklist + R:R ${rrNum.toFixed(1)}`;}
             else{g="C";gc="var(--red)";gb="var(--red-dim)";gdesc=`${checkPct}% checklist${rrNum<1?" · R:R kurang":""}`;}
@@ -3445,19 +3467,21 @@ function App(){
   },[tradeModal,balModal,dataModal,ddModal,accModal,handleSetTab]);
 
   const{wins,losses,totalPnl,winRate,avgRR,gainsPct,avgWin,avgLoss,sorted,curBal,profitFactor,streak}=useMemo(()=>{
-    const wins=trades.filter(t=>t.pnl>0),losses=trades.filter(t=>t.pnl<0);
-    const total=trades.reduce((a,t)=>a+t.pnl,0);
-    const wr=trades.length?Math.round((wins.length/trades.length)*100):0;
-    const rr=trades.length?(trades.reduce((a,t)=>a+t.rr,0)/trades.length).toFixed(1):"—";
+    const realTrades=trades.filter(t=>!t.noTradeDay); // exclude NTD from stats
+    const wins=realTrades.filter(t=>t.pnl>0),losses=realTrades.filter(t=>t.pnl<0);
+    const total=trades.reduce((a,t)=>a+t.pnl,0); // PnL includes NTD (all 0 anyway)
+    const wr=realTrades.length?Math.round((wins.length/realTrades.length)*100):0;
+    const rr=realTrades.length?(realTrades.reduce((a,t)=>a+t.rr,0)/realTrades.length).toFixed(1):"—";
     const gp=accBal>0?((total/accBal)*100).toFixed(1):"0.0";
     const aw=wins.length?wins.reduce((a,t)=>a+t.pnl,0)/wins.length:0;
     const al=losses.length?losses.reduce((a,t)=>a+t.pnl,0)/losses.length:0;
     const s=[...trades].sort((a,b)=>b.date.localeCompare(a.date)||(b.time||"").localeCompare(a.time||""));
     const tw=wins.reduce((a,t)=>a+t.pnl,0),tl=Math.abs(losses.reduce((a,t)=>a+t.pnl,0));
     const pf=tl>0?(tw/tl).toFixed(2):"∞";
-    // streak
+    // streak — only count real trades
+    const sReal=s.filter(t=>!t.noTradeDay);
     let stk={count:0,type:null};
-    if(s.length){const ft=s[0].pnl>0?"win":s[0].pnl<0?"loss":null;if(ft){let c=0;for(const t of s){const ty=t.pnl>0?"win":t.pnl<0?"loss":null;if(ty===ft)c++;else break;}stk={count:c,type:ft};}}
+    if(sReal.length){const ft=sReal[0].pnl>0?"win":sReal[0].pnl<0?"loss":null;if(ft){let c=0;for(const t of sReal){const ty=t.pnl>0?"win":t.pnl<0?"loss":null;if(ty===ft)c++;else break;}stk={count:c,type:ft};}}
     return{wins,losses,totalPnl:total,winRate:wr,avgRR:rr,gainsPct:gp,avgWin:aw,avgLoss:al,sorted:s,curBal:accBal+total,profitFactor:pf,streak:stk};
   },[trades,accBal]);
 
