@@ -434,11 +434,14 @@ const TradeRow=React.memo(function TradeRow({trade,onPress,isLast}){
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
             <span style={{fontSize:11,color:"var(--t2)"}}>{trade.strategy}</span>
+            {trade.pmBias&&<span style={{fontSize:10,color:trade.pmBias.includes("Bullish")?"var(--green)":trade.pmBias.includes("Bearish")?"var(--red)":"var(--amber)",fontWeight:600}}>{trade.pmBias.split(" ").slice(0,2).join(" ")}</span>}
             {(trade.tags||[]).filter(t=>["FOMO","Revenge","Patient","Tilted"].includes(t)).slice(0,2).map(tag=>{
               const bad=["FOMO","Revenge","Tilted"].includes(tag),good=["Patient"].includes(tag);
               return<span key={tag} className="pill" style={{background:bad?"var(--red-dim)":good?"var(--green-dim)":"var(--elevated)",color:bad?"var(--red)":good?"var(--green)":"var(--t2)"}}>{tag}</span>;
             })}
             {trade.images?.length>0&&<span style={{fontSize:10,color:"var(--t3)",display:"flex",alignItems:"center",gap:2}}><IcoImg size={10} col="var(--t3)"/> {trade.images.length}</span>}
+            {/* Pre-market danger flag */}
+            {["😤 Revenge Mode","😰 Anxious","🤑 Greedy","😵 Overwhelmed"].includes(trade.pmMental)&&<span className="pill" style={{background:"var(--amber-dim)",color:"var(--amber)",border:"1px solid var(--amber)33",fontSize:10}}>⚠️ {trade.pmMental.split(" ").slice(0,2).join(" ")}</span>}
           </div>
           <div style={{display:"flex",gap:8,flexShrink:0}}>
             {!ntd&&<span className="mono" style={{fontSize:11,color:"var(--t3)"}}>{trade.rr}R</span>}
@@ -1074,7 +1077,9 @@ function TradeModal({trade,onSave,onDelete,onClose,onManageInstrs}){
   // — Draft restore: hanya untuk new trade —
   const initForm=()=>{
     if(isNew){try{const d=localStorage.getItem(DRAFT_KEY);if(d){const p=JSON.parse(d);return{...p,date:p.date||today()}}}catch{}}
-    return{date:trade.date||today(),time:trade.time||"",direction:trade.direction||"",pnl:trade.pnl!==undefined?String(trade.pnl):"",rr:trade.rr!==undefined?String(trade.rr):"",entryPrice:trade.entryPrice!==undefined?String(trade.entryPrice):"",stopLoss:trade.stopLoss!==undefined?String(trade.stopLoss):"",takeProfit:trade.takeProfit!==undefined?String(trade.takeProfit):"",strategy:trade.strategy||STRATS[0],session:trade.session||"",instrument:trade.instrument||(instrs[0]||"MNQ"),contracts:trade.contracts!==undefined?String(trade.contracts):"1",tags:trade.tags||[],feelings:trade.feelings||"",notes:trade.notes||"",lesson:trade.lesson||"",images:trade.images||[],noTradeDay:trade.noTradeDay||false};
+    return{date:trade.date||today(),time:trade.time||"",direction:trade.direction||"",pnl:trade.pnl!==undefined?String(trade.pnl):"",rr:trade.rr!==undefined?String(trade.rr):"",entryPrice:trade.entryPrice!==undefined?String(trade.entryPrice):"",stopLoss:trade.stopLoss!==undefined?String(trade.stopLoss):"",takeProfit:trade.takeProfit!==undefined?String(trade.takeProfit):"",strategy:trade.strategy||STRATS[0],session:trade.session||"",instrument:trade.instrument||(instrs[0]||"MNQ"),contracts:trade.contracts!==undefined?String(trade.contracts):"1",tags:trade.tags||[],feelings:trade.feelings||"",notes:trade.notes||"",lesson:trade.lesson||"",images:trade.images||[],noTradeDay:trade.noTradeDay||false,
+      // Pre-market fields
+      pmSleep:trade.pmSleep||"",pmEnergy:trade.pmEnergy||"",pmMental:trade.pmMental||"",pmBias:trade.pmBias||"",pmDOL:trade.pmDOL||"",pmCalChecked:trade.pmCalChecked||false,pmNotes:trade.pmNotes||""};
   };
   const[form,setForm]=useState(initForm);
   // auto-calc RR from entry/SL/TP
@@ -1111,14 +1116,16 @@ function TradeModal({trade,onSave,onDelete,onClose,onManageInstrs}){
 
   // — Duplicate: pre-fill form dengan data trade existing, tanpa id/pnl/time —
   const duplicate=()=>{
-    const d={date:today(),time:"",direction:form.direction,pnl:"",rr:"",entryPrice:form.entryPrice,stopLoss:form.stopLoss,takeProfit:form.takeProfit,strategy:form.strategy,session:form.session,instrument:form.instrument,contracts:form.contracts,tags:[],feelings:"",notes:"",lesson:"",images:[]};
+    const d={date:today(),time:"",direction:form.direction,pnl:"",rr:"",entryPrice:form.entryPrice,stopLoss:form.stopLoss,takeProfit:form.takeProfit,strategy:form.strategy,session:form.session,instrument:form.instrument,contracts:form.contracts,tags:[],feelings:"",notes:"",lesson:"",images:[],
+      pmSleep:form.pmSleep,pmEnergy:form.pmEnergy,pmMental:form.pmMental,pmBias:form.pmBias,pmDOL:form.pmDOL,pmCalChecked:form.pmCalChecked,pmNotes:form.pmNotes};
     try{localStorage.setItem(DRAFT_KEY,JSON.stringify(d))}catch{}
     onClose();
     setTimeout(()=>toast("Form di-duplicate, buka Log Trade lagi"),200);
   };
   // — DuplicateNew: duplikat dari new trade form (reset pnl/time tapi keep setup) —
   const duplicateNew=()=>{
-    const d={date:today(),time:"",direction:form.direction,pnl:"",rr:"",entryPrice:form.entryPrice,stopLoss:form.stopLoss,takeProfit:form.takeProfit,strategy:form.strategy,session:form.session,instrument:form.instrument,contracts:form.contracts,tags:[],feelings:"",notes:"",lesson:"",images:[]};
+    const d={date:today(),time:"",direction:form.direction,pnl:"",rr:"",entryPrice:form.entryPrice,stopLoss:form.stopLoss,takeProfit:form.takeProfit,strategy:form.strategy,session:form.session,instrument:form.instrument,contracts:form.contracts,tags:[],feelings:"",notes:"",lesson:"",images:[],
+      pmSleep:form.pmSleep,pmEnergy:form.pmEnergy,pmMental:form.pmMental,pmBias:form.pmBias,pmDOL:form.pmDOL,pmCalChecked:form.pmCalChecked,pmNotes:form.pmNotes};
     try{localStorage.setItem(DRAFT_KEY,JSON.stringify(d))}catch{}
     setForm({...d});
     setCheckedItems({});
@@ -1141,7 +1148,8 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
       const url=await uploadScreenshot(img,tradeId,i);
       return url||img;
     }));
-    onSave({id:tradeId,date:form.date,time:form.time||"",direction:form.direction||"",pnl:form.noTradeDay?0:parseFloat(form.pnl)||0,rr:parseFloat(autoRR||form.rr)||0,entryPrice:parseFloat(form.entryPrice)||0,stopLoss:parseFloat(form.stopLoss)||0,takeProfit:parseFloat(form.takeProfit)||0,strategy:form.strategy,session:form.session,instrument:form.instrument,contracts:Math.max(1,parseInt(form.contracts)||1),tags:form.tags,feelings:form.feelings,notes:form.notes,lesson:form.lesson,images:uploadedImages,checklist:checkedItems,noTradeDay:form.noTradeDay||false});
+    onSave({id:tradeId,date:form.date,time:form.time||"",direction:form.direction||"",pnl:form.noTradeDay?0:parseFloat(form.pnl)||0,rr:parseFloat(autoRR||form.rr)||0,entryPrice:parseFloat(form.entryPrice)||0,stopLoss:parseFloat(form.stopLoss)||0,takeProfit:parseFloat(form.takeProfit)||0,strategy:form.strategy,session:form.session,instrument:form.instrument,contracts:Math.max(1,parseInt(form.contracts)||1),tags:form.tags,feelings:form.feelings,notes:form.notes,lesson:form.lesson,images:uploadedImages,checklist:checkedItems,noTradeDay:form.noTradeDay||false,
+      pmSleep:form.pmSleep||"",pmEnergy:form.pmEnergy||"",pmMental:form.pmMental||"",pmBias:form.pmBias||"",pmDOL:form.pmDOL||"",pmCalChecked:form.pmCalChecked||false,pmNotes:form.pmNotes||""});
     if(isNew)try{localStorage.removeItem(DRAFT_KEY)}catch{}
     setSaving(false);
     toast(isNew?"Trade logged":"Updated")};
@@ -1172,10 +1180,10 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
         </div>
         {/* ── Tab Pills ── */}
         <div style={{display:"flex",gap:4,background:"var(--elevated)",borderRadius:"var(--r-md)",padding:4,marginBottom:20}}>
-          {[{id:"trade",label:"Trade",dot:(!form.date||form.pnl==="")?"var(--red)":null},{id:"review",label:"Review",dot:null},{id:"notes",label:"Notes",dot:null}].map(({id,label,dot})=>{
+          {[{id:"premarket",label:"Pre-Market",dot:null},{id:"trade",label:"Trade",dot:(!form.date||form.pnl==="")?"var(--red)":null},{id:"review",label:"Review",dot:null},{id:"notes",label:"Notes",dot:null}].map(({id,label,dot})=>{
             const a=modalTab===id;
             return(
-              <button key={id} onClick={()=>setModalTab(id)} className="tap" style={{flex:1,padding:"8px 6px",borderRadius:"var(--r-sm)",fontSize:13,fontWeight:700,border:"none",background:a?"var(--surface)":"transparent",color:a?"var(--t1)":"var(--t3)",boxShadow:a?"0 1px 3px rgba(0,0,0,.25)":"none",transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+              <button key={id} onClick={()=>setModalTab(id)} className="tap" style={{flex:1,padding:"8px 4px",borderRadius:"var(--r-sm)",fontSize:11,fontWeight:700,border:"none",background:a?"var(--surface)":"transparent",color:a?"var(--t1)":"var(--t3)",boxShadow:a?"0 1px 3px rgba(0,0,0,.25)":"none",transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
                 {label}
                 {dot&&<div style={{width:5,height:5,borderRadius:"50%",background:dot,flexShrink:0}}/>}
               </button>
@@ -1183,6 +1191,100 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
           })}
         </div>
         <div style={{display:"flex",flexDirection:"column",gap:16}}>
+          {/* ── TAB 0: PRE-MARKET ── */}
+          {modalTab==="premarket"&&<>
+          {/* Readiness Score Banner */}
+          {(()=>{
+            const score=[form.pmSleep,form.pmEnergy,form.pmMental,form.pmBias].filter(Boolean).length;
+            const dangerMental=["😤 Revenge Mode","😰 Anxious","🤑 Greedy","😵 Overwhelmed"].includes(form.pmMental);
+            const badSleep=form.pmSleep==="😴 Kurang";
+            const warningFlags=(dangerMental?1:0)+(badSleep?1:0);
+            if(score===0)return(
+              <div style={{background:"var(--elevated)",borderRadius:"var(--r-md)",padding:"14px 16px",display:"flex",alignItems:"center",gap:12,border:"1px solid var(--line)"}}>
+                <span style={{fontSize:22,flexShrink:0}}>📋</span>
+                <div><div style={{fontSize:12,fontWeight:700,color:"var(--t2)",marginBottom:2}}>Pre-Market Analysis</div><div style={{fontSize:11,color:"var(--t3)"}}>Isi kondisi lo sebelum sesi buka. Bantu ngenalin pola emosi yang bikin loss.</div></div>
+              </div>
+            );
+            if(warningFlags>=2)return(
+              <div style={{background:"var(--red-dim)",border:"1px solid var(--red)44",borderRadius:"var(--r-md)",padding:"12px 14px",display:"flex",gap:10,alignItems:"flex-start"}}>
+                <span style={{fontSize:18,flexShrink:0}}>🚨</span>
+                <div><div style={{fontSize:12,fontWeight:700,color:"var(--red)",marginBottom:2}}>High Risk — Pertimbangkan skip hari ini</div><div style={{fontSize:11,color:"var(--t2)"}}>Kondisi emosi/fisik lo lagi nggak ideal. Kalau tetap trading, sizing kecil dan disiplin ketat.</div></div>
+              </div>
+            );
+            if(warningFlags===1)return(
+              <div style={{background:"var(--amber-dim)",border:"1px solid var(--amber)44",borderRadius:"var(--r-md)",padding:"12px 14px",display:"flex",gap:10,alignItems:"flex-start"}}>
+                <span style={{fontSize:18,flexShrink:0}}>⚠️</span>
+                <div><div style={{fontSize:12,fontWeight:700,color:"var(--amber)",marginBottom:2}}>Ada satu flag — stay sharp</div><div style={{fontSize:11,color:"var(--t2)"}}>Lo masih bisa trade, tapi waspadai keputusan impulsif.</div></div>
+              </div>
+            );
+            return(
+              <div style={{background:"var(--green-dim)",border:"1px solid var(--green)33",borderRadius:"var(--r-md)",padding:"12px 14px",display:"flex",gap:10,alignItems:"center"}}>
+                <span style={{fontSize:18,flexShrink:0}}>✅</span>
+                <div><div style={{fontSize:12,fontWeight:700,color:"var(--green)",marginBottom:2}}>Kondisi OK — Ready to trade</div><div style={{fontSize:11,color:"var(--t2)"}}>Nggak ada red flag terdeteksi. Stick to the plan.</div></div>
+              </div>
+            );
+          })()}
+          {/* Physical State */}
+          <div>
+            <label style={lbl}>Kualitas Tidur</label>
+            <div style={{display:"flex",gap:6}}>
+              {[{v:"😴 Kurang",c:"var(--red)"},{v:"😐 Cukup",c:"var(--amber)"},{v:"😴✅ Nyenyak",c:"var(--green)"}].map(({v,c})=>{
+                const a=form.pmSleep===v;
+                return<button key={v} onClick={()=>set("pmSleep",a?"":v)} className="tap" style={{flex:1,padding:"9px 6px",borderRadius:"var(--r-sm)",fontSize:11,fontWeight:700,border:`1px solid ${a?c:"var(--line-md)"}`,background:a?c+"22":"var(--elevated)",color:a?c:"var(--t2)",transition:"all .12s"}}>{v}</button>;
+              })}
+            </div>
+          </div>
+          <div>
+            <label style={lbl}>Level Energi Fisik</label>
+            <div style={{display:"flex",gap:6}}>
+              {[{v:"🪫 Rendah",c:"var(--red)"},{v:"⚡ Sedang",c:"var(--amber)"},{v:"🔋 Tinggi",c:"var(--green)"}].map(({v,c})=>{
+                const a=form.pmEnergy===v;
+                return<button key={v} onClick={()=>set("pmEnergy",a?"":v)} className="tap" style={{flex:1,padding:"9px 6px",borderRadius:"var(--r-sm)",fontSize:11,fontWeight:700,border:`1px solid ${a?c:"var(--line-md)"}`,background:a?c+"22":"var(--elevated)",color:a?c:"var(--t2)",transition:"all .12s"}}>{v}</button>;
+              })}
+            </div>
+          </div>
+          {/* Mental State */}
+          <div>
+            <label style={lbl}>Mental State Pre-Sesi</label>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+              {["😌 Tenang","🎯 Fokus","💪 Percaya Diri","😤 Revenge Mode","😰 Anxious","🤑 Greedy","😵 Overwhelmed","😶 Numb","😤 Frustrated"].map(f=>{
+                const sel=form.pmMental===f;
+                const danger=["😤 Revenge Mode","😰 Anxious","🤑 Greedy","😵 Overwhelmed","😤 Frustrated"].includes(f);
+                const good=["😌 Tenang","🎯 Fokus","💪 Percaya Diri"].includes(f);
+                return<button key={f} onClick={()=>set("pmMental",sel?"":f)} className="tap" style={{padding:"5px 10px",borderRadius:99,fontSize:11,fontWeight:600,border:"none",background:sel?(danger?"var(--red)":good?"var(--green)":"var(--overlay)"):"var(--elevated)",color:sel?(danger||good?"#000":"var(--t1)"):"var(--t2)",transition:"all .12s"}}>{f}</button>;
+              })}
+            </div>
+          </div>
+          {/* HTF Bias */}
+          <div>
+            <label style={lbl}>HTF Bias Hari Ini</label>
+            <div style={{display:"flex",gap:6,marginBottom:8}}>
+              {[{v:"📈 Bullish",c:"var(--green)"},{v:"📉 Bearish",c:"var(--red)"},{v:"↔️ Netral",c:"var(--amber)"}].map(({v,c})=>{
+                const a=form.pmBias===v;
+                return<button key={v} onClick={()=>set("pmBias",a?"":v)} className="tap" style={{flex:1,padding:"9px 6px",borderRadius:"var(--r-sm)",fontSize:11,fontWeight:700,border:`1px solid ${a?c:"var(--line-md)"}`,background:a?c+"22":"var(--elevated)",color:a?c:"var(--t2)",transition:"all .12s"}}>{v}</button>;
+              })}
+            </div>
+            <textarea placeholder="DOL, key levels, FVG HTF, weekly high/low yang relevan hari ini…" value={form.pmDOL} onChange={e=>set("pmDOL",e.target.value)} rows={2} className="inp" style={{resize:"none",lineHeight:1.6}}/>
+          </div>
+          {/* Calendar checked */}
+          <div>
+            <button onClick={()=>set("pmCalChecked",!form.pmCalChecked)} className="tap" style={{display:"flex",alignItems:"center",gap:10,background:form.pmCalChecked?"var(--green-dim)":"var(--elevated)",border:`1px solid ${form.pmCalChecked?"var(--green)44":"var(--line)"}`,borderRadius:"var(--r-md)",padding:"11px 14px",width:"100%",cursor:"pointer",transition:"all .15s"}}>
+              <div style={{width:22,height:22,borderRadius:6,border:`2px solid ${form.pmCalChecked?"var(--green)":"var(--line-md)"}`,background:form.pmCalChecked?"var(--green)":"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",transition:"all .12s"}}>
+                {form.pmCalChecked&&<span style={{color:"#000",fontSize:12,fontWeight:800,lineHeight:1}}>✓</span>}
+              </div>
+              <div style={{textAlign:"left"}}>
+                <div style={{fontSize:12,fontWeight:700,color:form.pmCalChecked?"var(--green)":"var(--t1)"}}>Sudah cek economic calendar?</div>
+                <div style={{fontSize:10,color:"var(--t3)",marginTop:2}}>High-impact news USD hari ini (NFP, CPI, FOMC, dll)</div>
+              </div>
+              {!form.pmCalChecked&&<span style={{marginLeft:"auto",fontSize:10,color:"var(--red)",fontWeight:700,background:"var(--red-dim)",padding:"2px 8px",borderRadius:99,flexShrink:0}}>Belum</span>}
+            </button>
+          </div>
+          {/* Notes */}
+          <div>
+            <label style={lbl}>Pre-Market Notes <span style={{color:"var(--t3)",fontWeight:400,textTransform:"none",letterSpacing:0}}>(opsional)</span></label>
+            <textarea placeholder="Hal lain yang perlu dicatat sebelum sesi: berita macro, overnight range, kondisi eksternal…" value={form.pmNotes} onChange={e=>set("pmNotes",e.target.value)} rows={2} className="inp" style={{resize:"none",lineHeight:1.6}}/>
+          </div>
+          </>}
           {/* ── TAB 1: TRADE ── */}
           {modalTab==="trade"&&<>
           <div><label style={lbl}>Date</label><input type="date" value={form.date} onChange={e=>set("date",e.target.value)} className="inp"/></div>
@@ -1408,9 +1510,9 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
         </div>
         {/* ── Tab Nav Buttons ── */}
         <div style={{display:"flex",gap:8,marginTop:20}}>
-          {modalTab!=="trade"&&<button onClick={()=>setModalTab(modalTab==="notes"?"review":"trade")} className="tap" style={{flex:1,padding:"13px",background:"var(--elevated)",border:"1px solid var(--line-md)",borderRadius:"var(--r-md)",color:"var(--t2)",fontSize:14,fontWeight:700}}>← Back</button>}
+          {modalTab!=="premarket"&&<button onClick={()=>setModalTab(modalTab==="notes"?"review":modalTab==="review"?"trade":"premarket")} className="tap" style={{flex:1,padding:"13px",background:"var(--elevated)",border:"1px solid var(--line-md)",borderRadius:"var(--r-md)",color:"var(--t2)",fontSize:14,fontWeight:700}}>← Back</button>}
           {modalTab!=="notes"
-            ?<button onClick={()=>setModalTab(modalTab==="trade"?"review":"notes")} className="tap" style={{flex:2,padding:"13px",background:"var(--accent)",border:"none",borderRadius:"var(--r-md)",color:"#fff",fontSize:14,fontWeight:700}}>Next →</button>
+            ?<button onClick={()=>setModalTab(modalTab==="premarket"?"trade":modalTab==="trade"?"review":"notes")} className="tap" style={{flex:2,padding:"13px",background:"var(--accent)",border:"none",borderRadius:"var(--r-md)",color:"#fff",fontSize:14,fontWeight:700}}>Next →</button>
             :<button onClick={save} className="tap" style={{flex:2,padding:"13px",background:"var(--accent)",border:"none",borderRadius:"var(--r-md)",color:"#fff",fontSize:15,fontWeight:700,letterSpacing:".01em"}}>{saving?(isNew?"Uploading…":"Saving…"):(isNew?"Save Trade":"Update Trade")}</button>
           }
         </div>
