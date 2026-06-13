@@ -1678,18 +1678,255 @@ function AccModal({accounts,activeId,onSwitch,onAdd,onEdit,onDelete,onClose}){
 /* ── Data Modal ── */
 function DataModal({trades,notes,account,onImport,onClearAll,onClose}){
   const fRef=useRef(null),[status,setStatus]=useState(null),[conf,setConf]=useState(false),[delText,setDelText]=useState("");
+  const[pdfLoading,setPdfLoading]=useState(false);
   const toast=useToast();
+
+  /* ── Excel export — full fields including notes, lesson, feelings, pre-market, grade ── */
   const doExport=()=>{
     try{
       const wb=XLSX.utils.book_new();
-      const rows=trades.length?trades.map(t=>({Date:t.date,PnL:t.pnl,RR:t.rr,Instrument:t.instrument||"",Contracts:t.contracts||1,Strategy:t.strategy,Session:t.session||"",Tags:(t.tags||[]).join(";"),Notes:t.notes||"",_id:t.id})):[{Date:"",PnL:"",RR:"",Instrument:"",Contracts:"",Strategy:"",Session:"",Tags:"",Notes:"",_id:""}];
-      const ws=XLSX.utils.json_to_sheet(rows);ws["!cols"]=[{wch:12},{wch:8},{wch:6},{wch:10},{wch:10},{wch:16},{wch:10},{wch:28},{wch:40},{wch:16}];
+      const getChecklistPct=(t)=>{
+        try{
+          const rules=JSON.parse(localStorage.getItem(CHECKLIST_KEY)||"null")||DEF_CHECKLIST;
+          if(!t.checklist||!rules.length)return"";
+          return Math.round(rules.filter(r=>t.checklist[r]).length/rules.length*100)+"%";
+        }catch{return""}
+      };
+      const rows=trades.length?trades.map(t=>{
+        const g=t.checklist?calcTradeGrade(t):null;
+        return{
+          Date:t.date,
+          Time:t.time||"",
+          Direction:(t.direction||"").toUpperCase(),
+          Instrument:t.instrument||"",
+          Contracts:t.contracts||1,
+          PnL:t.pnl,
+          RR:t.rr||"",
+          Entry:t.entryPrice||"",
+          SL:t.stopLoss||"",
+          TP:t.takeProfit||"",
+          Strategy:t.strategy||"",
+          Session:t.session||"",
+          Grade:g?g.grade:"",
+          Checklist:getChecklistPct(t),
+          Tags:(t.tags||[]).join("; "),
+          Feelings:t.feelings||"",
+          Notes:t.notes||"",
+          Lesson:t.lesson||"",
+          PM_Bias:t.pmBias||"",
+          PM_DOL:t.pmDOL||"",
+          PM_Sleep:t.pmSleep||"",
+          PM_Energy:t.pmEnergy||"",
+          PM_Mental:t.pmMental||"",
+          PM_Notes:t.pmNotes||"",
+          NoTradeDay:t.noTradeDay?"YES":"",
+          Screenshots:(t.images||[]).length||"",
+          _id:t.id
+        };
+      }):[{Date:"",Time:"",Direction:"",Instrument:"",Contracts:"",PnL:"",RR:"",Entry:"",SL:"",TP:"",Strategy:"",Session:"",Grade:"",Checklist:"",Tags:"",Feelings:"",Notes:"",Lesson:"",PM_Bias:"",PM_DOL:"",PM_Sleep:"",PM_Energy:"",PM_Mental:"",PM_Notes:"",NoTradeDay:"",Screenshots:"",_id:""}];
+
+      const ws=XLSX.utils.json_to_sheet(rows);
+      ws["!cols"]=[
+        {wch:12},{wch:8},{wch:8},{wch:10},{wch:9},{wch:9},{wch:6},
+        {wch:9},{wch:9},{wch:9},{wch:16},{wch:9},{wch:7},{wch:10},
+        {wch:28},{wch:20},{wch:44},{wch:44},
+        {wch:18},{wch:14},{wch:12},{wch:12},{wch:18},{wch:36},
+        {wch:10},{wch:11},{wch:16}
+      ];
       XLSX.utils.book_append_sheet(wb,ws,"Trades");
+
+      // Summary sheet
+      const realTrades=trades.filter(t=>!t.noTradeDay);
+      const wins=realTrades.filter(t=>t.pnl>0);
+      const losses=realTrades.filter(t=>t.pnl<0);
+      const totalPnl=realTrades.reduce((a,t)=>a+t.pnl,0);
+      const wr=realTrades.length?Math.round(wins.length/realTrades.length*100):0;
+      const avgWin=wins.length?wins.reduce((a,t)=>a+t.pnl,0)/wins.length:0;
+      const avgLoss=losses.length?losses.reduce((a,t)=>a+t.pnl,0)/losses.length:0;
+      const tw=wins.reduce((a,t)=>a+t.pnl,0),tl=Math.abs(losses.reduce((a,t)=>a+t.pnl,0));
+      const pf=tl>0?(tw/tl).toFixed(2):"∞";
+      const avgRR=realTrades.length?(realTrades.reduce((a,t)=>a+(t.rr||0),0)/realTrades.length).toFixed(2):0;
+      const sumRows=[
+        {Metric:"Account",Value:account?.name||""},
+        {Metric:"Exported At",Value:new Date().toLocaleString()},
+        {Metric:"Total Trades",Value:realTrades.length},
+        {Metric:"No Trade Days",Value:trades.filter(t=>t.noTradeDay).length},
+        {Metric:"Total P&L",Value:totalPnl.toFixed(2)},
+        {Metric:"Win Rate",Value:wr+"%"},
+        {Metric:"Wins",Value:wins.length},
+        {Metric:"Losses",Value:losses.length},
+        {Metric:"Avg Win",Value:avgWin.toFixed(2)},
+        {Metric:"Avg Loss",Value:avgLoss.toFixed(2)},
+        {Metric:"Profit Factor",Value:pf},
+        {Metric:"Avg R:R",Value:avgRR},
+        {Metric:"Starting Balance",Value:account?.balance||DEF_BAL},
+        {Metric:"Current Balance",Value:((account?.balance||DEF_BAL)+totalPnl).toFixed(2)},
+      ];
+      XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(sumRows),"Summary");
+
       if(notes.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(notes.map(n=>({Title:n.title,Body:n.body||"",UpdatedAt:n.updatedAt,_id:n.id}))),"Notes");
-      XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet([{AccountName:account?.name||"",Balance:account?.balance||DEF_BAL,ExportedAt:new Date().toISOString()}]),"Settings");
       XLSX.writeFile(wb,`nq-journal-${account?.name?.replace(/\s+/g,"-")||"account"}-${today()}.xlsx`);
       toast(`Exported ${trades.length} trades`);setStatus({ok:true,msg:`✓ ${trades.length} trades exported`});
     }catch(e){setStatus({ok:false,msg:"Export failed: "+e.message})}
+  };
+
+  /* ── PDF export — generates a clean white-bg HTML page and triggers print-to-PDF ── */
+  const doExportPdf=()=>{
+    try{
+      setPdfLoading(true);
+      const realTrades=[...trades].filter(t=>!t.noTradeDay).sort((a,b)=>b.date.localeCompare(a.date));
+      const noTradeDays=trades.filter(t=>t.noTradeDay);
+      const wins=realTrades.filter(t=>t.pnl>0);
+      const losses=realTrades.filter(t=>t.pnl<0);
+      const totalPnl=realTrades.reduce((a,t)=>a+t.pnl,0);
+      const wr=realTrades.length?Math.round(wins.length/realTrades.length*100):0;
+      const avgWin=wins.length?wins.reduce((a,t)=>a+t.pnl,0)/wins.length:0;
+      const avgLoss=losses.length?losses.reduce((a,t)=>a+t.pnl,0)/losses.length:0;
+      const tw=wins.reduce((a,t)=>a+t.pnl,0),tl=Math.abs(losses.reduce((a,t)=>a+t.pnl,0));
+      const pf=tl>0?(tw/tl).toFixed(2):"∞";
+      const avgRR=realTrades.length?(realTrades.reduce((a,t)=>a+(t.rr||0),0)/realTrades.length).toFixed(2):0;
+      const accBal=(account?.balance||DEF_BAL)+totalPnl;
+      const fmt2=n=>{const a=Math.abs(n).toLocaleString("en-US",{maximumFractionDigits:2});return(n>=0?"+":"-")+"$"+a};
+      const fmtD=s=>s||"—";
+      const getGrade=(t)=>{const g=t.checklist?calcTradeGrade(t):null;return g?g.grade:"—"};
+      const getCheckPct=(t)=>{
+        try{const rules=JSON.parse(localStorage.getItem(CHECKLIST_KEY)||"null")||DEF_CHECKLIST;if(!t.checklist||!rules.length)return"—";return Math.round(rules.filter(r=>t.checklist[r]).length/rules.length*100)+"%"}catch{return"—"}
+      };
+
+      const tradeRows=realTrades.map((t,i)=>{
+        const win=t.pnl>0,pnlColor=win?"#16a34a":"#dc2626";
+        const grade=getGrade(t);
+        const gradeColor=grade==="A+"?"#16a34a":grade==="A"?"#22c55e":grade==="B"?"#d97706":"#dc2626";
+        const hasNotes=t.notes||t.lesson||t.feelings||t.pmNotes||t.pmBias;
+        return`
+          <div class="trade-card" style="page-break-inside:avoid;margin-bottom:14px;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;background:#fff;">
+            <!-- Trade header -->
+            <div style="background:${win?"#f0fdf4":"#fef2f2"};padding:10px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid ${win?"#bbf7d0":"#fecaca"};">
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <span style="font-size:14px;font-weight:700;color:#111;">#${realTrades.length-i} &nbsp;${t.date}${t.time?` · ${t.time}`:""}</span>
+                ${t.direction?`<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:${t.direction==="long"?"#dcfce7":"#fee2e2"};color:${t.direction==="long"?"#15803d":"#b91c1c"};">${t.direction==="long"?"▲ LONG":"▼ SHORT"}</span>`:""}
+                ${t.session?`<span style="font-size:11px;padding:2px 8px;border-radius:99px;background:#eff6ff;color:#1d4ed8;">${t.session}</span>`:""}
+                ${t.instrument?`<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;background:#f3f4f6;color:#374151;">${t.instrument}${(t.contracts||1)>1?` ×${t.contracts}`:""}</span>`:""}
+                ${grade!=="—"?`<span style="font-size:11px;font-weight:800;padding:2px 8px;border-radius:99px;background:${gradeColor}22;color:${gradeColor};border:1px solid ${gradeColor}44;">${grade}</span>`:""}
+              </div>
+              <div style="text-align:right;flex-shrink:0;">
+                <div style="font-size:18px;font-weight:700;font-family:monospace;color:${pnlColor};">${fmt2(t.pnl)}</div>
+                ${t.rr?`<div style="font-size:11px;color:#6b7280;font-family:monospace;">${t.rr}R</div>`:""}
+              </div>
+            </div>
+
+            <!-- Trade details grid -->
+            <div style="padding:10px 14px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+              ${t.strategy?`<div><div style="font-size:9px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Strategy</div><div style="font-size:12px;color:#111;font-weight:500;">${t.strategy}</div></div>`:""}
+              ${t.entryPrice?`<div><div style="font-size:9px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Entry</div><div style="font-size:12px;color:#111;font-family:monospace;">${t.entryPrice}</div></div>`:""}
+              ${t.stopLoss?`<div><div style="font-size:9px;color:#ef4444;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Stop Loss</div><div style="font-size:12px;color:#dc2626;font-family:monospace;">${t.stopLoss}</div></div>`:""}
+              ${t.takeProfit?`<div><div style="font-size:9px;color:#16a34a;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Take Profit</div><div style="font-size:12px;color:#16a34a;font-family:monospace;">${t.takeProfit}</div></div>`:""}
+              ${(t.checklist&&getCheckPct(t)!=="—")?`<div><div style="font-size:9px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Checklist</div><div style="font-size:12px;color:#111;">${getCheckPct(t)}</div></div>`:""}
+            </div>
+
+            ${(t.tags||[]).length>0?`
+            <div style="padding:0 14px 8px;display:flex;gap:5px;flex-wrap:wrap;">
+              ${(t.tags||[]).map(tag=>{const bad=["FOMO","Revenge","Overtraded","Tilted","Late Entry"].includes(tag);const good=["Patient"].includes(tag);return`<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;background:${bad?"#fee2e2":good?"#dcfce7":"#f3f4f6"};color:${bad?"#b91c1c":good?"#15803d":"#374151"};">${tag}</span>`}).join("")}
+            </div>`:""}
+
+            ${hasNotes?`
+            <div style="border-top:1px solid #f3f4f6;margin:0 14px;"></div>
+            <div style="padding:10px 14px;display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              ${t.pmBias||t.pmDOL?`
+              <div style="grid-column:1/-1;">
+                <div style="font-size:9px;color:#6d28d9;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">📋 Pre-Market</div>
+                <div style="font-size:12px;color:#374151;line-height:1.5;">
+                  ${t.pmBias?`<span style="font-weight:600;">Bias:</span> ${t.pmBias} &nbsp;`:""}
+                  ${t.pmDOL?`<span style="font-weight:600;">DOL:</span> ${t.pmDOL} &nbsp;`:""}
+                  ${t.pmSleep?`<span style="font-weight:600;">Sleep:</span> ${t.pmSleep} &nbsp;`:""}
+                  ${t.pmEnergy?`<span style="font-weight:600;">Energy:</span> ${t.pmEnergy} &nbsp;`:""}
+                  ${t.pmMental?`<span style="font-weight:600;">Mental:</span> ${t.pmMental}`:""}
+                </div>
+                ${t.pmNotes?`<div style="font-size:11px;color:#6b7280;margin-top:4px;font-style:italic;">${t.pmNotes}</div>`:""}
+              </div>`:""}
+              ${t.feelings?`
+              <div>
+                <div style="font-size:9px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Feelings</div>
+                <div style="font-size:12px;color:#374151;line-height:1.6;">${t.feelings}</div>
+              </div>`:""}
+              ${t.notes?`
+              <div${t.feelings?"":' style="grid-column:1/-1;"'}>
+                <div style="font-size:9px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Notes</div>
+                <div style="font-size:12px;color:#374151;line-height:1.6;">${t.notes.replace(/\n/g,"<br>")}</div>
+              </div>`:""}
+              ${t.lesson?`
+              <div style="grid-column:1/-1;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px;">
+                <div style="font-size:9px;color:#d97706;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">💡 Lesson Learned</div>
+                <div style="font-size:12px;color:#374151;line-height:1.7;">${t.lesson.replace(/\n/g,"<br>")}</div>
+              </div>`:""}
+            </div>`:""}
+
+            ${(t.images||[]).length>0?`
+            <div style="padding:0 14px 12px;border-top:1px solid #f3f4f6;margin-top:${hasNotes?0:10}px;">
+              <div style="font-size:9px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;padding-top:10px;">Screenshots (${t.images.length})</div>
+              <div style="display:grid;grid-template-columns:repeat(${Math.min(t.images.length,3)},1fr);gap:6px;">
+                ${(t.images).map(src=>`<img src="${src}" style="width:100%;border-radius:6px;border:1px solid #e5e7eb;object-fit:cover;aspect-ratio:16/9;" onerror="this.style.display='none'"/>`).join("")}
+              </div>
+            </div>`:""}
+          </div>`;
+      }).join("");
+
+      const noTradeDayRows=noTradeDays.length?`
+        <div style="margin-bottom:20px;">
+          <h3 style="font-size:13px;font-weight:700;color:#374151;margin-bottom:10px;">🚫 No Trade Days (${noTradeDays.length})</h3>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            ${noTradeDays.map(t=>`<span style="font-size:11px;font-weight:600;padding:4px 10px;border-radius:99px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;">${t.date}${t.pmNotes?` · ${t.pmNotes.slice(0,30)}`:""}</span>`).join("")}
+          </div>
+        </div>`:"";
+
+      const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"/>
+<title>Trade Journal — ${account?.name||"Account"} — ${today()}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fff;color:#111;padding:0;}
+  @page{margin:15mm 12mm;size:A4;}
+  @media print{
+    body{padding:0;}
+    .no-print{display:none!important;}
+    .trade-card{break-inside:avoid;}
+  }
+  .page-header{background:linear-gradient(135deg,#1e1b4b,#312e81);color:#fff;padding:24px 32px;margin-bottom:20px;}
+  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;}
+  .stat-box{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px;}
+  .trade-section{padding:0 20px 20px;}
+  .print-btn{position:fixed;top:16px;right:16px;padding:10px 20px;background:#4f46e5;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;z-index:100;box-shadow:0 4px 12px rgba(79,70,229,.4);}
+  .print-btn:hover{background:#4338ca;}
+</style>
+</head><body>
+<button class="no-print print-btn" onclick="window.print()">🖨️ Save as PDF</button>
+<div class="page-header">
+  <div style="font-size:22px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px;">📈 Trade Journal Report</div>
+  <div style="font-size:14px;opacity:.8;">${account?.name||"Account"} &nbsp;·&nbsp; Exported ${new Date().toLocaleString("en-US",{dateStyle:"long",timeStyle:"short"})}</div>
+</div>
+<div style="padding:0 20px;">
+  <div class="stats-grid">
+    <div class="stat-box"><div style="font-size:9px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Total P&L</div><div style="font-size:22px;font-weight:700;font-family:monospace;color:${totalPnl>=0?"#16a34a":"#dc2626"};">${fmt2(totalPnl)}</div></div>
+    <div class="stat-box"><div style="font-size:9px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Win Rate</div><div style="font-size:22px;font-weight:700;color:${wr>=50?"#16a34a":"#dc2626"};">${wr}%</div><div style="font-size:11px;color:#6b7280;margin-top:3px;">${wins.length}W · ${losses.length}L</div></div>
+    <div class="stat-box"><div style="font-size:9px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Profit Factor</div><div style="font-size:22px;font-weight:700;color:${parseFloat(pf)>=1.5?"#16a34a":parseFloat(pf)<1?"#dc2626":"#d97706"};">${pf}</div></div>
+    <div class="stat-box"><div style="font-size:9px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Avg R:R</div><div style="font-size:22px;font-weight:700;font-family:monospace;">${avgRR}R</div><div style="font-size:11px;color:#6b7280;margin-top:3px;">Avg Win $${Math.round(avgWin)} · Avg Loss $${Math.abs(Math.round(avgLoss))}</div></div>
+    <div class="stat-box"><div style="font-size:9px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Total Trades</div><div style="font-size:22px;font-weight:700;">${realTrades.length}</div></div>
+    <div class="stat-box"><div style="font-size:9px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Balance</div><div style="font-size:18px;font-weight:700;font-family:monospace;">$${accBal.toLocaleString("en-US",{maximumFractionDigits:2})}</div><div style="font-size:10px;color:#6b7280;margin-top:2px;">Start $${(account?.balance||DEF_BAL).toLocaleString()}</div></div>
+    <div class="stat-box"><div style="font-size:9px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Avg Win</div><div style="font-size:18px;font-weight:700;color:#16a34a;">+$${Math.round(avgWin).toLocaleString()}</div></div>
+    <div class="stat-box"><div style="font-size:9px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px;">Avg Loss</div><div style="font-size:18px;font-weight:700;color:#dc2626;">-$${Math.abs(Math.round(avgLoss)).toLocaleString()}</div></div>
+  </div>
+  ${noTradeDayRows}
+  <h2 style="font-size:14px;font-weight:800;color:#111;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #e5e7eb;">Trade Log — ${realTrades.length} Trades</h2>
+  ${tradeRows||"<p style='color:#6b7280;font-size:13px;padding:20px 0;'>No trades recorded.</p>"}
+</div>
+</body></html>`;
+
+      const win2=window.open("","_blank","width=900,height=700");
+      if(!win2){toast("Pop-up blocked — allow pop-ups and retry","warn");setPdfLoading(false);return;}
+      win2.document.write(html);
+      win2.document.close();
+      toast("PDF preview ready — use browser Print (Ctrl+P) to save as PDF");
+      setPdfLoading(false);
+    }catch(e){setStatus({ok:false,msg:"PDF failed: "+e.message});setPdfLoading(false);}
   };
   const onFile=e=>{
     const f=e.target.files?.[0];if(!f)return;setStatus(null);
@@ -1698,7 +1935,35 @@ function DataModal({trades,notes,account,onImport,onClearAll,onClose}){
       try{
         const wb=XLSX.read(new Uint8Array(ev.target.result),{type:"array"});
         let t=null,n=null,b=null;
-        if(wb.SheetNames.includes("Trades")){const rows=XLSX.utils.sheet_to_json(wb.Sheets["Trades"]);t=rows.filter(r=>r.Date).map(r=>({id:r._id||Date.now()+Math.random(),date:String(r.Date),pnl:parseFloat(r.PnL)||0,rr:parseFloat(r.RR)||0,strategy:r.Strategy||"Other",session:r.Session||"",instrument:r.Instrument||"MNQ",contracts:parseInt(r.Contracts)||1,tags:r.Tags?r.Tags.split(";").filter(Boolean):[],notes:r.Notes||""}))}
+        if(wb.SheetNames.includes("Trades")){
+          const rows=XLSX.utils.sheet_to_json(wb.Sheets["Trades"]);
+          t=rows.filter(r=>r.Date).map(r=>({
+            id:r._id||Date.now()+Math.random(),
+            date:String(r.Date),
+            time:r.Time||"",
+            direction:(r.Direction||"").toLowerCase(),
+            pnl:parseFloat(r.PnL)||0,
+            rr:parseFloat(r.RR)||0,
+            entryPrice:parseFloat(r.Entry)||0,
+            stopLoss:parseFloat(r.SL)||0,
+            takeProfit:parseFloat(r.TP)||0,
+            strategy:r.Strategy||"Other",
+            session:r.Session||"",
+            instrument:r.Instrument||"MNQ",
+            contracts:parseInt(r.Contracts)||1,
+            tags:r.Tags?r.Tags.split(";").filter(Boolean):[],
+            feelings:r.Feelings||"",
+            notes:r.Notes||"",
+            lesson:r.Lesson||"",
+            pmBias:r.PM_Bias||"",
+            pmDOL:r.PM_DOL||"",
+            pmSleep:r.PM_Sleep||"",
+            pmEnergy:r.PM_Energy||"",
+            pmMental:r.PM_Mental||"",
+            pmNotes:r.PM_Notes||"",
+            noTradeDay:r.NoTradeDay==="YES"
+          }));
+        }
         if(wb.SheetNames.includes("Notes")){const rows=XLSX.utils.sheet_to_json(wb.Sheets["Notes"]);n=rows.filter(r=>r.Title).map(r=>({id:r._id||Date.now()+Math.random(),title:r.Title||"Untitled",body:r.Body||"",updatedAt:r.UpdatedAt||new Date().toISOString()}))}
         if(wb.SheetNames.includes("Settings")){const rows=XLSX.utils.sheet_to_json(wb.Sheets["Settings"]);if(rows.length&&rows[0].Balance!=null)b=parseFloat(rows[0].Balance)}
         if(!t&&!n&&b==null){setStatus({ok:false,msg:"File not recognized"});return}
@@ -1716,8 +1981,9 @@ function DataModal({trades,notes,account,onImport,onClearAll,onClose}){
         </div>
         <div style={{fontSize:12,color:"var(--t2)",marginBottom:18}}>{account?.name} · {trades.length} trades</div>
         <div className="sec">Export</div>
-        <button onClick={doExport} className="tap" style={{width:"100%",padding:"13px",background:"var(--green)",border:"none",borderRadius:"var(--r-md)",color:"#000",fontSize:14,fontWeight:700,marginBottom:8}}>Download .xlsx</button>
-        <button onClick={()=>{onClose();setTimeout(()=>window.print(),200)}} className="tap" style={{width:"100%",padding:"13px",background:"var(--elevated)",border:"1px solid var(--line)",borderRadius:"var(--r-md)",color:"var(--t2)",fontSize:14,fontWeight:600,marginBottom:18}}>Print / Save PDF</button>
+        <button onClick={doExport} className="tap" style={{width:"100%",padding:"13px",background:"var(--green)",border:"none",borderRadius:"var(--r-md)",color:"#000",fontSize:14,fontWeight:700,marginBottom:8}}>⬇ Download .xlsx (Full Data)</button>
+        <button onClick={doExportPdf} disabled={pdfLoading} className="tap" style={{width:"100%",padding:"13px",background:pdfLoading?"var(--elevated)":"var(--accent)",border:`1px solid ${pdfLoading?"var(--line)":"transparent"}`,borderRadius:"var(--r-md)",color:pdfLoading?"var(--t3)":"#fff",fontSize:14,fontWeight:700,marginBottom:4}}>{pdfLoading?"Generating…":"📄 Export PDF Report"}</button>
+        <div style={{fontSize:11,color:"var(--t3)",marginBottom:18}}>Opens PDF preview → Print → Save as PDF &nbsp;·&nbsp; includes notes, lessons & screenshots</div>
         <div className="sec">Import</div>
         <input ref={fRef} type="file" accept=".xlsx,.xls" onChange={onFile} style={{display:"none"}}/>
         <button onClick={()=>fRef.current?.click()} className="tap" style={{width:"100%",padding:"13px",background:"var(--elevated)",border:"1.5px dashed var(--line-md)",borderRadius:"var(--r-md)",color:"var(--t2)",fontSize:14,fontWeight:600,marginBottom:6}}>Select .xlsx file</button>
