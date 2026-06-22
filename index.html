@@ -239,6 +239,16 @@ const fmtBal=n=>"$"+Number(n).toLocaleString("en-US",{maximumFractionDigits:2});
 const clr=(n,neutral=false)=>neutral?"var(--t2)":n>0?"var(--green)":n<0?"var(--red)":"var(--t2)";
 const clrDim=(n,neutral=false)=>neutral?"var(--elevated)":n>0?"var(--green-dim)":n<0?"var(--red-dim)":"var(--elevated)";
 const PNL_MASK="••••••";
+// "Monday, 22 June 2026" — parse as noon to avoid timezone day-shift
+function fmtLongDate(iso){
+  if(!iso)return"";
+  const d=new Date(iso+"T12:00:00");
+  const day=d.toLocaleDateString("en-GB",{weekday:"long"});
+  const num=d.getDate();
+  const mon=d.toLocaleDateString("en-GB",{month:"long"});
+  const yr=d.getFullYear();
+  return`${day}, ${num} ${mon} ${yr}`;
+}
 function today(){const d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
 function fmtNoteDate(iso){
   const d=new Date(iso),now=new Date(),diff=Math.floor((now-d)/86400000);
@@ -380,6 +390,7 @@ const IcoCal=Ico(<><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16
 const IcoShield=Ico(<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>);
 const IcoWallet=Ico(<><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 14a1 1 0 000 2 1 1 0 000-2z" fill="currentColor" stroke="none"/><path d="M22 11V7a2 2 0 00-2-2H4a2 2 0 00-2 2v4"/></>);
 const IcoNews=Ico(<><path d="M4 22h16a2 2 0 002-2V4a2 2 0 00-2-2H8a2 2 0 00-2 2v16a2 2 0 01-2 2zm0 0a2 2 0 01-2-2v-9c0-1.1.9-2 2-2h2"/><line x1="18" y1="14" x2="10" y2="14"/><line x1="15" y1="18" x2="10" y2="18"/><rect x="10" y="6" width="8" height="4"/></>);
+const IcoReview=Ico(<><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/><circle cx="17" cy="17" r="3"/><path d="m19.5 19.5 1.5 1.5"/></>);
 const IcoNote=Ico(<><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></>);
 const IcoPlus=Ico(<><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>);
 const IcoUp=Ico(<><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></>);
@@ -422,7 +433,7 @@ const TradeRow=React.memo(function TradeRow({trade,onPress,isLast}){
       <div style={{flex:1,minWidth:0}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
           <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-            <span className="mono" style={{fontSize:13,fontWeight:500,color:"var(--t1)"}}>{trade.date}{trade.time&&<span style={{color:"var(--t3)",fontWeight:400,fontSize:11}}> {trade.time}</span>}</span>
+            <span style={{fontSize:12,fontWeight:600,color:"var(--t1)"}}>{fmtLongDate(trade.date)}{trade.time&&<span className="mono" style={{color:"var(--t3)",fontWeight:400,fontSize:11}}> · {trade.time}</span>}</span>
             {ntd&&<span className="pill" style={{background:"var(--blue-dim)",color:"var(--blue)",border:"1px solid var(--blue)33"}}>🚫 No Trade</span>}
             {!ntd&&trade.direction&&<span className="pill" style={{background:trade.direction==="long"?"var(--green-dim)":"var(--red-dim)",color:trade.direction==="long"?"var(--green)":"var(--red)"}}>{trade.direction==="long"?"▲ L":"▼ S"}</span>}
             {trade.session&&<span className="pill" style={{background:SCOL[trade.session]+"22",color:SCOL[trade.session]}}>{trade.session}</span>}
@@ -435,6 +446,8 @@ const TradeRow=React.memo(function TradeRow({trade,onPress,isLast}){
           <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
             <span style={{fontSize:11,color:"var(--t2)"}}>{trade.strategy}</span>
             {trade.pmBias&&<span style={{fontSize:10,color:trade.pmBias.includes("Bullish")?"var(--green)":trade.pmBias.includes("Bearish")?"var(--red)":"var(--amber)",fontWeight:600}}>{trade.pmBias.split(" ").slice(0,2).join(" ")}</span>}
+            {trade.pmAsiaCondition&&<span className="pill" style={{background:trade.pmAsiaCondition.includes("Manipulasi")?"var(--green-dim)":"var(--amber-dim)",color:trade.pmAsiaCondition.includes("Manipulasi")?"var(--green)":"var(--amber)",fontSize:10}}>Asia {trade.pmAsiaCondition.split(" ")[0]}{trade.pmAsiaPoints?` ${trade.pmAsiaPoints}pt`:""}</span>}
+            {trade.pmLondonCondition&&<span className="pill" style={{background:trade.pmLondonCondition.includes("Manipulasi")?"var(--green-dim)":"var(--amber-dim)",color:trade.pmLondonCondition.includes("Manipulasi")?"var(--green)":"var(--amber)",fontSize:10}}>LDN {trade.pmLondonCondition.split(" ")[0]}{trade.pmLondonPoints?` ${trade.pmLondonPoints}pt`:""}</span>}
             {(trade.tags||[]).filter(t=>["FOMO","Revenge","Patient","Tilted"].includes(t)).slice(0,2).map(tag=>{
               const bad=["FOMO","Revenge","Tilted"].includes(tag),good=["Patient"].includes(tag);
               return<span key={tag} className="pill" style={{background:bad?"var(--red-dim)":good?"var(--green-dim)":"var(--elevated)",color:bad?"var(--red)":good?"var(--green)":"var(--t2)"}}>{tag}</span>;
@@ -1048,10 +1061,49 @@ const TradeLogView=React.memo(function TradeLogView({trades,onPress,accountName,
         </div>
         {filtered.length>0&&<span className="mono" style={{fontSize:13,fontWeight:500,color:filtered.length>0?clr(filtPnl):"var(--t2)"}}>{fmt(filtPnl)}</span>}
       </div>
-      <div className="card" style={{padding:"0 16px"}}>
-        {filtered.map((t,i)=><TradeRow key={t.id} trade={t} onPress={()=>onPress(t)} isLast={i===filtered.length-1}/>)}
-        {filtered.length===0&&<div style={{textAlign:"center",padding:"44px 0",fontSize:12,color:"var(--t3)"}}>{trades.length===0?"No trades yet":"No trades match filters"}</div>}
-      </div>
+      {filtered.length===0?(
+        <div className="card" style={{padding:"0 16px"}}>
+          <div style={{textAlign:"center",padding:"44px 0",fontSize:12,color:"var(--t3)"}}>{trades.length===0?"No trades yet":"No trades match filters"}</div>
+        </div>
+      ):(()=>{
+        // Group by month
+        const groups=[];
+        let curMonth=null,curGroup=null;
+        filtered.forEach(t=>{
+          const mk=t.date.slice(0,7);
+          if(mk!==curMonth){
+            curMonth=mk;
+            const[yr,mo]=mk.split("-");
+            const label=MONTHS[parseInt(mo)-1]+" "+yr;
+            const monthTrades=filtered.filter(x=>x.date.startsWith(mk));
+            const mPnl=monthTrades.reduce((a,x)=>a+x.pnl,0);
+            const mWins=monthTrades.filter(x=>x.pnl>0).length;
+            const mWR=monthTrades.length?Math.round(mWins/monthTrades.length*100):0;
+            curGroup={label,mk,trades:[],pnl:mPnl,wr:mWR,count:monthTrades.length};
+            groups.push(curGroup);
+          }
+          curGroup.trades.push(t);
+        });
+        return(
+          <div>
+            {groups.map(g=>(
+              <div key={g.mk} style={{marginBottom:14}}>
+                {/* Month header */}
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8,paddingLeft:2}}>
+                  <span style={{fontSize:11,fontWeight:800,color:"var(--t2)",letterSpacing:".05em",textTransform:"uppercase"}}>{g.label}</span>
+                  <div style={{flex:1,height:1,background:"var(--line)"}}/>
+                  <span className="mono" style={{fontSize:11,fontWeight:600,color:clr(g.pnl)}}>{fmt(g.pnl)}</span>
+                  <span style={{fontSize:10,color:"var(--t3)",fontWeight:600}}>{g.wr}% WR</span>
+                  <span style={{fontSize:10,color:"var(--t3)"}}>{g.count}T</span>
+                </div>
+                <div className="card" style={{padding:"0 16px"}}>
+                  {g.trades.map((t,i)=><TradeRow key={t.id} trade={t} onPress={()=>onPress(t)} isLast={i===g.trades.length-1}/>)}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
       </>}
     </>
   );
@@ -1079,7 +1131,7 @@ function TradeModal({trade,onSave,onDelete,onClose,onManageInstrs}){
     if(isNew){try{const d=localStorage.getItem(DRAFT_KEY);if(d){const p=JSON.parse(d);return{...p,date:p.date||today()}}}catch{}}
     return{date:trade.date||today(),time:trade.time||"",direction:trade.direction||"",pnl:trade.pnl!==undefined?String(trade.pnl):"",rr:trade.rr!==undefined?String(trade.rr):"",entryPrice:trade.entryPrice!==undefined?String(trade.entryPrice):"",stopLoss:trade.stopLoss!==undefined?String(trade.stopLoss):"",takeProfit:trade.takeProfit!==undefined?String(trade.takeProfit):"",strategy:trade.strategy||STRATS[0],session:trade.session||"",instrument:trade.instrument||(instrs[0]||"MNQ"),contracts:trade.contracts!==undefined?String(trade.contracts):"1",tags:trade.tags||[],feelings:trade.feelings||"",notes:trade.notes||"",lesson:trade.lesson||"",images:trade.images||[],noTradeDay:trade.noTradeDay||false,
       // Pre-market fields
-      pmSleep:trade.pmSleep||"",pmEnergy:trade.pmEnergy||"",pmMental:trade.pmMental||"",pmBias:trade.pmBias||"",pmDOL:trade.pmDOL||"",pmCalChecked:trade.pmCalChecked||false,pmNotes:trade.pmNotes||""};
+      pmSleep:trade.pmSleep||"",pmEnergy:trade.pmEnergy||"",pmMental:trade.pmMental||"",pmBias:trade.pmBias||"",pmDOL:trade.pmDOL||"",pmCalChecked:trade.pmCalChecked||false,pmNotes:trade.pmNotes||"",pmAsiaCondition:trade.pmAsiaCondition||"",pmAsiaPoints:trade.pmAsiaPoints||"",pmLondonCondition:trade.pmLondonCondition||"",pmLondonPoints:trade.pmLondonPoints||""};
   };
   const[form,setForm]=useState(initForm);
   // auto-calc RR from entry/SL/TP
@@ -1117,7 +1169,7 @@ function TradeModal({trade,onSave,onDelete,onClose,onManageInstrs}){
   // — Duplicate: pre-fill form dengan data trade existing, tanpa id/pnl/time —
   const duplicate=()=>{
     const d={date:today(),time:"",direction:form.direction,pnl:"",rr:"",entryPrice:form.entryPrice,stopLoss:form.stopLoss,takeProfit:form.takeProfit,strategy:form.strategy,session:form.session,instrument:form.instrument,contracts:form.contracts,tags:[],feelings:"",notes:"",lesson:"",images:[],
-      pmSleep:form.pmSleep,pmEnergy:form.pmEnergy,pmMental:form.pmMental,pmBias:form.pmBias,pmDOL:form.pmDOL,pmCalChecked:form.pmCalChecked,pmNotes:form.pmNotes};
+      pmSleep:form.pmSleep,pmEnergy:form.pmEnergy,pmMental:form.pmMental,pmBias:form.pmBias,pmDOL:form.pmDOL,pmCalChecked:form.pmCalChecked,pmNotes:form.pmNotes,pmAsiaCondition:form.pmAsiaCondition,pmAsiaPoints:form.pmAsiaPoints,pmLondonCondition:form.pmLondonCondition,pmLondonPoints:form.pmLondonPoints};
     try{localStorage.setItem(DRAFT_KEY,JSON.stringify(d))}catch{}
     onClose();
     setTimeout(()=>toast("Form di-duplicate, buka Log Trade lagi"),200);
@@ -1125,7 +1177,7 @@ function TradeModal({trade,onSave,onDelete,onClose,onManageInstrs}){
   // — DuplicateNew: duplikat dari new trade form (reset pnl/time tapi keep setup) —
   const duplicateNew=()=>{
     const d={date:today(),time:"",direction:form.direction,pnl:"",rr:"",entryPrice:form.entryPrice,stopLoss:form.stopLoss,takeProfit:form.takeProfit,strategy:form.strategy,session:form.session,instrument:form.instrument,contracts:form.contracts,tags:[],feelings:"",notes:"",lesson:"",images:[],
-      pmSleep:form.pmSleep,pmEnergy:form.pmEnergy,pmMental:form.pmMental,pmBias:form.pmBias,pmDOL:form.pmDOL,pmCalChecked:form.pmCalChecked,pmNotes:form.pmNotes};
+      pmSleep:form.pmSleep,pmEnergy:form.pmEnergy,pmMental:form.pmMental,pmBias:form.pmBias,pmDOL:form.pmDOL,pmCalChecked:form.pmCalChecked,pmNotes:form.pmNotes,pmAsiaCondition:form.pmAsiaCondition,pmAsiaPoints:form.pmAsiaPoints,pmLondonCondition:form.pmLondonCondition,pmLondonPoints:form.pmLondonPoints};
     try{localStorage.setItem(DRAFT_KEY,JSON.stringify(d))}catch{}
     setForm({...d});
     setCheckedItems({});
@@ -1149,7 +1201,7 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
       return url||img;
     }));
     onSave({id:tradeId,date:form.date,time:form.time||"",direction:form.direction||"",pnl:form.noTradeDay?0:parseFloat(form.pnl)||0,rr:parseFloat(autoRR||form.rr)||0,entryPrice:parseFloat(form.entryPrice)||0,stopLoss:parseFloat(form.stopLoss)||0,takeProfit:parseFloat(form.takeProfit)||0,strategy:form.strategy,session:form.session,instrument:form.instrument,contracts:Math.max(1,parseInt(form.contracts)||1),tags:form.tags,feelings:form.feelings,notes:form.notes,lesson:form.lesson,images:uploadedImages,checklist:checkedItems,noTradeDay:form.noTradeDay||false,
-      pmSleep:form.pmSleep||"",pmEnergy:form.pmEnergy||"",pmMental:form.pmMental||"",pmBias:form.pmBias||"",pmDOL:form.pmDOL||"",pmCalChecked:form.pmCalChecked||false,pmNotes:form.pmNotes||""});
+      pmSleep:form.pmSleep||"",pmEnergy:form.pmEnergy||"",pmMental:form.pmMental||"",pmBias:form.pmBias||"",pmDOL:form.pmDOL||"",pmCalChecked:form.pmCalChecked||false,pmNotes:form.pmNotes||"",pmAsiaCondition:form.pmAsiaCondition||"",pmAsiaPoints:form.pmAsiaPoints||"",pmLondonCondition:form.pmLondonCondition||"",pmLondonPoints:form.pmLondonPoints||""});
     if(isNew)try{localStorage.removeItem(DRAFT_KEY)}catch{}
     setSaving(false);
     toast(isNew?"Trade logged":"Updated")};
@@ -1265,6 +1317,28 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
               })}
             </div>
             <textarea placeholder="DOL, key levels, FVG HTF, weekly high/low yang relevan hari ini…" value={form.pmDOL} onChange={e=>set("pmDOL",e.target.value)} rows={2} className="inp" style={{resize:"none",lineHeight:1.6}}/>
+          </div>
+          {/* Asia Session */}
+          <div>
+            <label style={lbl}>Asia Session</label>
+            <div style={{display:"flex",gap:6,marginBottom:8}}>
+              {[{v:"🔄 Ranging",c:"var(--amber)"},{v:"⚡ Manipulasi",c:"var(--green)"}].map(({v,c})=>{
+                const a=form.pmAsiaCondition===v;
+                return<button key={v} onClick={()=>set("pmAsiaCondition",a?"":v)} className="tap" style={{flex:1,padding:"9px 6px",borderRadius:"var(--r-sm)",fontSize:11,fontWeight:700,border:`1px solid ${a?c:"var(--line-md)"}`,background:a?c+"22":"var(--elevated)",color:a?c:"var(--t2)",transition:"all .12s"}}>{v}</button>;
+              })}
+            </div>
+            <input type="number" inputMode="decimal" placeholder="Poin pergerakan Asia (mis. 45)" value={form.pmAsiaPoints} onChange={e=>set("pmAsiaPoints",e.target.value)} className="inp"/>
+          </div>
+          {/* London Session */}
+          <div>
+            <label style={lbl}>London Session</label>
+            <div style={{display:"flex",gap:6,marginBottom:8}}>
+              {[{v:"🔄 Ranging",c:"var(--amber)"},{v:"⚡ Manipulasi",c:"var(--green)"}].map(({v,c})=>{
+                const a=form.pmLondonCondition===v;
+                return<button key={v} onClick={()=>set("pmLondonCondition",a?"":v)} className="tap" style={{flex:1,padding:"9px 6px",borderRadius:"var(--r-sm)",fontSize:11,fontWeight:700,border:`1px solid ${a?c:"var(--line-md)"}`,background:a?c+"22":"var(--elevated)",color:a?c:"var(--t2)",transition:"all .12s"}}>{v}</button>;
+              })}
+            </div>
+            <input type="number" inputMode="decimal" placeholder="Poin pergerakan London (mis. 120)" value={form.pmLondonPoints} onChange={e=>set("pmLondonPoints",e.target.value)} className="inp"/>
           </div>
           {/* Calendar checked */}
           <div>
@@ -1719,11 +1793,15 @@ function DataModal({trades,notes,account,onImport,onClearAll,onClose}){
           PM_Energy:t.pmEnergy||"",
           PM_Mental:t.pmMental||"",
           PM_Notes:t.pmNotes||"",
+          PM_AsiaCondition:t.pmAsiaCondition||"",
+          PM_AsiaPoints:t.pmAsiaPoints||"",
+          PM_LondonCondition:t.pmLondonCondition||"",
+          PM_LondonPoints:t.pmLondonPoints||"",
           NoTradeDay:t.noTradeDay?"YES":"",
           Screenshots:(t.images||[]).length||"",
           _id:t.id
         };
-      }):[{Date:"",Time:"",Direction:"",Instrument:"",Contracts:"",PnL:"",RR:"",Entry:"",SL:"",TP:"",Strategy:"",Session:"",Grade:"",Checklist:"",Tags:"",Feelings:"",Notes:"",Lesson:"",PM_Bias:"",PM_DOL:"",PM_Sleep:"",PM_Energy:"",PM_Mental:"",PM_Notes:"",NoTradeDay:"",Screenshots:"",_id:""}];
+      }):[{Date:"",Time:"",Direction:"",Instrument:"",Contracts:"",PnL:"",RR:"",Entry:"",SL:"",TP:"",Strategy:"",Session:"",Grade:"",Checklist:"",Tags:"",Feelings:"",Notes:"",Lesson:"",PM_Bias:"",PM_DOL:"",PM_Sleep:"",PM_Energy:"",PM_Mental:"",PM_Notes:"",PM_AsiaCondition:"",PM_AsiaPoints:"",PM_LondonCondition:"",PM_LondonPoints:"",NoTradeDay:"",Screenshots:"",_id:""}];
 
       const ws=XLSX.utils.json_to_sheet(rows);
       ws["!cols"]=[
@@ -1797,7 +1875,7 @@ function DataModal({trades,notes,account,onImport,onClearAll,onClose}){
         const win=t.pnl>0,pnlColor=win?"#16a34a":"#dc2626";
         const grade=getGrade(t);
         const gradeColor=grade==="A+"?"#16a34a":grade==="A"?"#22c55e":grade==="B"?"#d97706":"#dc2626";
-        const hasNotes=t.notes||t.lesson||t.feelings||t.pmNotes||t.pmBias;
+        const hasNotes=t.notes||t.lesson||t.feelings||t.pmNotes||t.pmBias||t.pmAsiaCondition||t.pmLondonCondition;
         return`
           <div class="trade-card" style="page-break-inside:avoid;margin-bottom:14px;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;background:#fff;">
             <!-- Trade header -->
@@ -1832,7 +1910,7 @@ function DataModal({trades,notes,account,onImport,onClearAll,onClose}){
             ${hasNotes?`
             <div style="border-top:1px solid #f3f4f6;margin:0 14px;"></div>
             <div style="padding:10px 14px;display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-              ${t.pmBias||t.pmDOL?`
+              ${t.pmBias||t.pmDOL||t.pmAsiaCondition||t.pmLondonCondition?`
               <div style="grid-column:1/-1;">
                 <div style="font-size:9px;color:#6d28d9;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">📋 Pre-Market</div>
                 <div style="font-size:12px;color:#374151;line-height:1.5;">
@@ -1842,6 +1920,10 @@ function DataModal({trades,notes,account,onImport,onClearAll,onClose}){
                   ${t.pmEnergy?`<span style="font-weight:600;">Energy:</span> ${t.pmEnergy} &nbsp;`:""}
                   ${t.pmMental?`<span style="font-weight:600;">Mental:</span> ${t.pmMental}`:""}
                 </div>
+                ${t.pmAsiaCondition||t.pmLondonCondition?`<div style="font-size:12px;color:#374151;line-height:1.5;margin-top:3px;">
+                  ${t.pmAsiaCondition?`<span style="font-weight:600;">Asia:</span> ${t.pmAsiaCondition}${t.pmAsiaPoints?` (${t.pmAsiaPoints}pt)`:""} &nbsp;`:""}
+                  ${t.pmLondonCondition?`<span style="font-weight:600;">London:</span> ${t.pmLondonCondition}${t.pmLondonPoints?` (${t.pmLondonPoints}pt)`:""}`:""}
+                </div>`:""}
                 ${t.pmNotes?`<div style="font-size:11px;color:#6b7280;margin-top:4px;font-style:italic;">${t.pmNotes}</div>`:""}
               </div>`:""}
               ${t.feelings?`
@@ -1961,6 +2043,10 @@ function DataModal({trades,notes,account,onImport,onClearAll,onClose}){
             pmEnergy:r.PM_Energy||"",
             pmMental:r.PM_Mental||"",
             pmNotes:r.PM_Notes||"",
+            pmAsiaCondition:r.PM_AsiaCondition||"",
+            pmAsiaPoints:r.PM_AsiaPoints||"",
+            pmLondonCondition:r.PM_LondonCondition||"",
+            pmLondonPoints:r.PM_LondonPoints||"",
             noTradeDay:r.NoTradeDay==="YES"
           }));
         }
@@ -2502,6 +2588,13 @@ function TradeReviewView({trades}){
 
   const lbIdx=lb?allShots.findIndex(s=>s.key===lb.key):-1;
 
+  // Lock body scroll when lightbox open
+  useEffect(()=>{
+    if(lb){document.body.style.overflow="hidden";}
+    else{document.body.style.overflow="";}
+    return()=>{document.body.style.overflow="";};
+  },[lb]);
+
   if(withImages.length===0)return(
     <div className="card" style={{padding:"60px 20px",textAlign:"center"}}>
       <div style={{fontSize:36,marginBottom:12}}>📸</div>
@@ -2611,39 +2704,48 @@ function TradeReviewView({trades}){
 
       {/* Lightbox */}
       {lb&&(
-        <div onClick={()=>setLb(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.97)",zIndex:500,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:16}}>
+        <div onClick={()=>setLb(null)} style={{position:"fixed",top:0,left:0,right:0,bottom:0,width:"100vw",height:"100vh",background:"rgba(0,0,0,.97)",zIndex:900,display:"flex",flexDirection:"column",overflow:"hidden"}}>
           {/* Top bar */}
-          <div style={{position:"absolute",top:0,left:0,right:0,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 16px",background:"linear-gradient(to bottom,rgba(0,0,0,.8),transparent)",zIndex:1}}>
-            <div>
-              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
-                <div style={{width:8,height:8,borderRadius:"50%",background:lb.trade.pnl>0?"var(--green)":"var(--red)"}}/>
+          <div style={{flexShrink:0,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",height:56}} onClick={e=>e.stopPropagation()}>
+            <div style={{minWidth:0,flex:1}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}>
+                <div style={{width:8,height:8,borderRadius:"50%",background:lb.trade.pnl>0?"var(--green)":"var(--red)",flexShrink:0}}/>
                 <span className="mono" style={{fontSize:12,color:"white",fontWeight:700}}>{fmt(lb.trade.pnl)}</span>
-                <span style={{fontSize:11,color:"rgba(255,255,255,.5)"}}>{lb.trade.date} · {lb.trade.strategy} · {lb.trade.instrument}</span>
+                <span style={{fontSize:11,color:"rgba(255,255,255,.5)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{lb.trade.date} · {lb.trade.strategy} · {lb.trade.instrument}</span>
               </div>
-              {lb.trade.notes&&<div style={{fontSize:11,color:"rgba(255,255,255,.5)",maxWidth:400,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{lb.trade.notes}</div>}
             </div>
-            <div style={{display:"flex",gap:8,flexShrink:0}}>
+            <div style={{display:"flex",gap:8,flexShrink:0,marginLeft:12}}>
               <a href={lb.src} download={`chart-${lb.trade.date}.jpg`} onClick={e=>e.stopPropagation()} style={{background:"rgba(255,255,255,.12)",border:"none",borderRadius:"50%",width:36,height:36,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"white",textDecoration:"none",fontSize:15}}>↓</a>
-              <button onClick={()=>setLb(null)} style={{background:"rgba(255,255,255,.12)",border:"none",borderRadius:"50%",width:36,height:36,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><IcoX size={14} col="white"/></button>
+              <button onClick={e=>{e.stopPropagation();setLb(null)}} style={{background:"rgba(255,255,255,.18)",border:"1px solid rgba(255,255,255,.2)",borderRadius:"50%",width:36,height:36,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><IcoX size={14} col="white"/></button>
             </div>
           </div>
-          {/* Prev */}
-          {lbIdx>0&&<button onClick={e=>{e.stopPropagation();setLb(allShots[lbIdx-1])}} style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,.15)",border:"none",borderRadius:"50%",width:44,height:44,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1}}><IcoChL size={18} col="white"/></button>}
-          <img src={lb.src} alt="" style={{maxWidth:"100%",maxHeight:"80vh",borderRadius:"var(--r-md)",objectFit:"contain",userSelect:"none"}} onClick={e=>e.stopPropagation()}/>
-          {/* Next */}
-          {lbIdx<allShots.length-1&&<button onClick={e=>{e.stopPropagation();setLb(allShots[lbIdx+1])}} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,.15)",border:"none",borderRadius:"50%",width:44,height:44,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1}}><IcoChR size={18} col="white"/></button>}
-          {/* Bottom: lesson if exists */}
-          {lb.trade.lesson&&(
-            <div style={{position:"absolute",bottom:0,left:0,right:0,padding:"14px 20px 28px",background:"linear-gradient(to top,rgba(0,0,0,.85),transparent)"}}>
-              <div style={{display:"flex",gap:8,alignItems:"flex-start",maxWidth:600,margin:"0 auto"}}>
-                <span style={{fontSize:16,flexShrink:0}}>💡</span>
-                <span style={{fontSize:12,color:"rgba(255,255,255,.8)",lineHeight:1.6}}>{lb.trade.lesson}</span>
-              </div>
+
+          {/* Image area — flex:1 fills exact remaining space */}
+          <div style={{flex:1,minHeight:0,display:"flex",alignItems:"center",justifyContent:"center",position:"relative",padding:"0 60px"}} onClick={e=>e.stopPropagation()}>
+            {lbIdx>0&&<button onClick={e=>{e.stopPropagation();setLb(allShots[lbIdx-1])}} style={{position:"absolute",left:8,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,.15)",border:"none",borderRadius:"50%",width:44,height:44,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1}}><IcoChL size={18} col="white"/></button>}
+            <img src={lb.src} alt=""
+              style={{maxWidth:"100%",maxHeight:"100%",objectFit:"contain",borderRadius:"var(--r-md)",userSelect:"none",display:"block"}}
+              onClick={e=>e.stopPropagation()}
+              onError={e=>{e.currentTarget.style.display="none";const el=e.currentTarget.parentElement.querySelector(".img-err");if(el)el.style.display="flex";}}
+            />
+            <div className="img-err" style={{display:"none",flexDirection:"column",alignItems:"center",gap:10,color:"rgba(255,255,255,.3)",position:"absolute"}}>
+              <span style={{fontSize:40}}>🖼️</span>
+              <span style={{fontSize:13}}>Gambar tidak bisa dimuat</span>
             </div>
-          )}
-          {/* Counter */}
-          <div style={{position:"absolute",bottom:lb.trade.lesson?70:20,display:"flex",gap:5,alignItems:"center"}}>
-            <span style={{fontSize:10,color:"rgba(255,255,255,.3)",fontWeight:600}}>{lbIdx+1} / {allShots.length}</span>
+            {lbIdx<allShots.length-1&&<button onClick={e=>{e.stopPropagation();setLb(allShots[lbIdx+1])}} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,.15)",border:"none",borderRadius:"50%",width:44,height:44,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1}}><IcoChR size={18} col="white"/></button>}
+          </div>
+
+          {/* Bottom — lesson + counter */}
+          <div style={{flexShrink:0,padding:"10px 20px 20px",height:lb.trade.lesson?80:40}} onClick={e=>e.stopPropagation()}>
+            {lb.trade.lesson&&(
+              <div style={{display:"flex",gap:8,alignItems:"flex-start",maxWidth:600,margin:"0 auto 6px"}}>
+                <span style={{fontSize:14,flexShrink:0}}>💡</span>
+                <span style={{fontSize:12,color:"rgba(255,255,255,.7)",lineHeight:1.6,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{lb.trade.lesson}</span>
+              </div>
+            )}
+            <div style={{textAlign:"center"}}>
+              <span style={{fontSize:10,color:"rgba(255,255,255,.3)",fontWeight:600}}>{lbIdx+1} / {allShots.length}</span>
+            </div>
           </div>
         </div>
       )}
@@ -2651,201 +2753,486 @@ function TradeReviewView({trades}){
   );
 }
 
-function NewsView(){
-  const[events,setEvents]=useState([]);
-  const[loading,setLoading]=useState(false);
-  const[error,setError]=useState(null);
-  const[filter,setFilter]=useState({high:true,medium:true});
-  const[weekOffset,setWeekOffset]=useState(0);
+/* ── Review View — Notion-style Trade Playbook ── */
+function ReviewView({trades,onOpenTrade}){
+  const pnlHidden=useContext(PnlCtx);
+  const[selected,setSelected]=useState(null);
+  const[filter,setFilter]=useState("all"); // all | win | loss | ntd
+  const[stratFilter,setStratFilter]=useState("all");
+  const[sessionFilter,setSessionFilter]=useState("all");
+  const[search,setSearch]=useState("");
+  const[imgIdx,setImgIdx]=useState(0);
+  const[imgLb,setImgLb]=useState(false);
+  const searchRef=useRef(null);
 
-  const getWeekRange=(offset=0)=>{
-    const now=new Date();
-    const day=now.getDay();
-    const mon=new Date(now);
-    mon.setDate(now.getDate()-((day===0?7:day)-1)+offset*7);
-    mon.setHours(0,0,0,0);
-    const fri=new Date(mon);
-    fri.setDate(mon.getDate()+6);
-    fri.setHours(23,59,59,999);
-    const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-    return{from:fmt(mon),to:fmt(fri),monDate:mon,friDate:fri};
+  const realTrades=useMemo(()=>[...trades].filter(t=>!t.noTradeDay).sort((a,b)=>b.date.localeCompare(a.date)||(b.time||"").localeCompare(a.time||"")),[trades]);
+  const allTrades=useMemo(()=>[...trades].sort((a,b)=>b.date.localeCompare(a.date)||(b.time||"").localeCompare(a.time||"")),[trades]);
+
+  const strategies=useMemo(()=>[...new Set(realTrades.map(t=>t.strategy).filter(Boolean))],[realTrades]);
+  const sessions=useMemo(()=>[...new Set(realTrades.map(t=>t.session).filter(Boolean))],[realTrades]);
+
+  const filtered=useMemo(()=>{
+    let r=allTrades;
+    if(filter==="win")r=r.filter(t=>t.pnl>0&&!t.noTradeDay);
+    else if(filter==="loss")r=r.filter(t=>t.pnl<0&&!t.noTradeDay);
+    else if(filter==="ntd")r=r.filter(t=>t.noTradeDay);
+    if(stratFilter!=="all")r=r.filter(t=>t.strategy===stratFilter);
+    if(sessionFilter!=="all")r=r.filter(t=>t.session===sessionFilter);
+    if(search.trim()){
+      const q=search.toLowerCase();
+      r=r.filter(t=>(t.strategy||"").toLowerCase().includes(q)||(t.notes||"").toLowerCase().includes(q)||(t.lesson||"").toLowerCase().includes(q)||(t.instrument||"").toLowerCase().includes(q)||(t.date||"").includes(q));
+    }
+    return r;
+  },[allTrades,filter,stratFilter,sessionFilter,search]);
+
+  // Stats
+  const stats=useMemo(()=>{
+    const r=realTrades;
+    const wins=r.filter(t=>t.pnl>0),losses=r.filter(t=>t.pnl<0);
+    const wr=r.length?Math.round(wins.length/r.length*100):0;
+    const total=r.reduce((a,t)=>a+t.pnl,0);
+    const avgRR=r.length?(r.reduce((a,t)=>a+(parseFloat(t.rr)||0),0)/r.length).toFixed(1):"—";
+    const avgW=wins.length?wins.reduce((a,t)=>a+t.pnl,0)/wins.length:0;
+    const avgL=losses.length?losses.reduce((a,t)=>a+t.pnl,0)/losses.length:0;
+    return{wins:wins.length,losses:losses.length,wr,total,avgRR,avgW,avgL};
+  },[realTrades]);
+
+  // When selected changes, reset image index
+  useEffect(()=>{setImgIdx(0);setImgLb(false);},[selected]);
+
+  const sel=selected?allTrades.find(t=>t.id===selected):null;
+  const grade=sel&&sel.checklist?calcTradeGrade(sel):null;
+
+  // Pre-market conditions
+  const pmBiasColor=b=>b?.includes("Bullish")?"var(--green)":b?.includes("Bearish")?"var(--red)":"var(--amber)";
+
+  // Checklist items
+  const checklistRules=useMemo(()=>{try{const v=localStorage.getItem(CHECKLIST_KEY);return v?JSON.parse(v):DEF_CHECKLIST}catch{return DEF_CHECKLIST}},[]);
+
+  const DetailPanel=()=>{
+    if(!sel)return(
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100%",padding:"40px 20px",textAlign:"center",gap:12}}>
+        <div style={{width:56,height:56,borderRadius:"var(--r-lg)",background:"var(--elevated)",border:"1px solid var(--line)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <IcoReview size={24} col="var(--t3)"/>
+        </div>
+        <div style={{fontSize:14,fontWeight:700,color:"var(--t2)"}}>Select a trade</div>
+        <div style={{fontSize:12,color:"var(--t3)",lineHeight:1.6,maxWidth:200}}>Klik trade di sebelah kiri untuk lihat detail lengkap, screenshots, dan analisis</div>
+      </div>
+    );
+    const ntd=sel.noTradeDay===true;
+    const win=sel.pnl>0,loss=sel.pnl<0;
+    const accentColor=ntd?"var(--blue)":win?"var(--green)":loss?"var(--red)":"var(--t3)";
+    const checklistChecked=sel.checklist?checklistRules.filter(r=>sel.checklist[r]).length:0;
+    const checklistTotal=checklistRules.length;
+    const checklistPct=checklistTotal?Math.round(checklistChecked/checklistTotal*100):0;
+    const imgs=sel.images||[];
+
+    // Helper: small section label
+    const SLabel=({children,col})=>(
+      <div style={{fontSize:10,fontWeight:700,color:col||"var(--t3)",letterSpacing:".09em",textTransform:"uppercase",marginBottom:10}}>{children}</div>
+    );
+    // Helper: inline info row — label + value pairs in a horizontal grid
+    const InfoGrid=({rows})=>(
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:8}}>
+        {rows.filter(r=>r.v).map(r=>(
+          <div key={r.l} className="elev" style={{padding:"9px 11px",borderRadius:"var(--r-md)"}}>
+            <div style={{fontSize:9,fontWeight:700,color:"var(--t3)",letterSpacing:".07em",textTransform:"uppercase",marginBottom:3}}>{r.l}</div>
+            <div className={r.mono?"mono":""} style={{fontSize:13,fontWeight:600,color:r.c||"var(--t1)",lineHeight:1.3}}>{r.v}</div>
+          </div>
+        ))}
+      </div>
+    );
+
+    const pmDanger=["😤 Revenge Mode","😰 Anxious","🤑 Greedy","😵 Overwhelmed","😤 Frustrated"].includes(sel.pmMental);
+    const pmGood=["😌 Tenang","🎯 Fokus","💪 Percaya Diri"].includes(sel.pmMental);
+    const hasPM=sel.pmBias||sel.pmSleep||sel.pmEnergy||sel.pmMental||sel.pmDOL||sel.pmAsiaCondition||sel.pmLondonCondition||sel.pmNotes||sel.feelings;
+
+    // Row label style — same as ss2 column headers
+    const rowLbl={fontSize:11,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".07em",whiteSpace:"nowrap"};
+
+    return(
+      <div style={{height:"100%",overflowY:"auto"}}>
+
+        {/* ── STICKY HEADER: date · pills · P&L · Edit ── */}
+        <div style={{padding:"14px 16px 12px",borderBottom:"1px solid var(--line)",background:"var(--surface)",position:"sticky",top:0,zIndex:10,backdropFilter:"blur(8px)"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:5}}>
+                <span style={{fontSize:12,fontWeight:600,color:"var(--t2)"}}>{fmtLongDate(sel.date)}{sel.time&&<span className="mono" style={{color:"var(--t3)",marginLeft:6,fontSize:11}}>{sel.time}</span>}</span>
+                {!ntd&&sel.direction&&<span className="pill" style={{background:sel.direction==="long"?"var(--green-dim)":"var(--red-dim)",color:sel.direction==="long"?"var(--green)":"var(--red)"}}>{sel.direction==="long"?"▲ Long":"▼ Short"}</span>}
+                {sel.session&&<span className="pill" style={{background:SCOL[sel.session]+"22",color:SCOL[sel.session]}}>{sel.session}</span>}
+                {sel.instrument&&<span className="pill" style={{background:(ICOL[sel.instrument]||"#666")+"22",color:ICOL[sel.instrument]||"var(--t2)"}}>{sel.instrument}{sel.contracts>1?` ×${sel.contracts}`:""}</span>}
+                {grade&&<span style={{fontSize:10,fontWeight:800,color:grade.color,background:grade.bg,padding:"2px 7px",borderRadius:99,border:`1px solid ${grade.color}44`}}>{grade.grade}</span>}
+              </div>
+              <div style={{display:"flex",alignItems:"baseline",gap:10}}>
+                <span className="mono" style={{fontSize:22,fontWeight:700,color:ntd?"var(--blue)":pnlHidden?"var(--t3)":accentColor,letterSpacing:"-.5px"}}>
+                  {ntd?"No Trade Day":pnlHidden?PNL_MASK:fmt(sel.pnl)}
+                </span>
+                {!ntd&&sel.rr>0&&<span className="mono" style={{fontSize:12,color:"var(--t3)"}}>{sel.rr}R</span>}
+              </div>
+            </div>
+            <button onClick={()=>onOpenTrade(sel)} className="tap" style={{background:"var(--accent)",border:"none",borderRadius:"var(--r-sm)",padding:"7px 16px",color:"#fff",fontSize:12,fontWeight:700,flexShrink:0,cursor:"pointer"}}>Edit</button>
+          </div>
+        </div>
+
+        {/* ── BODY: dokumen style ── */}
+        <div style={{padding:"16px 18px 32px",display:"flex",flexDirection:"column",gap:0}}>
+
+          {/* STRATEGY · ENTRY · SL · TP · CHECKLIST in one table-like block */}
+          {!ntd&&(
+            <div style={{marginBottom:16}}>
+              {/* Row 1: Strategy + Entry/SL/TP */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:16,marginBottom:10}}>
+                {sel.strategy&&(
+                  <div>
+                    <div style={rowLbl}>Strategy</div>
+                    <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",marginTop:4}}>{sel.strategy}</div>
+                  </div>
+                )}
+                {(sel.entryPrice>0)&&(
+                  <div>
+                    <div style={rowLbl}>Entry</div>
+                    <div className="mono" style={{fontSize:13,fontWeight:600,color:"var(--t1)",marginTop:4}}>{sel.entryPrice}</div>
+                  </div>
+                )}
+                {(sel.stopLoss>0)&&(
+                  <div>
+                    <div style={{...rowLbl,color:"var(--red)"}}>Stop Loss</div>
+                    <div className="mono" style={{fontSize:13,fontWeight:600,color:"var(--red)",marginTop:4}}>{sel.stopLoss}</div>
+                  </div>
+                )}
+                {(sel.takeProfit>0)&&(
+                  <div>
+                    <div style={{...rowLbl,color:"var(--green)"}}>Take Profit</div>
+                    <div className="mono" style={{fontSize:13,fontWeight:600,color:"var(--green)",marginTop:4}}>{sel.takeProfit}</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Checklist + Tags inline */}
+              {sel.checklist&&checklistTotal>0&&(
+                <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:sel.tags?.length>0?8:0}}>
+                  <div style={rowLbl}>Checklist</div>
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    <div style={{width:48,height:4,borderRadius:99,background:"var(--elevated)",overflow:"hidden"}}>
+                      <div style={{height:"100%",width:`${checklistPct}%`,background:checklistPct===100?"var(--green)":checklistPct>=60?"var(--amber)":"var(--red)",borderRadius:99}}/>
+                    </div>
+                    <span style={{fontSize:12,fontWeight:700,color:checklistPct===100?"var(--green)":checklistPct>=60?"var(--amber)":"var(--red)"}}>{checklistPct}%</span>
+                  </div>
+                </div>
+              )}
+              {/* Tags inline */}
+              {sel.tags?.length>0&&(
+                <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                  {sel.tags.map(tag=>{const bad=["FOMO","Revenge","Overtraded","Tilted","Late Entry"].includes(tag),good=["Patient","Breakeven"].includes(tag);return<span key={tag} className="pill" style={{background:bad?"var(--red-dim)":good?"var(--green-dim)":"var(--elevated)",color:bad?"var(--red)":good?"var(--green)":"var(--t2)",fontSize:11,padding:"3px 9px"}}>{tag}</span>})}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* DIVIDER */}
+          {hasPM&&<div style={{height:1,background:"var(--line)",marginBottom:16}}/>}
+
+          {/* PRE-MARKET section header */}
+          {hasPM&&(
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:10,fontWeight:700,color:"var(--t3)",letterSpacing:".09em",textTransform:"uppercase",marginBottom:12,display:"flex",alignItems:"center",gap:6}}>
+                <span style={{fontSize:13}}>📋</span> Pre-Market
+              </div>
+
+              {/* Bias · DOL · Sleep · Energy · Mental in one horizontal row */}
+              <div style={{display:"flex",flexWrap:"wrap",gap:"4px 20px",marginBottom:10}}>
+                {sel.pmBias&&(
+                  <span style={{fontSize:12,color:"var(--t2)"}}>
+                    <span style={rowLbl}>Bias: </span>
+                    <span style={{fontWeight:600,color:pmBiasColor(sel.pmBias)}}>{sel.pmBias}</span>
+                  </span>
+                )}
+                {sel.pmDOL?.trim()&&(
+                  <span style={{fontSize:12,color:"var(--t2)"}}>
+                    <span style={rowLbl}>DOL: </span>
+                    <span style={{fontWeight:500}}>{sel.pmDOL}</span>
+                  </span>
+                )}
+                {sel.pmSleep&&(
+                  <span style={{fontSize:12,color:"var(--t2)"}}>
+                    <span style={rowLbl}>Sleep: </span>
+                    <span style={{fontWeight:600,color:sel.pmSleep==="😴✅ Nyenyak"?"var(--green)":sel.pmSleep==="😴 Kurang"?"var(--red)":"var(--amber)"}}>{sel.pmSleep}</span>
+                  </span>
+                )}
+                {sel.pmEnergy&&(
+                  <span style={{fontSize:12,color:"var(--t2)"}}>
+                    <span style={rowLbl}>Energy: </span>
+                    <span style={{fontWeight:600,color:sel.pmEnergy==="🔋 Tinggi"?"var(--green)":sel.pmEnergy==="🪫 Rendah"?"var(--red)":"var(--amber)"}}>{sel.pmEnergy}</span>
+                  </span>
+                )}
+                {sel.pmMental&&(
+                  <span style={{fontSize:12,color:"var(--t2)"}}>
+                    <span style={rowLbl}>Mental: </span>
+                    <span style={{fontWeight:600,color:pmDanger?"var(--red)":pmGood?"var(--green)":"var(--t1)"}}>{sel.pmMental}</span>
+                  </span>
+                )}
+              </div>
+
+              {/* Asia / London */}
+              {(sel.pmAsiaCondition||sel.pmLondonCondition)&&(
+                <div style={{display:"flex",gap:20,flexWrap:"wrap",marginBottom:10}}>
+                  {sel.pmAsiaCondition&&(
+                    <span style={{fontSize:12,color:"var(--t2)"}}>
+                      <span style={rowLbl}>Asia: </span>
+                      <span style={{fontWeight:600,color:sel.pmAsiaCondition.includes("Manipulasi")?"var(--green)":"var(--amber)"}}>{sel.pmAsiaCondition}</span>
+                      {sel.pmAsiaPoints&&<span style={{color:"var(--t3)"}}> {sel.pmAsiaPoints}pt</span>}
+                    </span>
+                  )}
+                  {sel.pmLondonCondition&&(
+                    <span style={{fontSize:12,color:"var(--t2)"}}>
+                      <span style={rowLbl}>London: </span>
+                      <span style={{fontWeight:600,color:sel.pmLondonCondition.includes("Manipulasi")?"var(--green)":"var(--amber)"}}>{sel.pmLondonCondition}</span>
+                      {sel.pmLondonPoints&&<span style={{color:"var(--t3)"}}> {sel.pmLondonPoints}pt</span>}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Feelings + PM Notes in two-col */}
+              {(sel.feelings||sel.pmNotes?.trim())&&(
+                <div style={{display:"grid",gridTemplateColumns:sel.feelings&&sel.pmNotes?"1fr 2fr":"1fr",gap:16,marginTop:4}}>
+                  {sel.feelings&&(
+                    <div>
+                      <div style={{...rowLbl,marginBottom:4}}>Feelings</div>
+                      <div style={{fontSize:12,fontWeight:600,color:"var(--t1)"}}>{sel.feelings}</div>
+                    </div>
+                  )}
+                  {sel.pmNotes?.trim()&&(
+                    <div>
+                      <div style={{...rowLbl,marginBottom:4}}>Notes</div>
+                      <div style={{fontSize:12,color:"var(--t2)",lineHeight:1.75,whiteSpace:"pre-wrap"}}>{sel.pmNotes}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* LESSON LEARNED */}
+          {sel.lesson?.trim()&&(
+            <>
+              <div style={{height:1,background:"var(--line)",marginBottom:14}}/>
+              <div style={{marginBottom:16,background:"var(--amber-dim)",border:"1px solid var(--amber)33",borderRadius:"var(--r-md)",padding:"12px 14px"}}>
+                <div style={{fontSize:10,fontWeight:700,color:"var(--amber)",letterSpacing:".09em",textTransform:"uppercase",marginBottom:8}}>💡 Lesson Learned</div>
+                <div style={{fontSize:12,color:"var(--t1)",lineHeight:1.8,fontWeight:500,whiteSpace:"pre-wrap"}}>{sel.lesson}</div>
+              </div>
+            </>
+          )}
+
+          {/* TRADE NOTES */}
+          {!ntd&&sel.notes?.trim()&&(
+            <>
+              <div style={{height:1,background:"var(--line)",marginBottom:14}}/>
+              <div style={{marginBottom:16}}>
+                <div style={{...rowLbl,marginBottom:8}}>Notes</div>
+                <div style={{fontSize:12,color:"var(--t2)",lineHeight:1.8,whiteSpace:"pre-wrap"}}>{sel.notes}</div>
+              </div>
+            </>
+          )}
+
+          {/* NTD REASON */}
+          {ntd&&sel.notes?.trim()&&(
+            <>
+              <div style={{height:1,background:"var(--line)",marginBottom:14}}/>
+              <div style={{marginBottom:16,background:"var(--blue-dim)",border:"1px solid var(--blue)33",borderRadius:"var(--r-md)",padding:"12px 14px"}}>
+                <div style={{fontSize:10,fontWeight:700,color:"var(--blue)",letterSpacing:".09em",textTransform:"uppercase",marginBottom:6}}>🚫 Alasan No Trade</div>
+                <div style={{fontSize:12,color:"var(--t2)",lineHeight:1.8}}>{sel.notes}</div>
+              </div>
+            </>
+          )}
+
+          {/* SCREENSHOTS — paling bawah */}
+          {imgs.length>0&&(
+            <>
+              <div style={{height:1,background:"var(--line)",marginBottom:14}}/>
+              <div style={{marginBottom:16}}>
+                <div style={{...rowLbl,marginBottom:10}}>Screenshots ({imgs.length})</div>
+                <div onClick={()=>setImgLb(true)} style={{cursor:"zoom-in",borderRadius:"var(--r-md)",overflow:"hidden",background:"#000",aspectRatio:"16/9",position:"relative",marginBottom:imgs.length>1?8:0}}>
+                  <img src={imgs[imgIdx]} alt="" style={{width:"100%",height:"100%",objectFit:"contain",display:"block"}}/>
+                  <div style={{position:"absolute",top:8,right:8,background:"rgba(0,0,0,.55)",backdropFilter:"blur(4px)",borderRadius:5,padding:"2px 8px",fontSize:9,color:"rgba(255,255,255,.75)",fontWeight:600}}>
+                    {imgIdx+1}/{imgs.length} · tap to zoom
+                  </div>
+                  <div style={{position:"absolute",top:8,left:8,padding:"2px 9px",borderRadius:99,fontSize:10,fontWeight:800,background:ntd?"var(--blue)":win?"var(--green)":"var(--red)",color:"#000"}}>
+                    {ntd?"NTD":win?"WIN":"LOSS"}
+                  </div>
+                </div>
+                {imgs.length>1&&(
+                  <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                    {imgs.map((src,i)=>(
+                      <div key={i} onClick={()=>setImgIdx(i)} style={{width:52,height:38,borderRadius:5,overflow:"hidden",border:`2px solid ${i===imgIdx?accentColor:"var(--line)"}`,cursor:"pointer",flexShrink:0,background:"#000",transition:"border-color .12s"}}>
+                        <img src={src} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+        </div>
+      </div>
+    );
   };
 
-  const fetchEvents=async(offset=0)=>{
-    setLoading(true);setError(null);
-    const{from,to}=getWeekRange(offset);
-    try{
-      const r=await fetch(`https://finnhub.io/api/v1/calendar/economic?from=${from}&to=${to}&token=${FINNHUB_KEY}`);
-      if(!r.ok)throw new Error("API error "+r.status);
-      const d=await r.json();
-      const evs=(d.economicCalendar||[]).sort((a,b)=>new Date(a.time)-new Date(b.time));
-      setEvents(evs);
-      try{const byDate={};evs.forEach(e=>{if(!e.time)return;const dk=e.time.slice(0,10);if(!byDate[dk])byDate[dk]=[];byDate[dk].push(e)});Object.entries(byDate).forEach(([dk,evArr])=>localStorage.setItem(`finnhub-events-${dk}`,JSON.stringify(evArr)))}catch{}
-    }catch(e){setError(e.message);}
-    setLoading(false);
-  };
-
-  useEffect(()=>{fetchEvents(weekOffset);},[weekOffset]);
-
-  const{from,to,monDate,friDate}=getWeekRange(weekOffset);
-  const fmtWkLabel=()=>{
-    const opt={day:"numeric",month:"short"};
-    return monDate.toLocaleDateString("en-US",opt)+" – "+friDate.toLocaleDateString("en-US",opt)+" "+friDate.getFullYear();
-  };
-
-  const impactColor=imp=>{
-    if(!imp)return"var(--t3)";
-    const l=imp.toLowerCase();
-    if(l.includes("high")||l==="3")return"var(--red)";
-    if(l.includes("medium")||l==="2")return"var(--amber)";
-    return"var(--blue)";
-  };
-  const impactLabel=imp=>{
-    if(!imp)return"Low";
-    const l=imp.toLowerCase();
-    if(l.includes("high")||l==="3")return"High";
-    if(l.includes("medium")||l==="2")return"Med";
-    return"Low";
-  };
-
-  const fmtEventTime=iso=>finnhubToWIB(iso);
-  const fmtEventDate=iso=>finnhubDateWIB(iso);
-
-  const filtered=events.filter(e=>{
-    if((e.country||"").toUpperCase()!=="US")return false; // always USD only
-    const imp=(e.impact||"").toLowerCase();
-    const isHigh=imp.includes("high")||imp==="3";
-    const isMed=imp.includes("medium")||imp==="2";
-    const isSpeech=(e.event||"").toLowerCase().match(/speak|testimony|press conf|holiday/);
-    if(isHigh)return filter.high;
-    if(isMed)return filter.medium;
-    if(isSpeech)return filter.high||filter.medium; // speeches follow if any impact filter on
-    return false;
-  });
-
-  // group by date
-  const grouped=filtered.reduce((acc,e)=>{
-    const dk=fmtEventDate(e.time);
-    if(!acc[dk])acc[dk]=[];
-    acc[dk].push(e);
-    return acc;
-  },{});
-
-  const todayStr=finnhubDateWIB(new Date().toISOString().replace("Z","").slice(0,19));
+  // Mobile: show panel as bottom sheet overlay, desktop: side panel
+  const{isDesktop}=useBP();
 
   return(
     <div>
-      {/* Header controls */}
-      <div className="card" style={{padding:"14px 16px",marginBottom:12}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <button onClick={()=>setWeekOffset(w=>w-1)} className="tap" style={{background:"var(--elevated)",border:"1px solid var(--line-md)",width:28,height:28,borderRadius:"var(--r-sm)",display:"flex",alignItems:"center",justifyContent:"center"}}><IcoChL size={11} col="var(--t2)"/></button>
-            <div style={{textAlign:"center"}}>
-              <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",minWidth:200,textAlign:"center"}}>{fmtWkLabel()}</div>
-            </div>
-            <button onClick={()=>setWeekOffset(w=>w+1)} className="tap" style={{background:"var(--elevated)",border:"1px solid var(--line-md)",width:28,height:28,borderRadius:"var(--r-sm)",display:"flex",alignItems:"center",justifyContent:"center"}}><IcoChR size={11} col="var(--t2)"/></button>
+      {/* Stats strip */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:14}}>
+        {[
+          {l:"Total",v:pnlHidden?PNL_MASK:fmt(stats.total),c:clr(stats.total)},
+          {l:"Win Rate",v:`${stats.wr}%`,c:stats.wr>=50?"var(--green)":"var(--red)"},
+          {l:"Avg R:R",v:`${stats.avgRR}R`,c:"var(--t1)"},
+          {l:"Avg Win",v:stats.avgW?`$${Math.round(stats.avgW)}`:"—",c:"var(--green)"},
+        ].map(s=>(
+          <div key={s.l} className="elev stat-card-inner stat-card-accent" style={{padding:"11px 12px"}}>
+            <div style={{fontSize:9,fontWeight:700,color:"var(--t3)",letterSpacing:".08em",textTransform:"uppercase",marginBottom:5}}>{s.l}</div>
+            <div className="mono" style={{fontSize:16,fontWeight:700,color:s.c,lineHeight:1}}>{s.v}</div>
           </div>
-          <div style={{display:"flex",gap:6,alignItems:"center"}}>
-            {weekOffset!==0&&<button onClick={()=>setWeekOffset(0)} className="tap" style={{padding:"4px 10px",borderRadius:99,background:"var(--accent-dim)",border:"1px solid var(--accent)33",fontSize:10,color:"var(--accent)",fontWeight:700}}>This Week</button>}
-            <button onClick={()=>fetchEvents(weekOffset)} className="tap" style={{padding:"4px 10px",borderRadius:99,background:"var(--elevated)",border:"1px solid var(--line)",fontSize:10,color:"var(--t2)",fontWeight:600,display:"flex",alignItems:"center",gap:4}}>
-              ↻ Refresh
-            </button>
-          </div>
-        </div>
-        {/* Impact filter */}
-        <div style={{display:"flex",gap:5,alignItems:"center"}}>
-          {[{v:"high",l:"High",c:"var(--red)"},{v:"medium",l:"Medium",c:"var(--amber)"}].map(f=>(
-            <button key={f.v} onClick={()=>setFilter(p=>({...p,[f.v]:!p[f.v]}))} className="tap"
-              style={{padding:"5px 12px",borderRadius:99,fontSize:11,fontWeight:700,border:`1px solid ${filter[f.v]?f.c+"88":"var(--line)"}`,
-                background:filter[f.v]?"transparent":"var(--elevated)",
-                color:filter[f.v]?f.c:"var(--t3)",display:"flex",alignItems:"center",gap:5}}>
-              <div style={{width:7,height:7,borderRadius:"50%",background:filter[f.v]?f.c:"var(--t3)"}}/>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div className="card" style={{padding:"12px 14px",marginBottom:12}}>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",marginBottom:10}}>
+          {[{v:"all",l:`All (${allTrades.length})`},{v:"win",l:`Win (${realTrades.filter(t=>t.pnl>0).length})`},{v:"loss",l:`Loss (${realTrades.filter(t=>t.pnl<0).length})`},{v:"ntd",l:`NTD (${allTrades.filter(t=>t.noTradeDay).length})`}].map(f=>(
+            <button key={f.v} onClick={()=>{setFilter(f.v);setSelected(null)}} className="tap" style={{padding:"5px 12px",borderRadius:99,fontSize:11,fontWeight:700,border:`1px solid ${filter===f.v?"var(--accent)":"var(--line)"}`,background:filter===f.v?"var(--accent-dim)":"transparent",color:filter===f.v?"var(--accent)":"var(--t3)"}}>
               {f.l}
             </button>
           ))}
-          <div style={{marginLeft:"auto",display:"flex",alignItems:"center",gap:14}}>
-            {[{c:"var(--red)",l:"High"},{c:"var(--amber)",l:"Med"}].map(x=>(
-              <div key={x.l} style={{display:"flex",alignItems:"center",gap:4}}>
-                <div style={{width:8,height:8,borderRadius:"50%",background:x.c}}/>
-                <span style={{fontSize:10,color:"var(--t3)"}}>{x.l}</span>
-              </div>
-            ))}
+        </div>
+        <div style={{display:"flex",gap:7,flexWrap:"wrap",alignItems:"center"}}>
+          {/* Search */}
+          <div style={{flex:1,minWidth:140,position:"relative"}}>
+            <input ref={searchRef} value={search} onChange={e=>setSearch(e.target.value)} className="inp" placeholder="Search trades…" style={{fontSize:12,padding:"7px 10px 7px 30px",height:32}}/>
+            <span style={{position:"absolute",left:9,top:"50%",transform:"translateY(-50%)",fontSize:12,color:"var(--t3)"}}>🔍</span>
+            {search&&<button onClick={()=>setSearch("")} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:"var(--t3)",fontSize:13,cursor:"pointer",padding:0}}>✕</button>}
           </div>
+          {/* Strategy filter */}
+          {strategies.length>1&&(
+            <select value={stratFilter} onChange={e=>{setStratFilter(e.target.value);setSelected(null)}} style={{padding:"6px 10px",borderRadius:"var(--r-sm)",border:"1px solid var(--line-md)",background:"var(--elevated)",color:"var(--t2)",fontSize:11,fontWeight:600,cursor:"pointer",outline:"none",height:32}}>
+              <option value="all">All Strategies</option>
+              {strategies.map(s=><option key={s} value={s}>{s}</option>)}
+            </select>
+          )}
+          {/* Session filter */}
+          {sessions.length>1&&(
+            <select value={sessionFilter} onChange={e=>{setSessionFilter(e.target.value);setSelected(null)}} style={{padding:"6px 10px",borderRadius:"var(--r-sm)",border:"1px solid var(--line-md)",background:"var(--elevated)",color:"var(--t2)",fontSize:11,fontWeight:600,cursor:"pointer",outline:"none",height:32}}>
+              <option value="all">All Sessions</option>
+              {sessions.map(s=><option key={s} value={s}>{s}</option>)}
+            </select>
+          )}
         </div>
       </div>
 
-      {/* Events */}
-      {loading?(
-        <div className="card" style={{padding:"60px 20px",textAlign:"center"}}>
-          <div style={{fontSize:13,color:"var(--t3)",animation:"pulse 1.5s infinite"}}>Loading economic calendar…</div>
-        </div>
-      ):error?(
-        <div className="card" style={{padding:"32px 20px",textAlign:"center"}}>
-          <div style={{fontSize:13,color:"var(--red)",marginBottom:8}}>⚠ {error}</div>
-          <button onClick={()=>fetchEvents(weekOffset)} className="tap" style={{padding:"8px 18px",background:"var(--elevated)",border:"1px solid var(--line)",borderRadius:"var(--r-sm)",color:"var(--t2)",fontSize:12,fontWeight:600}}>Retry</button>
-        </div>
-      ):filtered.length===0?(
-        <div className="card" style={{padding:"60px 20px",textAlign:"center"}}>
-          <div style={{fontSize:32,marginBottom:8}}>📭</div>
-          <div style={{fontSize:13,color:"var(--t3)"}}>No events this week</div>
-        </div>
-      ):(
-        <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          {Object.entries(grouped).map(([dateKey,dayEvents])=>{
-            const isToday=dateKey===todayStr;
-            return(
-              <div key={dateKey} className="card" style={{overflow:"hidden",border:isToday?"1px solid var(--accent)44":"1px solid var(--line)"}}>
-                {/* Day header */}
-                <div style={{padding:"10px 16px",background:isToday?"var(--accent-dim)":"var(--elevated)",borderBottom:"1px solid var(--line)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    {isToday&&<div style={{width:6,height:6,borderRadius:"50%",background:"var(--accent)"}}/>}
-                    <span style={{fontSize:12,fontWeight:800,color:isToday?"var(--accent)":"var(--t1)"}}>{dateKey}</span>
-                    {isToday&&<span style={{fontSize:10,color:"var(--accent)",fontWeight:700,background:"var(--accent)22",padding:"1px 7px",borderRadius:99}}>TODAY</span>}
-                  </div>
-                  <span style={{fontSize:10,color:"var(--t3)",fontWeight:600}}>{dayEvents.length} events</span>
-                </div>
-                {/* Events list */}
-                {dayEvents.map((ev,i)=>{
-                  const ic=impactColor(ev.impact);
-                  const hasActual=ev.actual!==null&&ev.actual!==undefined&&ev.actual!=="";
-                  const beat=hasActual&&ev.estimate&&parseFloat(ev.actual)>parseFloat(ev.estimate);
-                  const miss=hasActual&&ev.estimate&&parseFloat(ev.actual)<parseFloat(ev.estimate);
-                  return(
-                    <div key={i} style={{display:"grid",gridTemplateColumns:"72px 14px 1fr auto",gap:10,padding:"11px 16px",borderBottom:i<dayEvents.length-1?"1px solid var(--line)":"none",alignItems:"center"}}>
-                      {/* Time */}
-                      <div className="mono" style={{fontSize:11,color:"var(--t3)",fontWeight:500}}>{fmtEventTime(ev.time)}</div>
-                      {/* Impact dot */}
-                      <div style={{width:8,height:8,borderRadius:"50%",background:ic,flexShrink:0,boxShadow:`0 0 5px ${ic}88`}}/>
-                      {/* Event name + currency */}
-                      <div style={{minWidth:0}}>
-                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
-                          <span style={{fontSize:10,color:"var(--t3)",fontWeight:700,background:"var(--elevated)",padding:"1px 6px",borderRadius:4,flexShrink:0}}>{ev.country||"USD"}</span>
-                          <span style={{fontSize:12,fontWeight:600,color:"var(--t1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.event}</span>
+      {/* Main layout: list + detail */}
+      <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
+        {/* Trade list */}
+        <div style={{flex:selected&&isDesktop?"0 0 340px":"1",minWidth:0}}>
+          {filtered.length===0?(
+            <div className="card" style={{padding:"44px 20px",textAlign:"center"}}>
+              <div style={{fontSize:28,marginBottom:10}}>🔍</div>
+              <div style={{fontSize:13,fontWeight:700,color:"var(--t2)",marginBottom:6}}>No trades found</div>
+              <div style={{fontSize:12,color:"var(--t3)"}}>Coba ubah filter atau keyword search</div>
+            </div>
+          ):(
+            <div className="card" style={{padding:"0 0"}}>
+              {filtered.map((t,i)=>{
+                const ntd=t.noTradeDay;
+                const win=t.pnl>0,loss=t.pnl<0;
+                const accentCol=ntd?"var(--blue)":win?"var(--green)":loss?"var(--red)":"var(--t3)";
+                const isActive=selected===t.id;
+                const grade=t.checklist?calcTradeGrade(t):null;
+                const hasImgs=t.images?.length>0;
+                return(
+                  <div key={t.id} onClick={()=>{setSelected(isActive?null:t.id)}} className="tap"
+                    style={{display:"flex",alignItems:"center",gap:10,padding:"11px 14px",borderBottom:i<filtered.length-1?"1px solid var(--line)":"none",cursor:"pointer",background:isActive?"var(--accent-dim)":"transparent",transition:"background .12s",position:"relative"}}>
+                    {/* Active indicator */}
+                    {isActive&&<div style={{position:"absolute",left:0,top:0,bottom:0,width:3,background:"var(--accent)",borderRadius:"0 2px 2px 0"}}/>}
+                    {/* Color bar */}
+                    <div style={{width:3,height:32,borderRadius:99,background:accentCol,flexShrink:0}}/>
+                    {/* Content */}
+                    <div style={{flex:1,minWidth:0}}>
+                      {/* Row 1: date · time · direction · session · instrument · grade — P&L right */}
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:6}}>
+                        <div style={{display:"flex",alignItems:"center",gap:5,flexWrap:"nowrap",overflow:"hidden",flex:1,minWidth:0}}>
+                          <span style={{fontSize:11,fontWeight:700,color:"var(--t1)",flexShrink:0}}>{fmtLongDate(t.date)}</span>
+                          {t.time&&<span className="mono" style={{fontSize:10,color:"var(--t3)",flexShrink:0}}>{t.time}</span>}
+                          {ntd&&<span className="pill" style={{background:"var(--blue-dim)",color:"var(--blue)",fontSize:10}}>No Trade</span>}
+                          {!ntd&&t.direction&&<span style={{fontSize:11,flexShrink:0,color:t.direction==="long"?"var(--green)":"var(--red)"}}>{t.direction==="long"?"▲":"▼"}</span>}
+                          {t.session&&<span className="pill" style={{background:SCOL[t.session]+"22",color:SCOL[t.session],fontSize:10,padding:"1px 6px"}}>{t.session}</span>}
+                          {t.instrument&&<span className="pill" style={{background:(ICOL[t.instrument]||"#666")+"22",color:ICOL[t.instrument]||"var(--t2)",fontSize:10,padding:"1px 6px"}}>{t.instrument}</span>}
+                          {grade&&<span style={{fontSize:10,fontWeight:800,color:grade.color,background:grade.bg,padding:"1px 6px",borderRadius:99,border:`1px solid ${grade.color}44`,flexShrink:0}}>{grade.grade}</span>}
                         </div>
-                        {(ev.estimate!==null&&ev.estimate!==undefined&&ev.estimate!==""||ev.prev!==null&&ev.prev!==undefined&&ev.prev!=="")&&(
-                          <div style={{display:"flex",gap:10}}>
-                            {ev.estimate!==null&&ev.estimate!==undefined&&ev.estimate!==""&&<span style={{fontSize:10,color:"var(--t3)"}}>Forecast <span className="mono" style={{color:"var(--t2)"}}>{ev.estimate}</span></span>}
-                            {ev.prev!==null&&ev.prev!==undefined&&ev.prev!==""&&<span style={{fontSize:10,color:"var(--t3)"}}>Prev <span className="mono" style={{color:"var(--t2)"}}>{ev.prev}</span></span>}
-                          </div>
-                        )}
+                        <span className="mono" style={{fontSize:14,fontWeight:700,color:ntd?"var(--blue)":pnlHidden?"var(--t3)":accentCol,flexShrink:0}}>{ntd?"—":pnlHidden?PNL_MASK:fmt(t.pnl)}</span>
                       </div>
-                      {/* Actual */}
-                      <div style={{textAlign:"right",flexShrink:0}}>
-                        {hasActual?(
-                          <div>
-                            <div className="mono" style={{fontSize:13,fontWeight:700,color:beat?"var(--green)":miss?"var(--red)":"var(--t1)"}}>{ev.actual}</div>
-                            {(beat||miss)&&<div style={{fontSize:9,color:beat?"var(--green)":"var(--red)",fontWeight:700}}>{beat?"▲ BEAT":"▼ MISS"}</div>}
-                          </div>
-                        ):(
-                          <span style={{fontSize:11,color:"var(--t3)",fontStyle:"italic"}}>Pending</span>
-                        )}
+                      {/* Row 2: strategy dimmed + optional lesson/note dot */}
+                      <div style={{display:"flex",alignItems:"center",gap:5,marginTop:3}}>
+                        <span style={{fontSize:11,color:"var(--t3)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{t.strategy||"—"}</span>
+                        {(t.lesson?.trim()||t.notes?.trim())&&<span style={{fontSize:10,color:"var(--amber)",flexShrink:0,lineHeight:1}}>💡</span>}
+                        {t.images?.length>0&&<span style={{fontSize:9,color:"var(--t3)",flexShrink:0}}>📷{t.images.length}</span>}
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            );
-          })}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div style={{fontSize:10,color:"var(--t3)",textAlign:"center",padding:"12px 0",fontWeight:600}}>{filtered.length} trade ditampilkan</div>
+        </div>
+
+        {/* Detail panel — desktop side panel */}
+        {isDesktop&&selected&&(
+          <div style={{flex:1,minWidth:0,background:"var(--surface)",border:"1px solid var(--line)",borderRadius:"var(--r-lg)",overflow:"hidden",minHeight:400,maxHeight:"calc(100vh - 120px)",position:"sticky",top:70,display:"flex",flexDirection:"column"}}>
+            <DetailPanel/>
+          </div>
+        )}
+      </div>
+
+      {/* Mobile: bottom sheet */}
+      {!isDesktop&&selected&&(
+        <div style={{position:"fixed",inset:0,zIndex:300,display:"flex",flexDirection:"column",justifyContent:"flex-end"}} onClick={()=>setSelected(null)}>
+          <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.6)",backdropFilter:"blur(6px)"}}/>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--surface)",borderRadius:"var(--r-xl) var(--r-xl) 0 0",maxHeight:"88vh",overflowY:"auto",position:"relative",border:"1px solid var(--line-md)",paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px 0"}}>
+              <div style={{width:40,height:4,background:"var(--overlay)",borderRadius:99,margin:"0 auto"}}/>
+            </div>
+            <div style={{display:"flex",justifyContent:"flex-end",padding:"4px 16px 0"}}>
+              <button onClick={()=>setSelected(null)} style={{background:"var(--elevated)",border:"1px solid var(--line)",borderRadius:"50%",width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer"}}><IcoX size={12} col="var(--t2)"/></button>
+            </div>
+            <div style={{paddingBottom:80}}><DetailPanel/></div>
+          </div>
+        </div>
+      )}
+
+      {/* Image lightbox */}
+      {imgLb&&sel&&(sel.images||[]).length>0&&(
+        <div onClick={()=>setImgLb(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.97)",zIndex:600,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",overflowY:"auto",paddingTop:64,paddingBottom:32}}>
+          {/* Close button — always pinned top-right */}
+          <button onClick={()=>setImgLb(false)} style={{position:"fixed",top:16,right:16,background:"rgba(255,255,255,.18)",border:"1px solid rgba(255,255,255,.2)",borderRadius:"50%",width:44,height:44,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1,backdropFilter:"blur(8px)"}}><IcoX size={18} col="white"/></button>
+          {/* Prev / Next nav */}
+          {imgIdx>0&&<button onClick={e=>{e.stopPropagation();setImgIdx(i=>i-1)}} style={{position:"fixed",left:12,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,.15)",border:"none",borderRadius:"50%",width:44,height:44,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1}}><IcoChL size={18} col="white"/></button>}
+          <img src={sel.images[imgIdx]} alt="" onClick={e=>e.stopPropagation()} style={{maxWidth:"calc(100vw - 32px)",maxHeight:"calc(100vh - 120px)",objectFit:"contain",borderRadius:"var(--r-md)",display:"block"}}/>
+          {sel.images.length>1&&<div style={{fontSize:11,color:"rgba(255,255,255,.45)",fontWeight:600,marginTop:14}}>{imgIdx+1} / {sel.images.length}</div>}
+          {/* Thumbnails strip */}
+          {sel.images.length>1&&(
+            <div onClick={e=>e.stopPropagation()} style={{display:"flex",gap:6,marginTop:12,flexWrap:"wrap",justifyContent:"center",padding:"0 16px"}}>
+              {sel.images.map((src,i)=>(
+                <div key={i} onClick={()=>setImgIdx(i)} style={{width:56,height:40,borderRadius:6,overflow:"hidden",border:`2px solid ${i===imgIdx?"white":"rgba(255,255,255,.2)"}`,cursor:"pointer",flexShrink:0,background:"#000",transition:"border-color .12s"}}>
+                  <img src={src} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>
+                </div>
+              ))}
+            </div>
+          )}
+          {imgIdx<sel.images.length-1&&<button onClick={e=>{e.stopPropagation();setImgIdx(i=>i+1)}} style={{position:"fixed",right:12,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,.15)",border:"none",borderRadius:"50%",width:44,height:44,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1}}><IcoChR size={18} col="white"/></button>}
         </div>
       )}
     </div>
@@ -3033,6 +3420,16 @@ function AnalyticsView({trades,accountBalance}){
     const m={};
     filtered.forEach(t=>{const s=t.session||"Other";if(!m[s])m[s]={pnl:0,n:0,wins:0};m[s].pnl+=t.pnl;m[s].n++;if(t.pnl>0)m[s].wins++;});
     return Object.entries(m).map(([s,v])=>({l:s,...v,wr:Math.round(v.wins/v.n*100),col:SCOL[s]||"#666"})).sort((a,b)=>b.pnl-a.pnl);
+  },[filtered]);
+
+  const asiaLondonData=useMemo(()=>{
+    const m={};
+    const bump=(label,t)=>{if(!label)return;if(!m[label])m[label]={pnl:0,n:0,wins:0,pts:0,ptsN:0};m[label].pnl+=t.pnl;m[label].n++;if(t.pnl>0)m[label].wins++;};
+    filtered.forEach(t=>{
+      if(t.pmAsiaCondition){bump("Asia · "+t.pmAsiaCondition.replace(/^[^\s]+\s/,""),t);const k="Asia · "+t.pmAsiaCondition.replace(/^[^\s]+\s/,"");if(t.pmAsiaPoints){m[k].pts+=parseFloat(t.pmAsiaPoints)||0;m[k].ptsN++;}}
+      if(t.pmLondonCondition){bump("London · "+t.pmLondonCondition.replace(/^[^\s]+\s/,""),t);const k="London · "+t.pmLondonCondition.replace(/^[^\s]+\s/,"");if(t.pmLondonPoints){m[k].pts+=parseFloat(t.pmLondonPoints)||0;m[k].ptsN++;}}
+    });
+    return Object.entries(m).map(([l,v])=>({l,...v,wr:Math.round(v.wins/v.n*100),avgPts:v.ptsN?Math.round(v.pts/v.ptsN):null,col:l.startsWith("Asia")?"var(--blue)":"var(--accent)"})).sort((a,b)=>b.pnl-a.pnl);
   },[filtered]);
 
   const stratData=useMemo(()=>{
@@ -3228,6 +3625,30 @@ function AnalyticsView({trades,accountBalance}){
         </div>
       )}
 
+      {asiaLondonData.length>0&&(
+        <div className="card" style={{padding:"18px",marginBottom:12}}>
+          <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",marginBottom:2}}>Asia & London Range Performance</div>
+          <div style={{fontSize:11,color:"var(--t3)",marginBottom:14}}>Winrate trade NY lo berdasarkan kondisi sesi sebelumnya</div>
+          {asiaLondonData.map((s,i)=>{
+            const maxP=Math.max(...asiaLondonData.map(x=>Math.abs(x.pnl)),1);
+            return(
+              <div key={i} style={{marginBottom:i<asiaLondonData.length-1?12:0}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span className="pill" style={{background:s.col+"22",color:s.col}}>{s.l}</span>
+                    <span style={{fontSize:11,color:"var(--t3)"}}>{s.wr}% · {s.n}T{s.avgPts!=null?` · avg ${s.avgPts}pt`:""}</span>
+                  </div>
+                  <span className="mono" style={{fontSize:12,fontWeight:600,color:pnlHidden?"var(--t3)":clr(s.pnl)}}>{pnlHidden?PNL_MASK:fmt(s.pnl)}</span>
+                </div>
+                <div style={{height:3,background:"var(--elevated)",borderRadius:99,overflow:"hidden"}}>
+                  <div style={{height:"100%",width:`${Math.round(Math.abs(s.pnl)/maxP*100)}%`,background:s.pnl>=0?s.col:"var(--red)",borderRadius:99,opacity:.8}}/>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {stratData.length>=2&&(
         <div className="card" style={{padding:"18px",marginBottom:12}}>
           <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",marginBottom:14}}>Strategy Performance</div>
@@ -3407,7 +3828,7 @@ const Sidebar=React.memo(function Sidebar({tab,setTab,onBackup,syncStatus,plusAc
     {id:"analytics",l:"Analytics",I:IcoChart},
     {id:"wallet",l:"Wallet",I:IcoWallet},
     {id:"notes",l:"Notes",I:IcoNote},
-    {id:"news",l:"News",I:IcoNews}
+    {id:"review",l:"Review",I:IcoReview}
   ];
   const acc=accounts.find(a=>a.id===activeId);
   return(
@@ -3476,8 +3897,8 @@ const Sidebar=React.memo(function Sidebar({tab,setTab,onBackup,syncStatus,plusAc
 const AppHeader=React.memo(function AppHeader({tab,syncStatus,account,onSwitchAccount,darkMode,onToggleDark,onBackup,todayPnl}){
   const{isDesktop}=useBP();
   const pnlHidden=useContext(PnlCtx);
-  const TITLES={dashboard:"Dashboard",log:"Trade Log",analytics:"Analytics",wallet:"Wallet",notes:"Notebook",news:"Economic Calendar"};
-  const SUBTITLES={dashboard:"Performance overview",log:"All your trades",analytics:"Detailed performance analysis",wallet:"Deposit & Withdraw",notes:"Journal & notes",news:"Forex Factory style calendar"};
+  const TITLES={dashboard:"Dashboard",log:"Trade Log",analytics:"Analytics",wallet:"Wallet",notes:"Notebook",review:"Trade Review"};
+  const SUBTITLES={dashboard:"Performance overview",log:"All your trades",analytics:"Detailed performance analysis",wallet:"Deposit & Withdraw",notes:"Journal & notes",review:"Playbook & deep dive"};
   const hasTrades=todayPnl!==0;
   return(
     <div style={{
@@ -3678,7 +4099,7 @@ function KbdShortcutsHint(){
     {key:"2",desc:"Trade Log"},
     {key:"3",desc:"Analytics"},
     {key:"4",desc:"Wallet"},
-    {key:"5",desc:"Notes"},{key:"6",desc:"News"},{key:"6",desc:"News"},
+    {key:"5",desc:"Notes"},{key:"6",desc:"Review"},{key:"6",desc:"Review"},
   ];
   return(
     <div style={{position:"fixed",bottom:24,right:24,background:"var(--surface)",border:"1px solid var(--line-md)",borderRadius:"var(--r-lg)",padding:"14px 16px",zIndex:200,minWidth:200,boxShadow:"0 8px 32px rgba(0,0,0,.3)"}}>
@@ -3827,8 +4248,8 @@ function App(){
       if(e.key==="3")handleSetTab("analytics");
       if(e.key==="4")handleSetTab("wallet");
       if(e.key==="5")handleSetTab("notes");
-      if(e.key==="6")handleSetTab("news");
-      if(e.key==="6")handleSetTab("news");
+      if(e.key==="6")handleSetTab("review");
+      if(e.key==="6")handleSetTab("review");
     };
     window.addEventListener("keydown",h);
     return()=>window.removeEventListener("keydown",h);
@@ -3855,7 +4276,7 @@ function App(){
 
   const appTodayPnl=useMemo(()=>trades.filter(t=>t.date===today()).reduce((a,t)=>a+t.pnl,0),[trades]);
 
-  const plusAction=tab==="notes"?()=>setOpenNote({title:"",body:"",updatedAt:new Date().toISOString()}):tab==="wallet"||tab==="news"?null:()=>setTradeModal({});
+  const plusAction=tab==="notes"?()=>setOpenNote({title:"",body:"",updatedAt:new Date().toISOString()}):tab==="wallet"||tab==="review"?null:()=>setTradeModal({});
 
   if(loading)return(
     <BPCtx.Provider value={{isDesktop}}>
@@ -3926,6 +4347,29 @@ function App(){
                           );})}
                         </div>
                       )}
+                      {/* Streak + last mood bar */}
+                      {(streak.count>=2||sorted[0]?.pmMental||sorted[0]?.feelings)&&(
+                        <div style={{display:"flex",gap:8,alignItems:"center",padding:"10px 0",borderTop:"1px solid var(--line)",borderBottom:"1px solid var(--line)",marginTop:12,marginBottom:4,flexWrap:"wrap"}}>
+                          {streak.count>=2&&(
+                            <div style={{display:"flex",alignItems:"center",gap:5,background:streak.type==="win"?"var(--green-dim)":"var(--red-dim)",border:`1px solid ${streak.type==="win"?"var(--green)":"var(--red)"}22`,borderRadius:99,padding:"3px 10px"}}>
+                              <span style={{fontSize:13}}>{streak.type==="win"?"🔥":"❄️"}</span>
+                              <span style={{fontSize:11,fontWeight:700,color:streak.type==="win"?"var(--green)":"var(--red)"}}>{streak.count} {streak.type} streak</span>
+                            </div>
+                          )}
+                          {sorted[0]?.pmMental&&(
+                            <div style={{display:"flex",alignItems:"center",gap:5}}>
+                              <span style={{fontSize:11,color:"var(--t3)",fontWeight:600,letterSpacing:".05em",textTransform:"uppercase",fontSize:9}}>Last mental</span>
+                              <span style={{fontSize:12,fontWeight:600,color:["😤 Revenge Mode","😰 Anxious","🤑 Greedy","😵 Overwhelmed","😤 Frustrated"].includes(sorted[0].pmMental)?"var(--red)":["😌 Tenang","🎯 Fokus","💪 Percaya Diri"].includes(sorted[0].pmMental)?"var(--green)":"var(--t2)"}}>{sorted[0].pmMental}</span>
+                            </div>
+                          )}
+                          {!sorted[0]?.pmMental&&sorted[0]?.feelings&&(
+                            <div style={{display:"flex",alignItems:"center",gap:5}}>
+                              <span style={{fontSize:9,color:"var(--t3)",fontWeight:600,letterSpacing:".05em",textTransform:"uppercase"}}>Last feeling</span>
+                              <span style={{fontSize:12,color:"var(--t2)",fontWeight:500}}>{sorted[0].feelings}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <div style={{display:"flex",gap:8}}>
                         {[{l:"Set Balance",a:()=>setBalModal(true),col:"var(--green)"},{l:"Drawdown",a:()=>setDdModal(true),col:"var(--red)"},{l:"+ Log Trade",a:()=>setTradeModal({}),primary:true}].map((x,i)=>(
                           <button key={i} onClick={x.a} className="tap" style={{flex:1,padding:"9px 8px",background:x.primary?"var(--accent)":"var(--elevated)",border:`1px solid ${x.primary?"transparent":"var(--line)"}`,borderRadius:"var(--r-md)",cursor:"pointer",fontSize:12,color:x.primary?"#fff":x.col,fontWeight:700}}>{x.l}</button>
@@ -3958,10 +4402,17 @@ function App(){
                       {sorted.length>10&&<button onClick={()=>handleSetTab("log")} className="tap" style={{fontSize:12,color:"var(--accent)",fontWeight:600,background:"none",border:"none"}}>View all →</button>}
                     </div>
                     {sorted.length===0?(
-                      <div className="card" style={{padding:"56px 20px",textAlign:"center",marginBottom:16}}>
-                        <IcoTrendUp size={36} col="var(--t3)"/>
-                        <div style={{fontSize:15,fontWeight:700,color:"var(--t2)",margin:"14px 0 6px"}}>No trades yet</div>
-                        <div style={{fontSize:13,color:"var(--t3)"}}>Use + Log Trade above to get started</div>
+                      <div className="card" style={{padding:"56px 20px",textAlign:"center",marginBottom:16,background:"var(--surface)",border:"1px solid var(--line)"}}>
+                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style={{margin:"0 auto 18px",display:"block"}}>
+                          <rect x="8" y="16" width="48" height="36" rx="6" fill="var(--elevated)" stroke="var(--line-md)" strokeWidth="1.5"/>
+                          <path d="M20 36 L26 28 L32 33 L40 22 L46 30" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                          <circle cx="46" cy="30" r="3" fill="var(--accent)" opacity=".7"/>
+                          <path d="M24 44 L40 44" stroke="var(--line-md)" strokeWidth="1.5" strokeLinecap="round"/>
+                          <path d="M28 48 L36 48" stroke="var(--line-md)" strokeWidth="1.5" strokeLinecap="round" opacity=".5"/>
+                        </svg>
+                        <div style={{fontSize:16,fontWeight:800,color:"var(--t1)",marginBottom:6}}>Journal kosong nih</div>
+                        <div style={{fontSize:13,color:"var(--t3)",lineHeight:1.6,marginBottom:18}}>Log trade pertama lu buat mulai<br/>tracking performa dan pattern</div>
+                        <button onClick={()=>setTradeModal({})} className="tap" style={{background:"var(--accent)",border:"none",borderRadius:"var(--r-md)",padding:"10px 24px",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>+ Log Trade Pertama</button>
                       </div>
                     ):(
                       <div className="card" style={{padding:"0 18px",marginBottom:16}}>
@@ -4009,6 +4460,29 @@ function App(){
                         );})}
                       </div>
                     )}
+                    {/* Streak + mood */}
+                    {(streak.count>=2||sorted[0]?.pmMental||sorted[0]?.feelings)&&(
+                      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",paddingTop:10,borderTop:"1px solid var(--line)",marginBottom:10}}>
+                        {streak.count>=2&&(
+                          <div style={{display:"flex",alignItems:"center",gap:4,background:streak.type==="win"?"var(--green-dim)":"var(--red-dim)",borderRadius:99,padding:"3px 9px"}}>
+                            <span style={{fontSize:12}}>{streak.type==="win"?"🔥":"❄️"}</span>
+                            <span style={{fontSize:11,fontWeight:700,color:streak.type==="win"?"var(--green)":"var(--red)"}}>{streak.count}× {streak.type}</span>
+                          </div>
+                        )}
+                        {sorted[0]?.pmMental&&(
+                          <div style={{display:"flex",alignItems:"center",gap:4}}>
+                            <span style={{fontSize:9,color:"var(--t3)",fontWeight:700,textTransform:"uppercase",letterSpacing:".05em"}}>Mental</span>
+                            <span style={{fontSize:11,fontWeight:600,color:["😤 Revenge Mode","😰 Anxious","🤑 Greedy","😵 Overwhelmed"].includes(sorted[0].pmMental)?"var(--red)":["😌 Tenang","🎯 Fokus","💪 Percaya Diri"].includes(sorted[0].pmMental)?"var(--green)":"var(--t2)"}}>{sorted[0].pmMental}</span>
+                          </div>
+                        )}
+                        {!sorted[0]?.pmMental&&sorted[0]?.feelings&&(
+                          <div style={{display:"flex",alignItems:"center",gap:4}}>
+                            <span style={{fontSize:9,color:"var(--t3)",fontWeight:700,textTransform:"uppercase",letterSpacing:".05em"}}>Feeling</span>
+                            <span style={{fontSize:11,color:"var(--t2)",fontWeight:500}}>{sorted[0].feelings}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <div style={{display:"flex",gap:6}}>
                       {[{l:"Balance",a:()=>setBalModal(true),col:"var(--green)",bg:"var(--green-dim)"},{l:"Drawdown",a:()=>setDdModal(true),col:"var(--red)",bg:"var(--red-dim)"}].map((x,i)=>(
                         <button key={i} onClick={x.a} className="tap" style={{flex:1,padding:"9px 6px",background:x.bg,border:`1px solid ${x.col}22`,borderRadius:"var(--r-sm)",cursor:"pointer",fontSize:10,color:x.col,fontWeight:700}}>{x.l}</button>
@@ -4037,9 +4511,15 @@ function App(){
                   </div>
                   {sorted.length===0?(
                     <div className="card" style={{padding:"44px 20px",textAlign:"center"}}>
-                      <IcoTrendUp size={32} col="var(--t3)"/>
-                      <div style={{fontSize:14,fontWeight:700,color:"var(--t2)",margin:"12px 0 6px"}}>No trades yet</div>
-                      <div style={{fontSize:12,color:"var(--t3)"}}>Tap + to log your first trade</div>
+                      <svg width="52" height="52" viewBox="0 0 64 64" fill="none" style={{margin:"0 auto 14px",display:"block"}}>
+                        <rect x="8" y="16" width="48" height="36" rx="6" fill="var(--elevated)" stroke="var(--line-md)" strokeWidth="1.5"/>
+                        <path d="M20 36 L26 28 L32 33 L40 22 L46 30" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                        <circle cx="46" cy="30" r="3" fill="var(--accent)" opacity=".7"/>
+                        <path d="M24 44 L40 44" stroke="var(--line-md)" strokeWidth="1.5" strokeLinecap="round"/>
+                      </svg>
+                      <div style={{fontSize:14,fontWeight:800,color:"var(--t1)",marginBottom:5}}>Journal kosong nih</div>
+                      <div style={{fontSize:12,color:"var(--t3)",lineHeight:1.6,marginBottom:16}}>Tap + untuk log trade pertama dan<br/>mulai tracking performa lu</div>
+                      <button onClick={()=>setTradeModal({})} className="tap" style={{background:"var(--accent)",border:"none",borderRadius:"var(--r-md)",padding:"9px 20px",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Log Trade Pertama</button>
                     </div>
                   ):(
                     <div className="card" style={{padding:"0 16px"}}>
@@ -4141,14 +4621,14 @@ function App(){
           )}
 
           {tab==="wallet"&&<div className="tab-content"><Wallet accountBalance={accBal} totalPnl={totalPnl} activeId={activeId} onUpdateBalance={v=>{setAccounts(p=>{const n=p.map(a=>a.id===activeId?{...a,balance:v}:a);saveAccs(n);return n})}}/></div>}
-          {tab==="news"&&<div className="tab-content"><NewsView/></div>}
+          {tab==="review"&&<div className="tab-content"><ReviewView trades={trades} onOpenTrade={t=>setTradeModal(t)}/></div>}
 
         </div>
         </div>
 
         {/* ── Bottom Nav ── */}
         <div className="bot-nav" style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"var(--surface)",borderTop:"1px solid var(--line)",display:"flex",padding:"8px 6px 22px",gap:2}}>
-          {[{id:"dashboard",l:"Home",I:IcoHome},{id:"log",l:"Log",I:IcoLog},{id:"analytics",l:"Stats",I:IcoChart},{id:"wallet",l:"Wallet",I:IcoWallet},{id:"notes",l:"Notes",I:IcoNote},{id:"news",l:"News",I:IcoNews}].map(({id,l,I})=>{
+          {[{id:"dashboard",l:"Home",I:IcoHome},{id:"log",l:"Log",I:IcoLog},{id:"analytics",l:"Stats",I:IcoChart},{id:"wallet",l:"Wallet",I:IcoWallet},{id:"notes",l:"Notes",I:IcoNote},{id:"review",l:"Review",I:IcoReview}].map(({id,l,I})=>{
             const a=tab===id;
             return(
               <button key={id} onClick={()=>handleSetTab(id)} className="tap" style={{flex:1,background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"5px 0",borderRadius:"var(--r-md)"}}>
