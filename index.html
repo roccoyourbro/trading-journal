@@ -7,6 +7,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="theme-color" content="#0D0D0D"/>
   <title>Trade Journal</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236366F1'/%3E%3Cpath d='M6 22 L11 14 L16 18 L22 9 L26 15' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3Ccircle cx='26' cy='15' r='2' fill='white'/%3E%3C/svg%3E"/>
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236366F1'/%3E%3Cpath d='M6 22 L11 14 L16 18 L22 9 L26 15' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3Ccircle cx='26' cy='15' r='2' fill='white'/%3E%3C/svg%3E"/>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -2753,6 +2755,158 @@ function TradeReviewView({trades}){
   );
 }
 
+/* ── Lessons View ── */
+function LessonsView({trades,onOpenTrade}){
+  const[q,setQ]=useState("");
+  const[filterTag,setFilterTag]=useState("all");
+  const[collapsed,setCollapsed]=useState({});
+
+  const BAD_TAGS=["FOMO","Revenge","Overtraded","Tilted","Late Entry"];
+  const allTags=useMemo(()=>{
+    const set=new Set();
+    trades.forEach(t=>t.tags?.forEach(tag=>set.add(tag)));
+    return["all",...Array.from(set)];
+  },[trades]);
+
+  const withLesson=useMemo(()=>{
+    let r=[...trades].filter(t=>t.lesson?.trim());
+    if(filterTag!=="all")r=r.filter(t=>t.tags?.includes(filterTag));
+    if(q.trim())r=r.filter(t=>t.lesson.toLowerCase().includes(q.toLowerCase())||t.date.includes(q)||t.strategy?.toLowerCase().includes(q.toLowerCase()));
+    return r.sort((a,b)=>b.date.localeCompare(a.date));
+  },[trades,q,filterTag]);
+
+  // pattern counter: how many times each bad tag appears
+  const badTagCounts=useMemo(()=>{
+    const c={};
+    withLesson.forEach(t=>t.tags?.forEach(tag=>{if(BAD_TAGS.includes(tag))c[tag]=(c[tag]||0)+1;}));
+    return c;
+  },[withLesson]);
+  const topMistake=Object.entries(badTagCounts).sort((a,b)=>b[1]-a[1])[0];
+
+  if([...trades].filter(t=>t.lesson?.trim()).length===0)return(
+    <div className="card" style={{padding:"44px 20px",textAlign:"center"}}>
+      <div style={{fontSize:32,marginBottom:10}}>📚</div>
+      <div style={{fontSize:14,fontWeight:700,color:"var(--t2)",marginBottom:6}}>Belum ada lesson</div>
+      <div style={{fontSize:12,color:"var(--t3)"}}>Isi kolom "Lesson Learned" saat log trade untuk mencatat kesalahan yang tidak boleh diulang.</div>
+    </div>
+  );
+
+  // group by month
+  const byMonth={};
+  withLesson.forEach(t=>{const mk=t.date.slice(0,7);if(!byMonth[mk])byMonth[mk]=[];byMonth[mk].push(t);});
+
+  const toggleMonth=mk=>setCollapsed(p=>({...p,[mk]:!p[mk]}));
+
+  return(
+    <div>
+      {/* ── Pattern Alert ── */}
+      {topMistake&&topMistake[1]>=2&&(
+        <div style={{display:"flex",alignItems:"center",gap:10,background:"var(--red-dim)",border:"1px solid var(--red)22",borderRadius:"var(--r-md)",padding:"10px 14px",marginBottom:12}}>
+          <span style={{fontSize:18,flexShrink:0}}>⚠️</span>
+          <div>
+            <div style={{fontSize:12,fontWeight:700,color:"var(--red)"}}>Pola berulang: {topMistake[0]}</div>
+            <div style={{fontSize:11,color:"var(--t2)",marginTop:1}}>Muncul {topMistake[1]}x dalam lesson lu — perlu dikerjain serius.</div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Search ── */}
+      <div style={{position:"relative",marginBottom:10}}>
+        <span style={{position:"absolute",left:11,top:"50%",transform:"translateY(-50%)",fontSize:13,color:"var(--t3)",pointerEvents:"none"}}>🔍</span>
+        <input
+          className="inp"
+          value={q}
+          onChange={e=>setQ(e.target.value)}
+          placeholder="Cari lesson, strategi, tanggal..."
+          style={{paddingLeft:32,fontSize:13}}
+        />
+        {q&&<button onClick={()=>setQ("")} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:"var(--t3)",fontSize:15,cursor:"pointer",lineHeight:1}}>×</button>}
+      </div>
+
+      {/* ── Tag Filter Pills ── */}
+      {allTags.length>1&&(
+        <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:12}}>
+          {allTags.filter(tg=>tg==="all"||[...trades].filter(t=>t.lesson?.trim()).some(t=>t.tags?.includes(tg))).map(tg=>{
+            const bad=BAD_TAGS.includes(tg);
+            const active=filterTag===tg;
+            return(
+              <button key={tg} onClick={()=>setFilterTag(tg)} className="tap" style={{padding:"4px 10px",borderRadius:99,border:`1px solid ${active?(bad?"var(--red)":"var(--accent)"):"var(--line-md)"}`,background:active?(bad?"var(--red-dim)":"var(--accent-dim)"):"transparent",color:active?(bad?"var(--red)":"var(--accent)"):"var(--t3)",fontSize:11,fontWeight:600}}>
+                {tg==="all"?"All lessons":tg}
+                {tg!=="all"&&badTagCounts[tg]>=2&&<span style={{marginLeft:5,background:bad?"var(--red)":"var(--amber)",color:"#fff",borderRadius:99,fontSize:9,fontWeight:700,padding:"1px 5px"}}>{badTagCounts[tg]}</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Results count ── */}
+      {(q||filterTag!=="all")&&(
+        <div style={{fontSize:11,color:"var(--t3)",marginBottom:10}}>{withLesson.length} lesson ditemukan</div>
+      )}
+
+      {withLesson.length===0&&(
+        <div className="card" style={{padding:"32px 20px",textAlign:"center"}}>
+          <div style={{fontSize:13,color:"var(--t3)"}}>Tidak ada lesson yang cocok.</div>
+        </div>
+      )}
+
+      {/* ── By Month ── */}
+      {Object.entries(byMonth).sort((a,b)=>b[0].localeCompare(a[0])).map(([mk,list])=>{
+        const[yr,mo]=mk.split("-");
+        const label=MONTHS[parseInt(mo)-1]+" "+yr;
+        const isCollapsed=collapsed[mk];
+        const monthBadCount=list.reduce((acc,t)=>{t.tags?.forEach(tag=>{if(BAD_TAGS.includes(tag))acc++;});return acc;},0);
+        return(
+          <div key={mk} style={{marginBottom:14}}>
+            <button onClick={()=>toggleMonth(mk)} className="tap" style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,width:"100%",background:"none",border:"none",padding:0,cursor:"pointer"}}>
+              <span style={{fontSize:10,fontWeight:700,color:"var(--amber)",letterSpacing:".08em",textTransform:"uppercase"}}>{label}</span>
+              <div style={{flex:1,height:1,background:"var(--line)"}}/>
+              <span style={{fontSize:10,color:"var(--t3)",fontWeight:600}}>{list.length} lesson</span>
+              {monthBadCount>0&&<span className="pill" style={{background:"var(--red-dim)",color:"var(--red)"}}>{monthBadCount} mistake</span>}
+              <span style={{fontSize:12,color:"var(--t3)",marginLeft:2}}>{isCollapsed?"▸":"▾"}</span>
+            </button>
+            {!isCollapsed&&(
+              <div className="card" style={{padding:"0 16px"}}>
+                {list.map((t,i)=>(
+                  <div key={t.id} onClick={()=>onOpenTrade&&onOpenTrade(t)} className="tap" style={{padding:"14px 0",borderBottom:i<list.length-1?"1px solid var(--line)":"none",cursor:"pointer"}}>
+                    {/* Header row */}
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                        <div style={{width:6,height:6,borderRadius:"50%",background:t.pnl>=0?"var(--green)":"var(--red)",flexShrink:0}}/>
+                        <span className="mono" style={{fontSize:11,color:"var(--t2)"}}>{t.date}</span>
+                        {t.instrument&&<span className="pill" style={{background:"var(--elevated)",color:"var(--t3)"}}>{t.instrument}</span>}
+                        {t.strategy&&<span style={{fontSize:11,color:"var(--t3)"}}>{t.strategy}</span>}
+                        {t.session&&<span style={{fontSize:10,color:SCOL[t.session]||"var(--t3)",fontWeight:700}}>{t.session}</span>}
+                      </div>
+                      <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0,marginLeft:8}}>
+                        <span className="mono" style={{fontSize:12,fontWeight:600,color:clr(t.pnl)}}>{fmt(t.pnl)}</span>
+                        <span style={{fontSize:11,color:"var(--t3)"}}>›</span>
+                      </div>
+                    </div>
+                    {/* Lesson text */}
+                    <div style={{display:"flex",gap:8,alignItems:"flex-start",marginBottom:t.tags?.length>0?8:0}}>
+                      <div style={{width:22,height:22,borderRadius:6,background:"var(--amber-dim)",border:"1px solid var(--amber)33",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",marginTop:1}}>
+                        <span style={{fontSize:12}}>💡</span>
+                      </div>
+                      <div style={{fontSize:13,color:"var(--t1)",lineHeight:1.75,fontWeight:500,whiteSpace:"pre-wrap"}}>{t.lesson}</div>
+                    </div>
+                    {/* Tags */}
+                    {t.tags?.length>0&&(
+                      <div style={{display:"flex",gap:5,flexWrap:"wrap",paddingLeft:30}}>
+                        {t.tags.map(tag=>{const bad=BAD_TAGS.includes(tag);return<span key={tag} className="pill" style={{background:bad?"var(--red-dim)":"var(--elevated)",color:bad?"var(--red)":"var(--t3)"}}>{tag}</span>;})}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /* ── Review View — Notion-style Trade Playbook ── */
 function ReviewView({trades,onOpenTrade}){
   const pnlHidden=useContext(PnlCtx);
@@ -4560,63 +4714,7 @@ function App(){
                   {trades.filter(t=>t.notes?.trim()).length===0&&<div style={{padding:"40px 0",textAlign:"center",fontSize:12,color:"var(--t3)"}}>Add notes when logging trades</div>}
                 </div>
               )}
-              {noteTab==="lessons"&&(()=>{
-                const withLesson=[...trades].filter(t=>t.lesson?.trim()).sort((a,b)=>b.date.localeCompare(a.date));
-                if(withLesson.length===0)return(
-                  <div className="card" style={{padding:"44px 20px",textAlign:"center"}}>
-                    <div style={{fontSize:32,marginBottom:10}}>📚</div>
-                    <div style={{fontSize:14,fontWeight:700,color:"var(--t2)",marginBottom:6}}>Belum ada lesson</div>
-                    <div style={{fontSize:12,color:"var(--t3)"}}>Isi kolom "Lesson Learned" saat log trade untuk mencatat kesalahan yang tidak boleh diulang.</div>
-                  </div>
-                );
-                // group by month
-                const byMonth={};
-                withLesson.forEach(t=>{const mk=t.date.slice(0,7);if(!byMonth[mk])byMonth[mk]=[];byMonth[mk].push(t);});
-                return(
-                  <div>
-                    {Object.entries(byMonth).sort((a,b)=>b[0].localeCompare(a[0])).map(([mk,list])=>{
-                      const [yr,mo]=mk.split("-");
-                      const label=MONTHS[parseInt(mo)-1]+" "+yr;
-                      return(
-                        <div key={mk} style={{marginBottom:16}}>
-                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-                            <span style={{fontSize:10,fontWeight:700,color:"var(--amber)",letterSpacing:".08em",textTransform:"uppercase"}}>{label}</span>
-                            <div style={{flex:1,height:1,background:"var(--line)"}}/>
-                            <span style={{fontSize:10,color:"var(--t3)",fontWeight:600}}>{list.length} lesson</span>
-                          </div>
-                          <div className="card" style={{padding:"0 16px"}}>
-                            {list.map((t,i)=>(
-                              <div key={t.id} style={{padding:"14px 0",borderBottom:i<list.length-1?"1px solid var(--line)":"none"}}>
-                                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
-                                  <div style={{display:"flex",alignItems:"center",gap:7}}>
-                                    <div style={{width:6,height:6,borderRadius:"50%",background:t.pnl>=0?"var(--green)":"var(--red)",flexShrink:0}}/>
-                                    <span className="mono" style={{fontSize:11,color:"var(--t2)"}}>{t.date}</span>
-                                    <span style={{fontSize:11,color:"var(--t3)"}}>{t.instrument||""}</span>
-                                    <span style={{fontSize:11,color:"var(--t3)"}}>·</span>
-                                    <span style={{fontSize:11,color:"var(--t3)"}}>{t.strategy}</span>
-                                  </div>
-                                  <span className="mono" style={{fontSize:12,fontWeight:600,color:clr(t.pnl),flexShrink:0,marginLeft:8}}>{fmt(t.pnl)}</span>
-                                </div>
-                                <div style={{display:"flex",gap:8,alignItems:"flex-start"}}>
-                                  <div style={{width:24,height:24,borderRadius:6,background:"var(--amber-dim)",border:"1px solid var(--amber)33",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",marginTop:1}}>
-                                    <span style={{fontSize:13}}>💡</span>
-                                  </div>
-                                  <div style={{fontSize:13,color:"var(--t1)",lineHeight:1.7,fontWeight:500}}>{t.lesson}</div>
-                                </div>
-                                {t.tags?.length>0&&(
-                                  <div style={{display:"flex",gap:5,flexWrap:"wrap",marginTop:8}}>
-                                    {t.tags.map(tag=>{const bad=["FOMO","Revenge","Overtraded","Tilted","Late Entry"].includes(tag);return<span key={tag} className="pill" style={{background:bad?"var(--red-dim)":"var(--elevated)",color:bad?"var(--red)":"var(--t3)"}}>{tag}</span>})}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
+              {noteTab==="lessons"&&<LessonsView trades={trades} onOpenTrade={t=>setTradeModal(t)}/>}
             </div>
           )}
 
