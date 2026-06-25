@@ -518,6 +518,9 @@ const TradeRow=React.memo(function TradeRow({trade,onPress,isLast}){
             {trade.images?.length>0&&<span style={{fontSize:10,color:"var(--t3)",display:"flex",alignItems:"center",gap:2}}><IcoImg size={10} col="var(--t3)"/> {trade.images.length}</span>}
             {/* Pre-market danger flag */}
             {["😤 Revenge Mode","😰 Anxious","🤑 Greedy","😵 Overwhelmed"].includes(trade.pmMental)&&<span className="pill" style={{background:"var(--amber-dim)",color:"var(--amber)",border:"1px solid rgba(247,163,37,0.2)",fontSize:10}}>⚠️ {trade.pmMental.split(" ").slice(0,2).join(" ")}</span>}
+            {/* Gym pill */}
+            {trade.gymDay==="💪 Gym"&&<span className="pill" style={{background:"rgba(45,214,117,0.1)",color:"var(--green)",fontSize:10}}>💪</span>}
+            {trade.gymDay==="🚫 Ga Gym"&&<span className="pill" style={{background:"var(--elevated)",color:"var(--t3)",fontSize:10}}>🚫</span>}
           </div>
           <div style={{display:"flex",gap:8,flexShrink:0}}>
             {!ntd&&<span className="mono" style={{fontSize:11,color:"var(--t3)"}}>{trade.rr}R</span>}
@@ -1194,7 +1197,7 @@ function TradeModal({trade,onSave,onDelete,onClose,onManageInstrs}){
     if(isNew){try{const d=localStorage.getItem(DRAFT_KEY);if(d){const p=JSON.parse(d);return{...p,date:p.date||today()}}}catch{}}
     return{date:trade.date||today(),time:trade.time||"",direction:trade.direction||"",pnl:trade.pnl!==undefined?String(trade.pnl):"",rr:trade.rr!==undefined?String(trade.rr):"",entryPrice:trade.entryPrice!==undefined?String(trade.entryPrice):"",stopLoss:trade.stopLoss!==undefined?String(trade.stopLoss):"",takeProfit:trade.takeProfit!==undefined?String(trade.takeProfit):"",strategy:trade.strategy||STRATS[0],session:trade.session||"",instrument:trade.instrument||(instrs[0]||"MNQ"),contracts:trade.contracts!==undefined?String(trade.contracts):"1",tags:trade.tags||[],feelings:trade.feelings||"",notes:trade.notes||"",lesson:trade.lesson||"",images:trade.images||[],noTradeDay:trade.noTradeDay||false,
       // Pre-market fields
-      pmSleep:trade.pmSleep||"",pmEnergy:trade.pmEnergy||"",pmMental:trade.pmMental||"",pmBias:trade.pmBias||"",pmDOL:trade.pmDOL||"",pmCalChecked:trade.pmCalChecked||false,pmNotes:trade.pmNotes||"",pmAsiaCondition:trade.pmAsiaCondition||"",pmAsiaPoints:trade.pmAsiaPoints||"",pmLondonCondition:trade.pmLondonCondition||"",pmLondonPoints:trade.pmLondonPoints||""};
+      pmSleep:trade.pmSleep||"",pmEnergy:trade.pmEnergy||"",pmMental:trade.pmMental||"",pmBias:trade.pmBias||"",pmDOL:trade.pmDOL||"",pmCalChecked:trade.pmCalChecked||false,pmNotes:trade.pmNotes||"",pmAsiaCondition:trade.pmAsiaCondition||"",pmAsiaPoints:trade.pmAsiaPoints||"",pmLondonCondition:trade.pmLondonCondition||"",pmLondonPoints:trade.pmLondonPoints||"",gymDay:trade.gymDay||""};
   };
   const[form,setForm]=useState(initForm);
   // auto-calc RR from entry/SL/TP
@@ -1264,7 +1267,7 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
       return url||img;
     }));
     onSave({id:tradeId,date:form.date,time:form.time||"",direction:form.direction||"",pnl:form.noTradeDay?0:parseFloat(form.pnl)||0,rr:parseFloat(autoRR||form.rr)||0,entryPrice:parseFloat(form.entryPrice)||0,stopLoss:parseFloat(form.stopLoss)||0,takeProfit:parseFloat(form.takeProfit)||0,strategy:form.strategy,session:form.session,instrument:form.instrument,contracts:Math.max(1,parseInt(form.contracts)||1),tags:form.tags,feelings:form.feelings,notes:form.notes,lesson:form.lesson,images:uploadedImages,checklist:checkedItems,noTradeDay:form.noTradeDay||false,
-      pmSleep:form.pmSleep||"",pmEnergy:form.pmEnergy||"",pmMental:form.pmMental||"",pmBias:form.pmBias||"",pmDOL:form.pmDOL||"",pmCalChecked:form.pmCalChecked||false,pmNotes:form.pmNotes||"",pmAsiaCondition:form.pmAsiaCondition||"",pmAsiaPoints:form.pmAsiaPoints||"",pmLondonCondition:form.pmLondonCondition||"",pmLondonPoints:form.pmLondonPoints||""});
+      pmSleep:form.pmSleep||"",pmEnergy:form.pmEnergy||"",pmMental:form.pmMental||"",pmBias:form.pmBias||"",pmDOL:form.pmDOL||"",pmCalChecked:form.pmCalChecked||false,pmNotes:form.pmNotes||"",pmAsiaCondition:form.pmAsiaCondition||"",pmAsiaPoints:form.pmAsiaPoints||"",pmLondonCondition:form.pmLondonCondition||"",pmLondonPoints:form.pmLondonPoints||"",gymDay:form.gymDay||""});
     if(isNew)try{localStorage.removeItem(DRAFT_KEY)}catch{}
     setSaving(false);
     toast(isNew?"Trade logged":"Updated")};
@@ -1313,6 +1316,7 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
             const score=[form.pmSleep,form.pmEnergy,form.pmMental,form.pmBias].filter(Boolean).length;
             const dangerMental=["😤 Revenge Mode","😰 Anxious","🤑 Greedy","😵 Overwhelmed"].includes(form.pmMental);
             const badSleep=form.pmSleep==="😴 Kurang";
+            const hasGym=form.gymDay==="💪 Gym";
             const warningFlags=(dangerMental?1:0)+(badSleep?1:0);
             if(score===0)return(
               <div style={{background:"var(--elevated)",borderRadius:"var(--r-md)",padding:"14px 16px",display:"flex",alignItems:"center",gap:12,border:"1px solid var(--line)"}}>
@@ -1334,8 +1338,11 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
             );
             return(
               <div style={{background:"var(--green-dim)",border:"1px solid rgba(45,214,117,0.2)",borderRadius:"var(--r-md)",padding:"12px 14px",display:"flex",gap:10,alignItems:"center"}}>
-                <span style={{fontSize:18,flexShrink:0}}>✅</span>
-                <div><div style={{fontSize:12,fontWeight:700,color:"var(--green)",marginBottom:2}}>Kondisi OK — Ready to trade</div><div style={{fontSize:11,color:"var(--t2)"}}>Nggak ada red flag terdeteksi. Stick to the plan.</div></div>
+                <span style={{fontSize:18,flexShrink:0}}>{hasGym?"💪":"✅"}</span>
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,color:"var(--green)",marginBottom:2}}>{hasGym?"Gym day + kondisi OK — Let's go":"Kondisi OK — Ready to trade"}</div>
+                  <div style={{fontSize:11,color:"var(--t2)"}}>{hasGym?"Lo udah warm up fisik. Fokus, disiplin, stick to the plan.":"Nggak ada red flag terdeteksi. Stick to the plan."}</div>
+                </div>
               </div>
             );
           })()}
@@ -1355,6 +1362,19 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
               {[{v:"🪫 Rendah",c:"var(--red)"},{v:"⚡ Sedang",c:"var(--amber)"},{v:"🔋 Tinggi",c:"var(--green)"}].map(({v,c})=>{
                 const a=form.pmEnergy===v;
                 return<button key={v} onClick={()=>set("pmEnergy",a?"":v)} className="tap" style={{flex:1,padding:"9px 6px",borderRadius:"var(--r-sm)",fontSize:11,fontWeight:700,border:`1px solid ${a?c:"var(--line-md)"}`,background:a?c+"22":"var(--elevated)",color:a?c:"var(--t2)",transition:"all .12s"}}>{v}</button>;
+              })}
+            </div>
+          </div>
+          {/* Gym Day */}
+          <div>
+            <label style={lbl}>Gym Hari Ini?</label>
+            <div style={{display:"flex",gap:6}}>
+              {[{v:"💪 Gym",c:"var(--green)",desc:"Udah workout"},{v:"🚫 Ga Gym",c:"var(--red)",desc:"Skip hari ini"},{v:"🛌 Rest Day",c:"var(--blue)",desc:"Planned rest"}].map(({v,c,desc})=>{
+                const a=form.gymDay===v;
+                return<button key={v} onClick={()=>set("gymDay",a?"":v)} className="tap" style={{flex:1,padding:"9px 6px",borderRadius:"var(--r-sm)",fontSize:11,fontWeight:700,border:`1px solid ${a?c:"var(--line-md)"}`,background:a?c+"22":"var(--elevated)",color:a?c:"var(--t2)",transition:"all .12s",display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                  <span>{v.split(" ")[0]}</span>
+                  <span style={{fontSize:9,fontWeight:500,opacity:.8}}>{v.split(" ").slice(1).join(" ")}</span>
+                </button>;
               })}
             </div>
           </div>
@@ -1860,6 +1880,7 @@ function DataModal({trades,notes,account,onImport,onClearAll,onClose}){
           PM_AsiaPoints:t.pmAsiaPoints||"",
           PM_LondonCondition:t.pmLondonCondition||"",
           PM_LondonPoints:t.pmLondonPoints||"",
+          GymDay:t.gymDay||"",
           NoTradeDay:t.noTradeDay?"YES":"",
           Screenshots:(t.images||[]).length||"",
           _id:t.id
@@ -3181,6 +3202,12 @@ function ReviewView({trades,onOpenTrade}){
                     <span style={{fontWeight:600,color:sel.pmEnergy==="🔋 Tinggi"?"var(--green)":sel.pmEnergy==="🪫 Rendah"?"var(--red)":"var(--amber)"}}>{sel.pmEnergy}</span>
                   </span>
                 )}
+                {sel.gymDay&&(
+                  <span style={{fontSize:12,color:"var(--t2)"}}>
+                    <span style={rowLbl}>Gym: </span>
+                    <span style={{fontWeight:600,color:sel.gymDay==="💪 Gym"?"var(--green)":sel.gymDay==="🛌 Rest Day"?"var(--blue)":"var(--t3)"}}>{sel.gymDay}</span>
+                  </span>
+                )}
                 {sel.pmMental&&(
                   <span style={{fontSize:12,color:"var(--t2)"}}>
                     <span style={rowLbl}>Mental: </span>
@@ -3665,6 +3692,24 @@ function AnalyticsView({trades,accountBalance}){
     return Object.entries(m).map(([tag,v])=>({l:tag,...v,wr:Math.round(v.wins/v.n*100)})).sort((a,b)=>b.n-a.n).slice(0,8);
   },[filtered]);
 
+  const gymData=useMemo(()=>{
+    const m={"💪 Gym":{pnl:0,n:0,wins:0},"🚫 Ga Gym":{pnl:0,n:0,wins:0},"🛌 Rest Day":{pnl:0,n:0,wins:0}};
+    filtered.forEach(t=>{
+      const g=t.gymDay;
+      if(g&&m[g]){m[g].pnl+=t.pnl;m[g].n++;if(t.pnl>0)m[g].wins++;}
+    });
+    return Object.entries(m)
+      .filter(([,v])=>v.n>0)
+      .map(([k,v])=>({
+        label:k,
+        n:v.n,
+        pnl:v.pnl,
+        wr:Math.round(v.wins/v.n*100),
+        avg:v.n?Math.round(v.pnl/v.n):0,
+        col:k==="💪 Gym"?"var(--green)":k==="🛌 Rest Day"?"var(--blue)":"var(--t3)"
+      }));
+  },[filtered]);
+
   const rrDist=useMemo(()=>{
     const b={"<0":0,"0-1R":0,"1-2R":0,"2-3R":0,"3R+":0};
     filtered.forEach(t=>{const r=t.rr||0;if(r<0)b["<0"]++;else if(r<1)b["0-1R"]++;else if(r<2)b["1-2R"]++;else if(r<3)b["2-3R"]++;else b["3R+"]++;});
@@ -3943,6 +3988,85 @@ function AnalyticsView({trades,accountBalance}){
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* ── Gym Performance Card ── */}
+      {gymData.length>0&&(
+        <div className="card" style={{padding:"18px",marginBottom:12}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+            <span style={{fontSize:16}}>💪</span>
+            <div style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>Gym vs No Gym</div>
+          </div>
+          <div style={{fontSize:11,color:"var(--t3)",marginBottom:14}}>Performa trading berdasarkan aktivitas gym hari itu</div>
+
+          {/* Summary insight banner — only shown if both gym & no-gym have data */}
+          {(()=>{
+            const gym=gymData.find(d=>d.label==="💪 Gym");
+            const noGym=gymData.find(d=>d.label==="🚫 Ga Gym");
+            if(!gym||!noGym)return null;
+            const gymBetter=gym.avg>noGym.avg;
+            const diff=Math.abs(gym.avg-noGym.avg);
+            const wrDiff=Math.abs(gym.wr-noGym.wr);
+            return(
+              <div style={{background:gymBetter?"var(--green-dim)":"var(--amber-dim)",border:`1px solid ${gymBetter?"rgba(45,214,117,0.2)":"rgba(247,163,37,0.2)"}`,borderRadius:"var(--r-md)",padding:"11px 14px",marginBottom:14,display:"flex",gap:10,alignItems:"flex-start"}}>
+                <span style={{fontSize:16,flexShrink:0}}>{gymBetter?"🏆":"🤔"}</span>
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,color:gymBetter?"var(--green)":"var(--amber)",marginBottom:2}}>
+                    {gymBetter?"Gym day perform lebih baik":"Non-gym day perform lebih baik"}
+                  </div>
+                  <div style={{fontSize:11,color:"var(--t2)"}}>
+                    Avg P&L diff <span className="mono" style={{fontWeight:600}}>${diff}</span>/trade
+                    {wrDiff>=5&&<span> · Win rate diff <span className="mono" style={{fontWeight:600}}>{wrDiff}%</span></span>}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Per-category rows */}
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {gymData.map((d,i)=>{
+              const maxAbs=Math.max(...gymData.map(x=>Math.abs(x.avg)),1);
+              const barW=Math.round((Math.abs(d.avg)/maxAbs)*100);
+              return(
+                <div key={i} style={{background:"var(--elevated)",borderRadius:"var(--r-md)",padding:"12px 14px"}}>
+                  {/* Header row */}
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span style={{fontSize:14}}>{d.label.split(" ")[0]}</span>
+                      <span style={{fontSize:12,fontWeight:600,color:d.col}}>{d.label.split(" ").slice(1).join(" ")}</span>
+                      <span style={{fontSize:11,color:"var(--t3)"}}>{d.n} trade{d.n!==1?"s":""}</span>
+                    </div>
+                    <div style={{textAlign:"right"}}>
+                      <div className="mono" style={{fontSize:13,fontWeight:700,color:pnlHidden?"var(--t3)":clr(d.pnl)}}>{pnlHidden?PNL_MASK:fmt(d.pnl)}</div>
+                      <div style={{fontSize:10,color:"var(--t3)"}}>total</div>
+                    </div>
+                  </div>
+                  {/* Stat chips */}
+                  <div style={{display:"flex",gap:6,marginBottom:8,flexWrap:"wrap"}}>
+                    <div style={{background:"var(--overlay)",borderRadius:99,padding:"3px 9px",display:"flex",gap:5,alignItems:"center"}}>
+                      <span style={{fontSize:10,color:"var(--t3)"}}>Win Rate</span>
+                      <span className="mono" style={{fontSize:11,fontWeight:700,color:d.wr>=50?"var(--green)":"var(--red)"}}>{d.wr}%</span>
+                    </div>
+                    <div style={{background:"var(--overlay)",borderRadius:99,padding:"3px 9px",display:"flex",gap:5,alignItems:"center"}}>
+                      <span style={{fontSize:10,color:"var(--t3)"}}>Avg/trade</span>
+                      <span className="mono" style={{fontSize:11,fontWeight:700,color:pnlHidden?"var(--t3)":clr(d.avg)}}>{pnlHidden?PNL_MASK:(d.avg>=0?"+":"")+fmt(d.avg)}</span>
+                    </div>
+                  </div>
+                  {/* Avg bar */}
+                  <div style={{height:3,background:"var(--surface)",borderRadius:99,overflow:"hidden"}}>
+                    <div style={{height:"100%",width:`${barW}%`,background:d.avg>=0?d.col:"var(--red)",borderRadius:99,transition:"width .4s"}}/>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Footer note if not enough data */}
+          {gymData.reduce((a,d)=>a+d.n,0)<10&&(
+            <div style={{marginTop:10,fontSize:11,color:"var(--t3)",textAlign:"center"}}>Log lebih banyak trade dengan gym data buat insight yang lebih akurat</div>
+          )}
         </div>
       )}
 
