@@ -42,6 +42,25 @@
       --mono: 'DM Mono', monospace;
       --sans: 'Plus Jakarta Sans', sans-serif;
       --r-sm: 7px; --r-md: 11px; --r-lg: 15px; --r-xl: 22px;
+      /* ── Typography Scale ──
+         fs-xs  : 10px  → micro labels, chart axis, legend
+         fs-sm  : 11px  → section headers (ALL CAPS), pills, secondary info
+         fs-body: 13px  → nav items, body copy, descriptions
+         fs-md  : 15px  → trade PnL in rows, input fields
+         fs-lg  : 18px  → stat card values
+         fs-xl  : 22px  → trade detail PnL header
+         fs-2xl : 38px  → dashboard hero balance (mobile)
+         fs-3xl : clamp(24px,3.5vw,42px) → dashboard hero balance (desktop)
+         Weight: 400 body · 500 label/secondary · 700 emphasis
+      */
+      --fs-xs:   10px;
+      --fs-sm:   11px;
+      --fs-body: 13px;
+      --fs-md:   15px;
+      --fs-lg:   18px;
+      --fs-xl:   22px;
+      /* ── Spacing tokens ── */
+      --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;--sp-8:32px;
       --sidebar-w: 244px;
       /* Subtle grain texture for depth */
       --noise: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
@@ -103,11 +122,11 @@
     .card{background:var(--surface);border:1px solid var(--line-md);border-radius:var(--r-lg);box-shadow:0 1px 3px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.04)}
     [data-theme="light"] .card{box-shadow:0 1px 4px rgba(0,0,0,.07),0 0 0 1px rgba(0,0,0,.04);border-color:rgba(0,0,0,.08)}
     .elev{background:var(--elevated);border:1px solid var(--line-md);border-radius:var(--r-md)}
-    .pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;letter-spacing:.01em}
+    .pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;font-size:var(--fs-sm);font-weight:500;letter-spacing:.01em}
     .inp{width:100%;background:var(--elevated);border:1px solid var(--line-md);border-radius:var(--r-md);color:var(--t1);font-size:15px;padding:11px 13px;outline:none;transition:border-color .15s,box-shadow .15s;font-family:var(--sans);font-weight:500}
     .inp:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
     .inp::placeholder{color:var(--t3)}
-    .sec{font-size:10px;font-weight:700;color:var(--t3);letter-spacing:.10em;text-transform:uppercase;margin-bottom:10px}
+    .sec{font-size:var(--fs-sm);font-weight:500;color:var(--t3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:10px}
     .divider{height:1px;background:var(--line)}
 
     /* Sidebar nav item hover */
@@ -165,14 +184,17 @@
       .bot-nav{display:none!important}
       .sidebar{display:flex!important;width:var(--sidebar-w)}
       .shell{margin-left:var(--sidebar-w)!important;margin-right:0!important;max-width:none!important;width:calc(100vw - var(--sidebar-w))!important}
-      .desk-pad{padding:16px 16px 0!important}
-      .desk-grid{display:grid!important;grid-template-columns:1fr 280px;gap:14px;align-items:start;width:100%}
+      .desk-pad{padding:20px 24px 0!important}
+      .desk-grid{display:grid!important;grid-template-columns:1fr 284px;gap:16px;align-items:start;width:100%}
       .desk-col-left{min-width:0;overflow:hidden}
       .desk-col-right{position:sticky;top:0;min-width:0}
       .fab-w{right:32px!important;bottom:32px!important}
+      /* desktop stat cards: 3 columns, 2 rows — more breathing room */
+      .stat-grid-desktop{display:grid!important;grid-template-columns:repeat(3,1fr)!important;gap:10px!important}
     }
     @media(min-width:1280px){
       .desk-grid{grid-template-columns:1fr 300px!important}
+      .desk-pad{padding:24px 32px 0!important}
     }
     @media(min-width:1440px){
       .desk-grid{grid-template-columns:1fr 320px!important}
@@ -348,7 +370,7 @@ function FundedTargetTracker({trades,accountBalance}){
   const barColor=isHit?"var(--green)":pct>=70?"var(--green)":pct>=40?"var(--amber)":"var(--blue)";
 
   return(
-    <div className="card" style={{padding:"16px",marginBottom:12,border:isHit?"1px solid rgba(45,214,117,0.27)":"1px solid var(--line)",background:isHit?"var(--green-dim)":"var(--surface)"}}>
+    <div className="card" style={{padding:"18px",marginBottom:16,border:isHit?"1px solid rgba(45,214,117,0.27)":"1px solid var(--line)",background:isHit?"var(--green-dim)":"var(--surface)"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
         <div>
           <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:3}}>
@@ -454,9 +476,9 @@ const StatCard=React.memo(function StatCard({label,value,sub,col,mono=true}){
   const accentClass=col===undefined?"stat-card-accent":col==="var(--green)"?"stat-card-green":col==="var(--red)"?"stat-card-red":col==="var(--amber)"?"stat-card-amber":col==="var(--blue)"?"stat-card-blue":"stat-card-accent";
   return(
     <div className={`elev stat-card-inner ${accentClass}`} style={{padding:"14px 14px 14px 18px",flex:1,minWidth:0}}>
-      <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".10em",textTransform:"uppercase",marginBottom:7}}>{label}</div>
-      <div className={mono?"mono":""} style={{fontSize:19,fontWeight:600,color:col||"var(--t1)",letterSpacing:"-.5px",lineHeight:1}}>{value}</div>
-      {sub&&<div style={{fontSize:10,color:"var(--t2)",marginTop:5,fontWeight:500}}>{sub}</div>}
+      <div style={{fontSize:"var(--fs-xs)",color:"var(--t3)",fontWeight:500,letterSpacing:".08em",textTransform:"uppercase",marginBottom:7}}>{label}</div>
+      <div className={mono?"mono":""} style={{fontSize:"var(--fs-lg)",fontWeight:700,color:col||"var(--t1)",letterSpacing:"-.5px",lineHeight:1}}>{value}</div>
+      {sub&&<div style={{fontSize:"var(--fs-xs)",color:"var(--t2)",marginTop:5,fontWeight:400}}>{sub}</div>}
     </div>
   );
 });
@@ -469,19 +491,19 @@ const TradeRow=React.memo(function TradeRow({trade,onPress,isLast}){
   const cts=trade.contracts||1;
   const grade=trade.checklist?calcTradeGrade(trade):null;
   return(
-    <div onClick={onPress} className="tap" style={{display:"flex",alignItems:"center",gap:12,padding:"13px 0",borderBottom:isLast?"none":"1px solid var(--line)",cursor:"pointer"}}>
+    <div onClick={onPress} className="tap" style={{display:"flex",alignItems:"center",gap:12,padding:"14px 0",borderBottom:isLast?"none":"1px solid var(--line)",cursor:"pointer"}}>
       <div style={{width:3,height:34,borderRadius:99,background:ntd?"var(--blue)":win?"var(--green)":loss?"var(--red)":"var(--t3)",flexShrink:0}}/>
       <div style={{flex:1,minWidth:0}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
           <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-            <span style={{fontSize:12,fontWeight:600,color:"var(--t1)"}}>{fmtLongDate(trade.date)}{trade.time&&<span className="mono" style={{color:"var(--t3)",fontWeight:400,fontSize:11}}> · {trade.time}</span>}</span>
+            <span style={{fontSize:12,fontWeight:500,color:"var(--t1)"}}>{fmtLongDate(trade.date)}{trade.time&&<span className="mono" style={{color:"var(--t3)",fontWeight:400,fontSize:11}}> · {trade.time}</span>}</span>
             {ntd&&<span className="pill" style={{background:"var(--blue-dim)",color:"var(--blue)",border:"1px solid rgba(77,159,255,0.2)"}}>🚫 No Trade</span>}
             {!ntd&&trade.direction&&<span className="pill" style={{background:trade.direction==="long"?"var(--green-dim)":"var(--red-dim)",color:trade.direction==="long"?"var(--green)":"var(--red)"}}>{trade.direction==="long"?"▲ L":"▼ S"}</span>}
             {trade.session&&<span className="pill" style={{background:SCOL[trade.session]+"22",color:SCOL[trade.session]}}>{trade.session}</span>}
             {trade.instrument&&<span className="pill" style={{background:(ICOL[trade.instrument]||"#666")+"22",color:ICOL[trade.instrument]||"var(--t2)"}}>{trade.instrument}{cts>1?` ×${cts}`:""}</span>}
             {!ntd&&grade&&<span style={{fontSize:11,fontWeight:800,color:grade.color,background:grade.bg,padding:"2px 7px",borderRadius:99,border:`1px solid ${grade.color}44`}}>{grade.grade}</span>}
           </div>
-          <span className="mono" style={{fontSize:15,fontWeight:500,color:ntd?"var(--blue)":pnlHidden?"var(--t3)":"var(--t2)",flexShrink:0,marginLeft:8}}>{ntd?"—":pnlHidden?PNL_MASK:fmt(trade.pnl)}</span>
+          <span className="mono" style={{fontSize:"var(--fs-md)",fontWeight:600,color:ntd?"var(--blue)":pnlHidden?"var(--t3)":"var(--t2)",flexShrink:0,marginLeft:8}}>{ntd?"—":pnlHidden?PNL_MASK:fmt(trade.pnl)}</span>
         </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
@@ -595,18 +617,18 @@ const DrawdownCard=React.memo(function DrawdownCard({trades,accountBalance,drawd
   const balPath=cPts.map((p,i)=>`${i===0?"M":"L"}${tx(i).toFixed(1)},${ty(p.bal).toFixed(1)}`).join(" ");
   const floorPath=ddLim>0?cPts.map((p,i)=>`${i===0?"M":"L"}${tx(i).toFixed(1)},${ty(p.floor||0).toFixed(1)}`).join(" "):null;
   return(
-    <div className="card" style={{padding:"18px",marginBottom:12}}>
+    <div className="card" style={{padding:"18px",marginBottom:16}}>
       <div className="sec">Drawdown & Risk</div>
       {/* Breach alert */}
       {isBreached&&<div style={{background:"var(--red)",borderRadius:"var(--r-md)",padding:"10px 14px",marginBottom:12,display:"flex",gap:8,alignItems:"center"}}><span style={{fontSize:16}}>🚨</span><span style={{fontSize:12,color:"#fff",fontWeight:700}}>DD BREACHED — Account limit hit. Stop trading immediately.</span></div>}
       <div style={{display:"flex",gap:8,marginBottom:14}}>
         <div className="elev" style={{flex:1,padding:"12px 14px"}}>
-          <div style={{fontSize:9,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase",marginBottom:4}}>DD Floor</div>
+          <div style={{fontSize:"var(--fs-xs)",color:"var(--t3)",fontWeight:500,letterSpacing:".07em",textTransform:"uppercase",marginBottom:4}}>DD Floor</div>
           <div className="mono" style={{fontSize:20,fontWeight:500,color:isBreached?"var(--red)":"var(--t1)",letterSpacing:"-.5px"}}>{ddLim>0?`$${Math.round(curFloor).toLocaleString()}`:"—"}</div>
           <div style={{fontSize:10,color:"var(--t2)",marginTop:3}}>{floorLocked?<span style={{color:"var(--amber)",fontWeight:700}}>🔒 Locked at starting balance</span>:<span>Trailing up with balance</span>}</div>
         </div>
         <div className="elev" style={{flex:1,padding:"12px 14px"}}>
-          <div style={{fontSize:9,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase",marginBottom:4}}>Buffer Left</div>
+          <div style={{fontSize:"var(--fs-xs)",color:"var(--t3)",fontWeight:500,letterSpacing:".07em",textTransform:"uppercase",marginBottom:4}}>Buffer Left</div>
           <div className="mono" style={{fontSize:20,fontWeight:500,color:bufferLeft<=0?"var(--red)":safe?"var(--green)":"var(--amber)",letterSpacing:"-.5px"}}>{ddLim>0?`$${Math.max(0,Math.round(bufferLeft)).toLocaleString()}`:"—"}</div>
           <div style={{fontSize:10,color:"var(--t2)",marginTop:3}}>{ddLim>0?`DD limit: $${ddLim.toLocaleString()}`:"Not set"}</div>
         </div>
@@ -685,7 +707,7 @@ const BreakdownCard=React.memo(function BreakdownCard({trades}){
   if(trades.length<3)return null;
   const maxS=Math.max(...sRows.map(r=>Math.abs(r.pnl)),1),maxI=Math.max(...iRows.map(r=>Math.abs(r.pnl)),1);
   return(
-    <div className="card" style={{padding:"18px",marginBottom:12}}>
+    <div className="card" style={{padding:"18px",marginBottom:16}}>
       {sRows.length>=2&&<>
         <div className="sec">Strategy</div>
         {sRows.map((r,i)=>(
@@ -750,7 +772,7 @@ const AlertBanner=React.memo(function AlertBanner({sorted}){
                 <div key={i} style={{display:"flex",alignItems:"center",gap:4,background:col+"18",borderRadius:99,padding:"2px 8px"}}>
                   <div style={{width:4,height:4,borderRadius:"50%",background:col}}/>
                   <span className="mono" style={{fontSize:10,color:col}}>{pnlHidden?"•••":fmt(t.pnl)}</span>
-                  <span style={{fontSize:9,color:col,opacity:.7}}>{t.date.slice(5)}</span>
+                  <span style={{fontSize:"var(--fs-xs)",color:col,opacity:.7}}>{t.date.slice(5)}</span>
                 </div>
               ))}
             </div>
@@ -758,7 +780,7 @@ const AlertBanner=React.memo(function AlertBanner({sorted}){
           <span className="mono" style={{fontSize:28,fontWeight:700,color:col,opacity:.2,flexShrink:0}}>{lossStreak}</span>
         </div>
         {streakHistory.filter(h=>h.type==="loss"&&h.count>=3).length>1&&(
-          <button onClick={()=>setShowHistory(v=>!v)} style={{marginTop:5,fontSize:10,color:"var(--t3)",background:"none",border:"none",cursor:"pointer",padding:"2px 4px",fontFamily:"var(--sans)"}}>
+          <button onClick={()=>setShowHistory(v=>!v)} style={{marginTop:5,fontSize:"var(--fs-sm)",color:"var(--t3)",background:"none",border:"none",cursor:"pointer",padding:"2px 4px",fontFamily:"var(--sans)"}}>
             {showHistory?"▲ Hide":"▼ Show"} past streaks
           </button>
         )}
@@ -858,11 +880,11 @@ function DashboardCalendar({trades,onLogTrade}){
         </div>
         <div style={{display:"flex",gap:16,alignItems:"center"}}>
           <div style={{textAlign:"right"}}>
-            <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".07em",textTransform:"uppercase",marginBottom:1}}>Monthly P&L</div>
+            <div style={{fontSize:"var(--fs-xs)",color:"var(--t3)",fontWeight:500,letterSpacing:".07em",textTransform:"uppercase",marginBottom:1}}>Monthly P&L</div>
             <div className="mono" style={{fontSize:13,fontWeight:700,color:pnlHidden?"var(--t3)":clr(mPnl)}}>{pnlHidden?PNL_MASK:fmt(mPnl)}</div>
           </div>
           <div style={{textAlign:"right"}}>
-            <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".07em",textTransform:"uppercase",marginBottom:1}}>Days</div>
+            <div style={{fontSize:"var(--fs-xs)",color:"var(--t3)",fontWeight:500,letterSpacing:".07em",textTransform:"uppercase",marginBottom:1}}>Days</div>
             <div className="mono" style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>{mWinDays}W / {mTradingDays-mWinDays}L</div>
           </div>
         </div>
@@ -875,7 +897,7 @@ function DashboardCalendar({trades,onLogTrade}){
         {DAYS.map((d,di)=>(
           <div key={d} style={{padding:"6px 0",textAlign:"center",fontSize:10,color:"var(--t3)",fontWeight:700,borderRight:"1px solid var(--line)",borderBottom:"1px solid var(--line)"}}>{d}</div>
         ))}
-        <div style={{padding:"6px 0",textAlign:"center",fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".05em",borderLeft:"1px solid var(--line)",borderBottom:"1px solid var(--line)"}}>WEEK</div>
+        <div style={{padding:"6px 0",textAlign:"center",fontSize:"var(--fs-xs)",color:"var(--t3)",fontWeight:500,letterSpacing:".05em",borderLeft:"1px solid var(--line)",borderBottom:"1px solid var(--line)"}}>WEEK</div>
 
         {/* Week rows */}
         {weeks.map((wk,wi)=>{
@@ -896,13 +918,13 @@ function DashboardCalendar({trades,onLogTrade}){
                   <div key={key} style={{minHeight:68,padding:"7px 8px",borderRight:"1px solid var(--line)",borderBottom:rowBorder,background:isNTD?"rgba(59,130,246,0.08)":isWin?"rgba(34,197,94,0.08)":isLoss?"rgba(239,68,68,0.08)":isT?"rgba(99,102,241,0.08)":"transparent",position:"relative"}}>
                     <div style={{fontSize:11,fontWeight:isT?800:500,color:isT?"var(--accent)":"var(--t2)",marginBottom:3}}>{day}</div>
                     {entry&&isNTD&&<>
-                      <div style={{fontSize:9,fontWeight:700,color:"var(--blue)",lineHeight:1.2,marginBottom:2}}>🚫 NTD</div>
-                      <div style={{fontSize:9,color:"var(--t3)",lineHeight:1.3}}>{entry.count} entry</div>
+                      <div style={{fontSize:"var(--fs-xs)",fontWeight:600,color:"var(--blue)",lineHeight:1.2,marginBottom:2}}>🚫 NTD</div>
+                      <div style={{fontSize:"var(--fs-xs)",color:"var(--t3)",lineHeight:1.3}}>{entry.count} entry</div>
                     </>}
                     {entry&&!isNTD&&<>
                       <div className="mono" style={{fontSize:11,fontWeight:700,color:pnlHidden?"var(--t3)":isWin?"var(--green)":"var(--red)",lineHeight:1.2,marginBottom:2}}>{pnlHidden?PNL_MASK:fmtK(pnl)}</div>
-                      <div style={{fontSize:9,color:"var(--t3)",lineHeight:1.3}}>{entry.count} trade{entry.count>1?"s":""}</div>
-                      <div style={{fontSize:9,color:"var(--t3)"}}>{winPct}%</div>
+                      <div style={{fontSize:"var(--fs-xs)",color:"var(--t3)",lineHeight:1.3}}>{entry.count} trade{entry.count>1?"s":""}</div>
+                      <div style={{fontSize:"var(--fs-xs)",color:"var(--t3)"}}>{winPct}%</div>
                     </>}
                     {isT&&!entry&&<div style={{width:3,height:3,borderRadius:"50%",background:"var(--accent)",position:"absolute",bottom:6,left:"50%",transform:"translateX(-50%)"}}/>}
                   </div>
@@ -913,7 +935,7 @@ function DashboardCalendar({trades,onLogTrade}){
                 {ws.days>0?(
                   <>
                     <div className="mono" style={{fontSize:11,fontWeight:700,color:pnlHidden?"var(--t3)":clr(ws.pnl),marginBottom:1}}>{pnlHidden?PNL_MASK:fmtK(ws.pnl)}</div>
-                    <div style={{fontSize:9,color:"var(--t3)"}}>{ws.days}d</div>
+                    <div style={{fontSize:"var(--fs-xs)",color:"var(--t3)"}}>{ws.days}d</div>
                   </>
                 ):(
                   <div className="mono" style={{fontSize:11,color:"var(--t3)"}}>$0</div>
@@ -958,7 +980,7 @@ function CalendarView({trades}){
           </div>)}
         </div>
         <div style={{display:"flex",gap:3,marginBottom:10}}>
-          {data.map((d,i)=>{if(data.length>14&&i%Math.ceil(data.length/7)!==0)return<div key={i} style={{flex:1}}/>;return<div key={i} style={{flex:1,fontSize:9,color:"var(--t3)",textAlign:"center",fontFamily:"var(--mono)"}}>{d.l}</div>})}
+          {data.map((d,i)=>{if(data.length>14&&i%Math.ceil(data.length/7)!==0)return<div key={i} style={{flex:1}}/>;return<div key={i} style={{flex:1,fontSize:"var(--fs-xs)",color:"var(--t3)",textAlign:"center",fontFamily:"var(--mono)"}}>{d.l}</div>})}
         </div>
         <div style={{display:"flex",justifyContent:"space-between",paddingTop:10,borderTop:"1px solid var(--line)"}}>
           <div><div style={{fontSize:10,color:"var(--t3)",marginBottom:2}}>Total</div><div className="mono" style={{fontSize:14,fontWeight:500,color:clr(total)}}>{fmt(total)}</div></div>
@@ -981,7 +1003,7 @@ function CalendarView({trades}){
           <button onClick={next} className="tap" style={{background:"var(--elevated)",border:"none",width:32,height:32,borderRadius:"var(--r-sm)",display:"flex",alignItems:"center",justifyContent:"center"}}><IcoChR size={15} col="var(--t1)"/></button>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3,marginBottom:3}}>
-          {DAYS.map(d=><div key={d} style={{textAlign:"center",fontSize:9,color:"var(--t3)",fontWeight:600}}>{d[0]}</div>)}
+          {DAYS.map(d=><div key={d} style={{textAlign:"center",fontSize:"var(--fs-xs)",color:"var(--t3)",fontWeight:500}}>{d[0]}</div>)}
         </div>
         <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:3}}>
           {cells.map((day,i)=>{
@@ -991,7 +1013,7 @@ function CalendarView({trades}){
             return(
               <div key={key} style={{borderRadius:"var(--r-sm)",padding:"5px 2px",textAlign:"center",background:pnl!==undefined?clrDim(pnl):isT?"var(--green-dim)":"transparent",border:isT?"1px solid rgba(45,214,117,0.27)":"1px solid transparent",minHeight:38}}>
                 <div style={{fontSize:10,color:pnl!==undefined?"var(--t2)":"var(--t2)",fontWeight:isT?700:500}}>{day}</div>
-                {pnl!==undefined&&<div className="mono" style={{fontSize:7,color:"var(--t2)",marginTop:1,lineHeight:1.1}}>{pnl>0?"+":"−"}${Math.abs(pnl).toLocaleString()}</div>}
+                {pnl!==undefined&&<div className="mono" style={{fontSize:"var(--fs-xs)",color:"var(--t2)",marginTop:1,lineHeight:1.1}}>{pnl>0?"+":"−"}${Math.abs(pnl).toLocaleString()}</div>}
               </div>
             );
           })}
@@ -1460,9 +1482,9 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
           <div>
             <label style={lbl}>Entry Price / SL / TP <span style={{color:"var(--t3)",fontWeight:400,textTransform:"none",letterSpacing:0}}>(optional)</span></label>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
-              <div><div style={{fontSize:9,color:"var(--t3)",fontWeight:600,marginBottom:4,textTransform:"uppercase",letterSpacing:".06em"}}>Entry</div><input type="number" step="0.01" placeholder="0.00" value={form.entryPrice} onChange={e=>set("entryPrice",e.target.value)} className="inp mono" style={{padding:"9px 10px"}}/></div>
-              <div><div style={{fontSize:9,color:"var(--red)",fontWeight:600,marginBottom:4,textTransform:"uppercase",letterSpacing:".06em"}}>Stop Loss</div><input type="number" step="0.01" placeholder="0.00" value={form.stopLoss} onChange={e=>set("stopLoss",e.target.value)} className="inp mono" style={{padding:"9px 10px",borderColor:form.stopLoss?"rgba(240,72,74,0.2)":"var(--line-md)"}}/></div>
-              <div><div style={{fontSize:9,color:"var(--green)",fontWeight:600,marginBottom:4,textTransform:"uppercase",letterSpacing:".06em"}}>Take Profit</div><input type="number" step="0.01" placeholder="0.00" value={form.takeProfit} onChange={e=>set("takeProfit",e.target.value)} className="inp mono" style={{padding:"9px 10px",borderColor:form.takeProfit?"rgba(45,214,117,0.2)":"var(--line-md)"}}/></div>
+              <div><div style={{fontSize:"var(--fs-xs)",color:"var(--t3)",fontWeight:500,marginBottom:4,textTransform:"uppercase",letterSpacing:".06em"}}>Entry</div><input type="number" step="0.01" placeholder="0.00" value={form.entryPrice} onChange={e=>set("entryPrice",e.target.value)} className="inp mono" style={{padding:"9px 10px"}}/></div>
+              <div><div style={{fontSize:"var(--fs-xs)",color:"var(--red)",fontWeight:500,marginBottom:4,textTransform:"uppercase",letterSpacing:".06em"}}>Stop Loss</div><input type="number" step="0.01" placeholder="0.00" value={form.stopLoss} onChange={e=>set("stopLoss",e.target.value)} className="inp mono" style={{padding:"9px 10px",borderColor:form.stopLoss?"rgba(240,72,74,0.2)":"var(--line-md)"}}/></div>
+              <div><div style={{fontSize:"var(--fs-xs)",color:"var(--green)",fontWeight:500,marginBottom:4,textTransform:"uppercase",letterSpacing:".06em"}}>Take Profit</div><input type="number" step="0.01" placeholder="0.00" value={form.takeProfit} onChange={e=>set("takeProfit",e.target.value)} className="inp mono" style={{padding:"9px 10px",borderColor:form.takeProfit?"rgba(45,214,117,0.2)":"var(--line-md)"}}/></div>
             </div>
             
           </div>
@@ -1491,7 +1513,7 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
                 :<input type="number" placeholder="250 or -100" value={form.pnl} onChange={e=>set("pnl",e.target.value)} className="inp mono" style={{color:form.pnl?clr(pnlVal):"var(--t1)",borderColor:form.pnl?(pnlVal>0?"var(--green)":pnlVal<0?"var(--red)":"var(--line-md)"):"var(--line-md)"}}/>
               }
             </div>
-            <div style={{flex:1}}><label style={lbl}>R:R {autoRR&&<span style={{fontSize:9,padding:"2px 6px",background:"var(--amber)22",color:"var(--amber)",borderRadius:99,fontWeight:700}}>AUTO</span>}</label><div className="inp mono" style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--elevated)",borderColor:autoRR?"var(--amber)44":"var(--line-md)",cursor:"default"}}>{autoRR?(<><span style={{color:"var(--amber)",fontWeight:700}}>{autoRR}R</span><span style={{fontSize:10,color:"var(--t3)"}}>from E/SL/TP</span></>):(<span style={{color:"var(--t3)",fontSize:12}}>Fill Entry/SL/TP</span>)}</div></div>
+            <div style={{flex:1}}><label style={lbl}>R:R {autoRR&&<span style={{fontSize:"var(--fs-xs)",padding:"2px 6px",background:"var(--amber)22",color:"var(--amber)",borderRadius:99,fontWeight:700}}>AUTO</span>}</label><div className="inp mono" style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--elevated)",borderColor:autoRR?"var(--amber)44":"var(--line-md)",cursor:"default"}}>{autoRR?(<><span style={{color:"var(--amber)",fontWeight:700}}>{autoRR}R</span><span style={{fontSize:10,color:"var(--t3)"}}>from E/SL/TP</span></>):(<span style={{color:"var(--t3)",fontSize:12}}>Fill Entry/SL/TP</span>)}</div></div>
           </div>
           </>}
           {/* ── TAB 2: REVIEW ── */}
@@ -2400,12 +2422,12 @@ function PayoutTracker({activeId}){
       {/* Summary */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
         <div style={{background:"var(--green-dim)",border:"1px solid rgba(45,214,117,0.13)",borderRadius:"var(--r-md)",padding:"12px 14px"}}>
-          <div style={{fontSize:9,color:"var(--green)",fontWeight:700,letterSpacing:".07em",textTransform:"uppercase",marginBottom:4}}>Total Received</div>
+          <div style={{fontSize:"var(--fs-xs)",color:"var(--green)",fontWeight:500,letterSpacing:".07em",textTransform:"uppercase",marginBottom:4}}>Total Received</div>
           <div className="mono" style={{fontSize:20,fontWeight:700,color:pnlHidden?"var(--t3)":"var(--green)"}}>{pnlHidden?"••••••":fmtBal(totalReceived)}</div>
           <div style={{fontSize:10,color:"var(--t3)",marginTop:2}}>{payouts.filter(p=>p.status==="received").length} payout</div>
         </div>
         <div style={{background:"var(--amber-dim)",border:"1px solid var(--amber)22",borderRadius:"var(--r-md)",padding:"12px 14px"}}>
-          <div style={{fontSize:9,color:"var(--amber)",fontWeight:700,letterSpacing:".07em",textTransform:"uppercase",marginBottom:4}}>Pending</div>
+          <div style={{fontSize:"var(--fs-xs)",color:"var(--amber)",fontWeight:500,letterSpacing:".07em",textTransform:"uppercase",marginBottom:4}}>Pending</div>
           <div className="mono" style={{fontSize:20,fontWeight:700,color:pnlHidden?"var(--t3)":"var(--amber)"}}>{pnlHidden?"••••••":fmtBal(totalPending)}</div>
           <div style={{fontSize:10,color:"var(--t3)",marginTop:2}}>{payouts.filter(p=>p.status==="pending").length} payout</div>
         </div>
@@ -2416,16 +2438,16 @@ function PayoutTracker({activeId}){
         <div style={{background:"var(--elevated)",borderRadius:"var(--r-md)",padding:"14px",marginBottom:14,border:"1px solid var(--line)"}}>
           <div style={{display:"flex",gap:8,marginBottom:10}}>
             <div style={{flex:1}}>
-              <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".07em",textTransform:"uppercase",marginBottom:5}}>Jumlah ($)</div>
+              <div style={{fontSize:"var(--fs-xs)",color:"var(--t3)",fontWeight:500,letterSpacing:".07em",textTransform:"uppercase",marginBottom:5}}>Jumlah ($)</div>
               <input className="inp mono" type="number" placeholder="0.00" value={form.amount} onChange={e=>setForm(f=>({...f,amount:e.target.value}))} style={{padding:"8px 10px",fontSize:14}} autoFocus/>
             </div>
             <div style={{flex:1}}>
-              <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".07em",textTransform:"uppercase",marginBottom:5}}>Tanggal Request</div>
+              <div style={{fontSize:"var(--fs-xs)",color:"var(--t3)",fontWeight:500,letterSpacing:".07em",textTransform:"uppercase",marginBottom:5}}>Tanggal Request</div>
               <input className="inp" type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} style={{padding:"8px 10px",fontSize:13}}/>
             </div>
           </div>
           <div style={{marginBottom:10}}>
-            <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".07em",textTransform:"uppercase",marginBottom:5}}>Status</div>
+            <div style={{fontSize:"var(--fs-xs)",color:"var(--t3)",fontWeight:500,letterSpacing:".07em",textTransform:"uppercase",marginBottom:5}}>Status</div>
             <div style={{display:"flex",gap:6}}>
               {["pending","received","rejected"].map(s=>(
                 <button key={s} onClick={()=>setForm(f=>({...f,status:s}))} className="tap" style={{flex:1,padding:"7px 4px",borderRadius:"var(--r-sm)",border:"none",background:form.status===s?statusStyle[s].bg:"var(--overlay)",color:form.status===s?statusStyle[s].col:"var(--t3)",fontSize:11,fontWeight:700,textTransform:"capitalize"}}>{statusStyle[s].label}</button>
@@ -2508,7 +2530,7 @@ function NewsTicker(){
         border:isToday?`1px solid ${ic}44`:"none",
         boxSizing:"border-box"}}>
         <span style={{width:7,height:7,borderRadius:"50%",background:ic,display:"inline-block",flexShrink:0,boxShadow:isToday?`0 0 6px ${ic}`:"none"}}/>
-        {isToday&&<span style={{fontSize:9,fontWeight:800,color:ic,letterSpacing:".06em"}}>TODAY</span>}
+        {isToday&&<span style={{fontSize:"var(--fs-xs)",fontWeight:700,color:ic,letterSpacing:".06em"}}>TODAY</span>}
         {!isToday&&<span style={{color:"var(--t3)",fontSize:10,fontWeight:600}}>{date}</span>}
         <span style={{color:isToday?"var(--t1)":"var(--t2)",fontSize:11,fontWeight:isToday?700:600}}>{e.event}</span>
         <span style={{color:isToday?"var(--t2)":"var(--t3)",fontSize:10}}>{wib}</span>
@@ -2526,8 +2548,8 @@ function NewsTicker(){
       {todayEvents.length>0&&(
         <div className="card" style={{padding:"8px 12px",marginBottom:6,borderLeft:"3px solid var(--accent)"}}>
           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
-            <span style={{fontSize:9,fontWeight:800,color:"var(--accent)",letterSpacing:".1em",textTransform:"uppercase"}}>Today's News</span>
-            <span style={{fontSize:9,color:"var(--t3)",fontWeight:600}}>{new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</span>
+            <span style={{fontSize:"var(--fs-xs)",fontWeight:700,color:"var(--accent)",letterSpacing:".08em",textTransform:"uppercase"}}>Today's News</span>
+            <span style={{fontSize:"var(--fs-xs)",color:"var(--t3)",fontWeight:400}}>{new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})}</span>
           </div>
           <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
             {todayEvents.map((e,i)=>{
@@ -2654,7 +2676,7 @@ function TradeReviewView({trades}){
           {l:"Loss Trades",v:withImages.filter(t=>t.pnl<0).length,c:"var(--red)"},
         ].map(s=>(
           <div key={s.l} className="card" style={{padding:"12px 14px"}}>
-            <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".07em",textTransform:"uppercase",marginBottom:4}}>{s.l}</div>
+            <div style={{fontSize:"var(--fs-xs)",color:"var(--t3)",fontWeight:500,letterSpacing:".07em",textTransform:"uppercase",marginBottom:4}}>{s.l}</div>
             <div className="mono" style={{fontSize:20,fontWeight:700,color:s.c}}>{s.v}</div>
           </div>
         ))}
@@ -2721,7 +2743,7 @@ function TradeReviewView({trades}){
                 </div>
                 {/* Multiple screenshots indicator */}
                 {t.images.length>1&&(
-                  <div style={{position:"absolute",top:6,right:6,padding:"2px 7px",borderRadius:99,fontSize:9,fontWeight:700,background:"rgba(0,0,0,.6)",color:"rgba(255,255,255,.8)"}}>
+                  <div style={{position:"absolute",top:6,right:6,padding:"2px 7px",borderRadius:99,fontSize:"var(--fs-xs)",fontWeight:500,background:"rgba(0,0,0,.6)",color:"rgba(255,255,255,.8)"}}>
                     {shot.imgIdx+1}/{t.images.length}
                   </div>
                 )}
@@ -2732,9 +2754,9 @@ function TradeReviewView({trades}){
                     <span className="mono" style={{fontSize:11,fontWeight:700,color:col}}>{pnlHidden?"••••":fmt(t.pnl)}</span>
                   </div>
                   <div style={{display:"flex",gap:5,alignItems:"center"}}>
-                    <span style={{fontSize:9,color:"var(--t3)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.strategy}</span>
-                    {t.instrument&&<><span style={{fontSize:9,color:"var(--t3)"}}>·</span><span style={{fontSize:9,color:"var(--t3)"}}>{t.instrument}</span></>}
-                    {t.rr>0&&<><span style={{fontSize:9,color:"var(--t3)"}}>·</span><span className="mono" style={{fontSize:9,color:"var(--t3)"}}>{t.rr}R</span></>}
+                    <span style={{fontSize:"var(--fs-xs)",color:"var(--t3)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.strategy}</span>
+                    {t.instrument&&<><span style={{fontSize:"var(--fs-xs)",color:"var(--t3)"}}>·</span><span style={{fontSize:"var(--fs-xs)",color:"var(--t3)"}}>{t.instrument}</span></>}
+                    {t.rr>0&&<><span style={{fontSize:"var(--fs-xs)",color:"var(--t3)"}}>·</span><span className="mono" style={{fontSize:"var(--fs-xs)",color:"var(--t3)"}}>{t.rr}R</span></>}
                   </div>
                 </div>
               </div>
@@ -2871,7 +2893,7 @@ function LessonsView({trades,onOpenTrade}){
             return(
               <button key={tg} onClick={()=>setFilterTag(tg)} className="tap" style={{padding:"4px 10px",borderRadius:99,border:`1px solid ${active?(bad?"var(--red)":"var(--accent)"):"var(--line-md)"}`,background:active?(bad?"var(--red-dim)":"var(--accent-dim)"):"transparent",color:active?(bad?"var(--red)":"var(--accent)"):"var(--t3)",fontSize:11,fontWeight:600}}>
                 {tg==="all"?"All lessons":tg}
-                {tg!=="all"&&badTagCounts[tg]>=2&&<span style={{marginLeft:5,background:bad?"var(--red)":"var(--amber)",color:"#fff",borderRadius:99,fontSize:9,fontWeight:700,padding:"1px 5px"}}>{badTagCounts[tg]}</span>}
+                {tg!=="all"&&badTagCounts[tg]>=2&&<span style={{marginLeft:5,background:bad?"var(--red)":"var(--amber)",color:"#fff",borderRadius:99,fontSize:"var(--fs-xs)",fontWeight:600,padding:"1px 5px"}}>{badTagCounts[tg]}</span>}
               </button>
             );
           })}
@@ -3029,7 +3051,7 @@ function ReviewView({trades,onOpenTrade}){
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))",gap:8}}>
         {rows.filter(r=>r.v).map(r=>(
           <div key={r.l} className="elev" style={{padding:"9px 11px",borderRadius:"var(--r-md)"}}>
-            <div style={{fontSize:9,fontWeight:700,color:"var(--t3)",letterSpacing:".07em",textTransform:"uppercase",marginBottom:3}}>{r.l}</div>
+            <div style={{fontSize:"var(--fs-xs)",fontWeight:500,color:"var(--t3)",letterSpacing:".07em",textTransform:"uppercase",marginBottom:3}}>{r.l}</div>
             <div className={r.mono?"mono":""} style={{fontSize:13,fontWeight:600,color:r.c||"var(--t1)",lineHeight:1.3}}>{r.v}</div>
           </div>
         ))}
@@ -3248,7 +3270,7 @@ function ReviewView({trades,onOpenTrade}){
                 <div style={{...rowLbl,marginBottom:10}}>Screenshots ({imgs.length})</div>
                 <div onClick={()=>setImgLb(true)} style={{cursor:"zoom-in",borderRadius:"var(--r-md)",overflow:"hidden",background:"#000",aspectRatio:"16/9",position:"relative",marginBottom:imgs.length>1?8:0}}>
                   <img src={imgs[imgIdx]} alt="" style={{width:"100%",height:"100%",objectFit:"contain",display:"block"}}/>
-                  <div style={{position:"absolute",top:8,right:8,background:"rgba(0,0,0,.55)",backdropFilter:"blur(4px)",borderRadius:5,padding:"2px 8px",fontSize:9,color:"rgba(255,255,255,.75)",fontWeight:600}}>
+                  <div style={{position:"absolute",top:8,right:8,background:"rgba(0,0,0,.55)",backdropFilter:"blur(4px)",borderRadius:5,padding:"2px 8px",fontSize:"var(--fs-xs)",color:"rgba(255,255,255,.75)",fontWeight:600}}>
                     {imgIdx+1}/{imgs.length} · tap to zoom
                   </div>
                   <div style={{position:"absolute",top:8,left:8,padding:"2px 9px",borderRadius:99,fontSize:10,fontWeight:800,background:ntd?"var(--blue)":win?"var(--green)":"var(--red)",color:"#000"}}>
@@ -3287,7 +3309,7 @@ function ReviewView({trades,onOpenTrade}){
           {l:"Avg Win",v:stats.avgW?`$${Math.round(stats.avgW)}`:"—",c:"var(--green)"},
         ].map(s=>(
           <div key={s.l} className="elev stat-card-inner stat-card-accent" style={{padding:"11px 12px"}}>
-            <div style={{fontSize:9,fontWeight:700,color:"var(--t3)",letterSpacing:".08em",textTransform:"uppercase",marginBottom:5}}>{s.l}</div>
+            <div style={{fontSize:"var(--fs-xs)",fontWeight:500,color:"var(--t3)",letterSpacing:".07em",textTransform:"uppercase",marginBottom:5}}>{s.l}</div>
             <div className="mono" style={{fontSize:16,fontWeight:700,color:s.c,lineHeight:1}}>{s.v}</div>
           </div>
         ))}
@@ -3371,7 +3393,7 @@ function ReviewView({trades,onOpenTrade}){
                       <div style={{display:"flex",alignItems:"center",gap:5,marginTop:3}}>
                         <span style={{fontSize:11,color:"var(--t3)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1}}>{t.strategy||"—"}</span>
                         {(t.lesson?.trim()||t.notes?.trim())&&<span style={{fontSize:10,color:"var(--amber)",flexShrink:0,lineHeight:1}}>💡</span>}
-                        {t.images?.length>0&&<span style={{fontSize:9,color:"var(--t3)",flexShrink:0}}>📷{t.images.length}</span>}
+                        {t.images?.length>0&&<span style={{fontSize:"var(--fs-xs)",color:"var(--t3)",flexShrink:0}}>📷{t.images.length}</span>}
                       </div>
                     </div>
                   </div>
@@ -3493,7 +3515,7 @@ function GoalTracker({trades,accountBalance}){
             <input className="inp" placeholder="Goal name (e.g. Hit $2k profit)" value={form.label} onChange={e=>setForm(f=>({...f,label:e.target.value}))} style={{fontSize:13,padding:"9px 12px"}} autoFocus/>
             <div style={{display:"flex",gap:8}}>
               <div style={{flex:1}}>
-                <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".07em",textTransform:"uppercase",marginBottom:5}}>Type</div>
+                <div style={{fontSize:"var(--fs-xs)",color:"var(--t3)",fontWeight:500,letterSpacing:".07em",textTransform:"uppercase",marginBottom:5}}>Type</div>
                 <div style={{display:"flex",gap:4}}>
                   {[{v:"pnl",l:"P&L $"},{v:"trades",l:"Trades"},{v:"winrate",l:"Win %"}].map(o=>(
                     <button key={o.v} onClick={()=>setForm(f=>({...f,type:o.v}))} className="tap" style={{flex:1,padding:"7px 4px",borderRadius:"var(--r-sm)",border:"none",background:form.type===o.v?"var(--accent-dim)":"var(--overlay)",color:form.type===o.v?"var(--accent)":"var(--t3)",fontSize:10,fontWeight:700}}>{o.l}</button>
@@ -3501,7 +3523,7 @@ function GoalTracker({trades,accountBalance}){
                 </div>
               </div>
               <div style={{flex:1}}>
-                <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".07em",textTransform:"uppercase",marginBottom:5}}>Period</div>
+                <div style={{fontSize:"var(--fs-xs)",color:"var(--t3)",fontWeight:500,letterSpacing:".07em",textTransform:"uppercase",marginBottom:5}}>Period</div>
                 <div style={{display:"flex",gap:4}}>
                   {[{v:"weekly",l:"Week"},{v:"monthly",l:"Month"},{v:"alltime",l:"All"}].map(o=>(
                     <button key={o.v} onClick={()=>setForm(f=>({...f,period:o.v}))} className="tap" style={{flex:1,padding:"7px 4px",borderRadius:"var(--r-sm)",border:"none",background:form.period===o.v?"var(--accent-dim)":"var(--overlay)",color:form.period===o.v?"var(--accent)":"var(--t3)",fontSize:10,fontWeight:700}}>{o.l}</button>
@@ -3547,8 +3569,8 @@ function GoalTracker({trades,accountBalance}){
                 <div style={{height:"100%",width:`${pct}%`,background:done?"var(--green)":negative?"var(--red)":"var(--accent)",borderRadius:99,transition:"width .4s"}}/>
               </div>
               <div style={{display:"flex",justifyContent:"space-between",marginTop:4}}>
-                <span style={{fontSize:9,color:"var(--t3)"}}>{Math.round(pct)}% complete</span>
-                {!done&&goal.type==="pnl"&&<span style={{fontSize:9,color:"var(--t3)"}} className="mono">{pnlHidden?PNL_MASK:(fmt(goal.target-Math.max(prog,0))+" to go")}</span>}
+                <span style={{fontSize:"var(--fs-xs)",color:"var(--t3)"}}>{Math.round(pct)}% complete</span>
+                {!done&&goal.type==="pnl"&&<span style={{fontSize:"var(--fs-xs)",color:"var(--t3)"}} className="mono">{pnlHidden?PNL_MASK:(fmt(goal.target-Math.max(prog,0))+" to go")}</span>}
               </div>
             </div>
           );
@@ -3666,7 +3688,7 @@ function AnalyticsView({trades,accountBalance}){
           return(
             <div key={i} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-end",height:height+20,gap:2}}>
               <div style={{width:"100%",height:h2,background:col,borderRadius:"3px 3px 0 0",opacity:.85}}/>
-              <div style={{fontSize:8,color:"var(--t3)",textAlign:"center",lineHeight:1.1,fontFamily:"var(--mono)"}}>{d.l}</div>
+              <div style={{fontSize:"var(--fs-xs)",color:"var(--t3)",textAlign:"center",lineHeight:1.1,fontFamily:"var(--mono)"}}>{d.l}</div>
             </div>
           );
         })}
@@ -3955,14 +3977,14 @@ function AnalyticsView({trades,accountBalance}){
               <div style={{minWidth:320}}>
                 {/* Hour labels */}
                 <div style={{display:"flex",marginLeft:36,marginBottom:3,gap:2}}>
-                  {HOURS.map(h=><div key={h} style={{flex:1,textAlign:"center",fontSize:8,color:"var(--t3)",fontFamily:"var(--mono)"}}>{h}</div>)}
+                  {HOURS.map(h=><div key={h} style={{flex:1,textAlign:"center",fontSize:"var(--fs-xs)",color:"var(--t3)",fontFamily:"var(--mono)"}}>{h}</div>)}
                 </div>
                 {/* Grid rows */}
                 {WDAYS.map((day,di)=>{
                   const dow=di+1;
                   return(
                     <div key={day} style={{display:"flex",alignItems:"center",gap:2,marginBottom:2}}>
-                      <div style={{width:32,fontSize:9,color:"var(--t3)",fontWeight:600,flexShrink:0}}>{day}</div>
+                      <div style={{width:32,fontSize:"var(--fs-xs)",color:"var(--t3)",fontWeight:500,flexShrink:0}}>{day}</div>
                       {HOURS.map(hr=>{
                         const key=`${dow}-${hr}`;
                         const cell=hm[key];
@@ -3970,7 +3992,7 @@ function AnalyticsView({trades,accountBalance}){
                         const bg=cell?(cell.pnl>=0?`rgba(34,197,94,${intensity})`:`rgba(239,68,68,${intensity})`):"var(--elevated)";
                         return(
                           <div key={hr} title={cell?`${fmt(cell.pnl)} (${cell.n}T)`:"No trades"} style={{flex:1,height:28,borderRadius:4,background:bg,cursor:cell?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                            {cell&&cell.n>1&&<span style={{fontSize:7,color:"rgba(255,255,255,0.7)",fontWeight:700}}>{cell.n}</span>}
+                            {cell&&cell.n>1&&<span style={{fontSize:"var(--fs-xs)",color:"rgba(255,255,255,0.7)",fontWeight:500}}>{cell.n}</span>}
                           </div>
                         );
                       })}
@@ -3979,7 +4001,7 @@ function AnalyticsView({trades,accountBalance}){
                 })}
                 {/* Hour totals bar */}
                 <div style={{display:"flex",alignItems:"center",gap:2,marginTop:6}}>
-                  <div style={{width:32,fontSize:8,color:"var(--t3)",fontWeight:700,flexShrink:0}}>Total</div>
+                  <div style={{width:32,fontSize:"var(--fs-xs)",color:"var(--t3)",fontWeight:500,flexShrink:0}}>Total</div>
                   {HOURS.map(hr=>{
                     const ht=hourTotals[hr];
                     const maxHr=Math.max(...Object.values(hourTotals).map(v=>Math.abs(v.pnl)),1);
@@ -3990,15 +4012,15 @@ function AnalyticsView({trades,accountBalance}){
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:8,marginTop:10,justifyContent:"space-between",flexWrap:"wrap"}}>
                   <div style={{display:"flex",gap:12}}>
-                    {bestHr&&<div style={{fontSize:10,color:"var(--t3)"}}>Best hour <span className="mono" style={{color:"var(--green)",fontWeight:700}}>{bestHr[0]}:00</span> ({pnlHidden?PNL_MASK:fmt(bestHr[1].pnl)})</div>}
-                    {worstHr&&<div style={{fontSize:10,color:"var(--t3)"}}>Worst <span className="mono" style={{color:"var(--red)",fontWeight:700}}>{worstHr[0]}:00</span> ({pnlHidden?PNL_MASK:fmt(worstHr[1].pnl)})</div>}
+                    {bestHr&&<div style={{fontSize:"var(--fs-xs)",color:"var(--t3)"}}>Best hour <span className="mono" style={{color:"var(--green)",fontWeight:700}}>{bestHr[0]}:00</span> ({pnlHidden?PNL_MASK:fmt(bestHr[1].pnl)})</div>}
+                    {worstHr&&<div style={{fontSize:"var(--fs-xs)",color:"var(--t3)"}}>Worst <span className="mono" style={{color:"var(--red)",fontWeight:700}}>{worstHr[0]}:00</span> ({pnlHidden?PNL_MASK:fmt(worstHr[1].pnl)})</div>}
                   </div>
                   <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <span style={{fontSize:9,color:"var(--t3)"}}>Loss</span>
+                    <span style={{fontSize:"var(--fs-xs)",color:"var(--t3)"}}>Loss</span>
                     {[.8,.5,.2].map(o=><div key={o} style={{width:12,height:12,borderRadius:3,background:`rgba(239,68,68,${o})`}}/>)}
                     <div style={{width:12,height:12,borderRadius:3,background:"var(--elevated)"}}/>
                     {[.2,.5,.8].map(o=><div key={o} style={{width:12,height:12,borderRadius:3,background:`rgba(34,197,94,${o})`}}/>)}
-                    <span style={{fontSize:9,color:"var(--t3)"}}>Win</span>
+                    <span style={{fontSize:"var(--fs-xs)",color:"var(--t3)"}}>Win</span>
                   </div>
                 </div>
               </div>
@@ -4027,45 +4049,44 @@ const Sidebar=React.memo(function Sidebar({tab,setTab,onBackup,syncStatus,plusAc
   return(
     <div className="sidebar" style={{display:"none",width:"var(--sidebar-w)",background:"var(--surface)",borderRight:"1px solid var(--line)",position:"fixed",top:0,left:0,bottom:0,flexDirection:"column",zIndex:50}}>
       {/* Logo */}
-      <div style={{padding:"16px 16px 14px",borderBottom:"1px solid var(--line)"}}>
+      <div style={{padding:"18px 16px 16px"}}>
         <div style={{display:"flex",alignItems:"center",gap:11}}>
           <div style={{width:32,height:32,borderRadius:"var(--r-md)",background:"linear-gradient(135deg,var(--accent) 0%,#8B5CF6 100%)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:"0 2px 12px rgba(108,111,245,0.4)"}}>
             <IcoTrendUp size={15} col="#fff"/>
           </div>
           <div>
-            <div style={{fontSize:14,fontWeight:800,color:"var(--t1)",letterSpacing:"-.5px",lineHeight:1}}>Trade Journal</div>
-            <div style={{fontSize:10,color:"var(--t3)",fontWeight:500,marginTop:2,letterSpacing:".03em"}}>Performance Tracker</div>
+            <div style={{fontSize:14,fontWeight:700,color:"var(--t1)",letterSpacing:"-.5px",lineHeight:1}}>Trade Journal</div>
+            <div style={{fontSize:"var(--fs-sm)",color:"var(--t3)",fontWeight:400,marginTop:2,letterSpacing:".02em"}}>Performance Tracker</div>
           </div>
         </div>
       </div>
 
-      {/* Account pill */}
+      {/* Account pill — no border-bottom, sits flush before nav divider */}
       {acc&&(
-        <div style={{padding:"8px 12px",borderBottom:"1px solid var(--line)"}}>
-          <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".08em",textTransform:"uppercase",marginBottom:7}}>Active Account</div>
-          <button onClick={onManage} className="tap nav-item" style={{width:"100%",display:"flex",alignItems:"center",gap:9,padding:"9px 10px",borderRadius:"var(--r-md)",background:"var(--elevated)",border:"1px solid var(--line)",cursor:"pointer"}}>
+        <div style={{padding:"0 12px 12px"}}>
+          <div style={{fontSize:"var(--fs-sm)",color:"var(--t3)",fontWeight:500,letterSpacing:".08em",textTransform:"uppercase",marginBottom:6}}>Active Account</div>
+          <button onClick={onManage} className="tap nav-item" style={{width:"100%",display:"flex",alignItems:"center",gap:9,padding:"8px 10px",borderRadius:"var(--r-md)",background:"var(--elevated)",border:"1px solid var(--line)",cursor:"pointer"}}>
             <div style={{width:26,height:26,borderRadius:"50%",background:acc.color,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
-              <span style={{fontSize:10,fontWeight:800,color:"#000"}}>{acc.name.charAt(0)}</span>
+              <span style={{fontSize:10,fontWeight:700,color:"#000"}}>{acc.name.charAt(0)}</span>
             </div>
             <div style={{flex:1,minWidth:0,textAlign:"left"}}>
-              <div style={{fontSize:12,fontWeight:700,color:"var(--t1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{acc.name}</div>
-              <div className="mono" style={{fontSize:9,color:"var(--t3)"}}>{fmtBal(acc.balance||DEF_BAL)}</div>
+              <div style={{fontSize:12,fontWeight:600,color:"var(--t1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{acc.name}</div>
+              <div className="mono" style={{fontSize:"var(--fs-xs)",color:"var(--t3)"}}>{fmtBal(acc.balance||DEF_BAL)}</div>
             </div>
             <IcoChR size={11} col="var(--t3)"/>
           </button>
         </div>
       )}
 
-      {/* Nav */}
-      <div style={{flex:1,padding:"10px 10px",overflowY:"auto"}}>
-        <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".09em",textTransform:"uppercase",padding:"4px 6px 8px"}}>Menu</div>
+      {/* Nav — single divider separates identity area from navigation */}
+      <div style={{flex:1,padding:"8px 10px",overflowY:"auto",borderTop:"1px solid var(--line)"}}>
+        <div style={{fontSize:"var(--fs-sm)",color:"var(--t3)",fontWeight:500,letterSpacing:".08em",textTransform:"uppercase",padding:"6px 6px 8px"}}>Menu</div>
         {NAV.map(({id,l,I})=>{const a=tab===id;return(
-          <button key={id} onClick={()=>setTab(id)} className="tap nav-item" style={{width:"100%",display:"flex",alignItems:"center",gap:9,padding:"8px 10px",borderRadius:"var(--r-md)",border:a?"1px solid rgba(108,111,245,0.25)":"1px solid transparent",background:a?"var(--accent-dim)":"transparent",cursor:"pointer",marginBottom:2,fontFamily:"var(--sans)"}}>
-            <div style={{width:26,height:26,borderRadius:"var(--r-sm)",background:a?"rgba(108,111,245,0.2)":"var(--elevated)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"background .14s"}}>
-              <I size={13} col={a?"var(--accent)":"var(--t3)"}/>
+          <button key={id} onClick={()=>setTab(id)} className="tap nav-item" style={{width:"100%",display:"flex",alignItems:"center",gap:9,padding:"7px 10px",borderRadius:"var(--r-md)",border:"none",background:a?"var(--accent-dim)":"transparent",cursor:"pointer",marginBottom:1,fontFamily:"var(--sans)"}}>
+            <div style={{width:28,height:28,borderRadius:"var(--r-sm)",background:a?"rgba(108,111,245,0.18)":"var(--elevated)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"background .14s"}}>
+              <I size={14} col={a?"var(--accent)":"var(--t3)"}/>
             </div>
-            <span style={{fontSize:13,fontWeight:a?700:500,color:a?"var(--t1)":"var(--t2)",transition:"color .14s"}}>{l}</span>
-            {a&&<div style={{marginLeft:"auto",width:5,height:5,borderRadius:"50%",background:"var(--accent)",flexShrink:0,boxShadow:"0 0 6px var(--accent)"}}/>}
+            <span style={{fontSize:"var(--fs-body)",fontWeight:a?600:400,color:a?"var(--t1)":"var(--t2)",transition:"color .14s"}}>{l}</span>
           </button>
         );})}
       </div>
@@ -4093,7 +4114,7 @@ const AppHeader=React.memo(function AppHeader({tab,syncStatus,account,onSwitchAc
   const hasTrades=todayPnl!==0;
   return(
     <div className="app-header" style={{
-      padding:isDesktop?"14px 24px":"52px 16px 13px",
+    padding:isDesktop?"14px 24px":`max(52px, calc(env(safe-area-inset-top) + 12px)) 16px 12px`,
       display:"flex",
       alignItems:"center",
       justifyContent:"space-between",
@@ -4105,7 +4126,7 @@ const AppHeader=React.memo(function AppHeader({tab,syncStatus,account,onSwitchAc
       {/* Left: page title + today PnL chip */}
       <div style={{display:"flex",alignItems:"center",gap:12,minWidth:0}}>
         <div style={{minWidth:0}}>
-          <div style={{fontSize:isDesktop?17:16,fontWeight:800,color:"var(--t1)",letterSpacing:"-.5px",lineHeight:1}}>{TITLES[tab]||"Journal"}</div>
+          <div style={{fontSize:isDesktop?17:16,fontWeight:700,color:"var(--t1)",letterSpacing:"-.5px",lineHeight:1}}>{TITLES[tab]||"Journal"}</div>
           {isDesktop&&<div style={{fontSize:11,color:"var(--t3)",marginTop:2.5,fontWeight:400}}>{SUBTITLES[tab]||""}</div>}
         </div>
         {isDesktop&&(
@@ -4173,7 +4194,7 @@ function EquityCurveDashCard({trades,accountBalance}){
   const hpt=hover!==null?pts[hover]:null;
 
   return(
-    <div className="card" style={{padding:"16px 18px",marginBottom:14,overflow:"hidden"}}>
+    <div className="card" style={{padding:"18px 20px",marginBottom:16,overflow:"hidden"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
         <div>
           <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",marginBottom:4}}>Equity Curve</div>
@@ -4213,9 +4234,9 @@ function EquityCurveDashCard({trades,accountBalance}){
         </svg>
       </div>
       <div style={{display:"flex",justifyContent:"space-between",marginTop:6}}>
-        <span className="mono" style={{fontSize:9,color:"var(--t3)"}}>Start ${accountBalance.toLocaleString()}</span>
-        <span style={{fontSize:9,color:"var(--t3)"}}>{trades.length} trades</span>
-        <span className="mono" style={{fontSize:9,color:"var(--t3)"}}>${(accountBalance+totalPnl).toLocaleString()}</span>
+        <span className="mono" style={{fontSize:"var(--fs-xs)",color:"var(--t3)"}}>Start ${accountBalance.toLocaleString()}</span>
+        <span style={{fontSize:"var(--fs-xs)",color:"var(--t3)"}}>{trades.length} trades</span>
+        <span className="mono" style={{fontSize:"var(--fs-xs)",color:"var(--t3)"}}>${(accountBalance+totalPnl).toLocaleString()}</span>
       </div>
     </div>
   );
@@ -4281,7 +4302,7 @@ function KbdShortcutsHint(){
   const[show,setShow]=useState(false);
   if(!show)return(
     <button onClick={()=>setShow(true)} style={{position:"fixed",bottom:24,right:24,background:"var(--elevated)",border:"1px solid var(--line-md)",borderRadius:"var(--r-sm)",padding:"5px 10px",fontSize:10,fontWeight:600,color:"var(--t3)",cursor:"pointer",zIndex:50,display:"flex",alignItems:"center",gap:5}}>
-      <span style={{fontFamily:"var(--mono)",background:"var(--overlay)",padding:"1px 5px",borderRadius:3,fontSize:9}}>?</span> Shortcuts
+      <span style={{fontFamily:"var(--mono)",background:"var(--overlay)",padding:"1px 5px",borderRadius:3,fontSize:"var(--fs-xs)"}}>?</span> Shortcuts
     </button>
   );
   const shortcuts=[
@@ -4495,12 +4516,12 @@ function App(){
 
         {/* FAB */}
         {plusAction&&!isDesktop&&(
-          <div className="fab-w" style={{position:"fixed",bottom:82,right:"max(16px,calc(50% - 224px))",zIndex:100}}>
-            <button onClick={plusAction} className="tap" style={{width:50,height:50,borderRadius:"var(--r-md)",background:"linear-gradient(135deg,var(--accent),#8B5CF6)",border:"none",color:"#fff",fontSize:22,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,boxShadow:`0 4px 20px rgba(108,111,245,0.45),0 1px 3px rgba(0,0,0,.3)`}}>+</button>
+          <div className="fab-w" style={{position:"fixed",bottom:90,right:"max(16px,calc(50% - 224px))",zIndex:100}}>
+            <button onClick={plusAction} className="tap" style={{width:52,height:52,borderRadius:"var(--r-md)",background:"linear-gradient(135deg,var(--accent),#8B5CF6)",border:"none",color:"#fff",fontSize:24,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:400,boxShadow:`0 4px 20px rgba(108,111,245,0.45),0 1px 3px rgba(0,0,0,.3)`}}>+</button>
           </div>
         )}
 
-        <div className="desk-pad" style={{padding:"16px 16px 0"}}>
+        <div className="desk-pad" style={{padding:"16px 20px 0"}}>
         <div>
 
           {/* ── DASHBOARD ── */}
@@ -4513,12 +4534,12 @@ function App(){
                   {/* LEFT COLUMN */}
                   <div className="desk-col-left">
                     {/* Hero */}
-                    <div className="card" style={{padding:"20px",marginBottom:14,minWidth:0,overflow:"hidden"}}>
+                    <div className="card" style={{padding:"22px 22px 18px",marginBottom:14,minWidth:0,overflow:"hidden"}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
                         <div style={{flex:1,minWidth:0}}>
                           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                            <div style={{fontSize:10,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase"}}>Balance</div>
-                            <button onClick={togglePnl} className="tap" title={pnlHidden?"Show":"Hide"} style={{background:"none",border:"none",padding:"2px 4px",borderRadius:4,color:"var(--t3)",fontSize:13,lineHeight:1,display:"flex",alignItems:"center"}}>{pnlHidden?"👁":"👁"}<span style={{fontSize:9,marginLeft:3,fontWeight:600,letterSpacing:".04em"}}>{pnlHidden?"SHOW":"HIDE"}</span></button>
+                            <div style={{fontSize:"var(--fs-xs)",color:"var(--t3)",fontWeight:500,letterSpacing:".08em",textTransform:"uppercase"}}>Balance</div>
+                            <button onClick={togglePnl} className="tap" title={pnlHidden?"Show":"Hide"} style={{background:"none",border:"none",padding:"2px 4px",borderRadius:4,color:"var(--t3)",fontSize:13,lineHeight:1,display:"flex",alignItems:"center"}}>{pnlHidden?"👁":"👁"}<span style={{fontSize:"var(--fs-xs)",marginLeft:3,fontWeight:500,letterSpacing:".04em"}}>{pnlHidden?"SHOW":"HIDE"}</span></button>
                             <span style={{fontSize:10,color:"var(--t3)"}}>{trades.length} trades</span>
                           </div>
                           <div className="mono" style={{fontSize:"clamp(24px,3.5vw,42px)",fontWeight:700,color:"var(--t1)",letterSpacing:"-1.5px",lineHeight:1}}>{pnlHidden?PNL_MASK:fmtBal(curBal)}</div>
@@ -4551,13 +4572,13 @@ function App(){
                           )}
                           {sorted[0]?.pmMental&&(
                             <div style={{display:"flex",alignItems:"center",gap:5}}>
-                              <span style={{fontSize:11,color:"var(--t3)",fontWeight:600,letterSpacing:".05em",textTransform:"uppercase",fontSize:9}}>Last mental</span>
+                              <span style={{fontSize:"var(--fs-xs)",color:"var(--t3)",fontWeight:500,letterSpacing:".05em",textTransform:"uppercase"}}>Last mental</span>
                               <span style={{fontSize:12,fontWeight:600,color:["😤 Revenge Mode","😰 Anxious","🤑 Greedy","😵 Overwhelmed","😤 Frustrated"].includes(sorted[0].pmMental)?"var(--red)":["😌 Tenang","🎯 Fokus","💪 Percaya Diri"].includes(sorted[0].pmMental)?"var(--green)":"var(--t2)"}}>{sorted[0].pmMental}</span>
                             </div>
                           )}
                           {!sorted[0]?.pmMental&&sorted[0]?.feelings&&(
                             <div style={{display:"flex",alignItems:"center",gap:5}}>
-                              <span style={{fontSize:9,color:"var(--t3)",fontWeight:600,letterSpacing:".05em",textTransform:"uppercase"}}>Last feeling</span>
+                              <span style={{fontSize:"var(--fs-xs)",color:"var(--t3)",fontWeight:500,letterSpacing:".05em",textTransform:"uppercase"}}>Last feeling</span>
                               <span style={{fontSize:12,color:"var(--t2)",fontWeight:500}}>{sorted[0].feelings}</span>
                             </div>
                           )}
@@ -4565,13 +4586,13 @@ function App(){
                       )}
                       <div style={{display:"flex",gap:8}}>
                         {[{l:"Set Balance",a:()=>setBalModal(true),col:"var(--green)"},{l:"Drawdown",a:()=>setDdModal(true),col:"var(--red)"},{l:"+ Log Trade",a:()=>setTradeModal({}),primary:true}].map((x,i)=>(
-                          <button key={i} onClick={x.a} className="tap" style={{flex:1,padding:"9px 8px",background:x.primary?"var(--accent)":"var(--elevated)",border:`1px solid ${x.primary?"transparent":"var(--line)"}`,borderRadius:"var(--r-md)",cursor:"pointer",fontSize:12,color:x.primary?"#fff":x.col,fontWeight:700}}>{x.l}</button>
+                          <button key={i} onClick={x.a} className="tap" style={{flex:1,padding:"10px 8px",background:x.primary?"var(--accent)":"var(--elevated)",border:`1px solid ${x.primary?"transparent":"var(--line)"}`,borderRadius:"var(--r-md)",cursor:"pointer",fontSize:12,color:x.primary?"#fff":x.col,fontWeight:700}}>{x.l}</button>
                         ))}
                       </div>
                     </div>
 
-                    {/* Stats row — 6 across */}
-                    <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:8,marginBottom:14}}>
+                    {/* Stats row — 3×2 grid on desktop, more breathing room */}
+                    <div className="stat-grid-desktop" style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:8,marginBottom:14}}>
                       <StatCard label="Win Rate" value={`${winRate}%`} sub={`${wins.length}W · ${losses.length}L`} col={winRate>=50?"var(--green)":"var(--red)"}/>
                       <StatCard label="Avg R:R" value={`${avgRR}R`} sub={`${trades.length} trades`}/>
                       <StatCard label="Avg Win" value={avgWin?`$${Math.round(avgWin)}`:"—"} col="var(--green)"/>
@@ -4625,16 +4646,14 @@ function App(){
                 /* ── Mobile: single column ── */
                 <>
                   {/* Hero */}
-                  <div className="card" style={{padding:"20px",marginBottom:12,background:"var(--surface)",position:"relative",overflow:"hidden"}}>
-                    {/* Subtle gradient accent top-right */}
-                    <div style={{position:"absolute",top:-30,right:-30,width:120,height:120,borderRadius:"50%",background:"radial-gradient(circle,rgba(108,111,245,0.12) 0%,transparent 70%)",pointerEvents:"none"}}/>
+                  <div className="card" style={{padding:"20px 20px 18px",marginBottom:16,background:"var(--surface)",position:"relative",overflow:"hidden"}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                          <div style={{fontSize:9,color:"var(--t3)",fontWeight:700,letterSpacing:".10em",textTransform:"uppercase"}}>Total Balance</div>
-                          <button onClick={togglePnl} className="tap" style={{background:"var(--elevated)",border:"none",padding:"2px 7px",borderRadius:99,color:"var(--t3)",fontSize:9,lineHeight:1,display:"flex",alignItems:"center",gap:3,fontWeight:700,letterSpacing:".04em"}}>{pnlHidden?"SHOW":"HIDE"}</button>
+                          <div style={{fontSize:"var(--fs-xs)",color:"var(--t3)",fontWeight:500,letterSpacing:".08em",textTransform:"uppercase"}}>Total Balance</div>
+                          <button onClick={togglePnl} className="tap" style={{background:"var(--elevated)",border:"none",padding:"2px 7px",borderRadius:99,color:"var(--t3)",fontSize:"var(--fs-xs)",lineHeight:1,display:"flex",alignItems:"center",gap:3,fontWeight:500,letterSpacing:".04em"}}>{pnlHidden?"SHOW":"HIDE"}</button>
                         </div>
-                        <div className="mono" style={{fontSize:38,fontWeight:500,color:"var(--t1)",letterSpacing:"-2px",lineHeight:1}}>{pnlHidden?PNL_MASK:fmtBal(curBal)}</div>
+                        <div className="mono" style={{fontSize:38,fontWeight:700,color:"var(--t1)",letterSpacing:"-2px",lineHeight:1}}>{pnlHidden?PNL_MASK:fmtBal(curBal)}</div>
                         <div style={{display:"flex",gap:8,marginTop:8,alignItems:"center",flexWrap:"wrap"}}>
                           <span className="mono" style={{fontSize:12,color:pnlHidden?"var(--t3)":clr(totalPnl),fontWeight:600}}>{pnlHidden?PNL_MASK:fmt(totalPnl)}</span>
                           <span className="mono" style={{fontSize:12,color:pnlHidden?"var(--t3)":clr(totalPnl),fontWeight:500,opacity:.7}}>{pnlHidden?PNL_MASK:fmtPct(parseFloat(gainsPct))}</span>
@@ -4666,13 +4685,13 @@ function App(){
                         )}
                         {sorted[0]?.pmMental&&(
                           <div style={{display:"flex",alignItems:"center",gap:4}}>
-                            <span style={{fontSize:9,color:"var(--t3)",fontWeight:700,textTransform:"uppercase",letterSpacing:".05em"}}>Mental</span>
+                            <span style={{fontSize:"var(--fs-xs)",color:"var(--t3)",fontWeight:500,textTransform:"uppercase",letterSpacing:".05em"}}>Mental</span>
                             <span style={{fontSize:11,fontWeight:600,color:["😤 Revenge Mode","😰 Anxious","🤑 Greedy","😵 Overwhelmed"].includes(sorted[0].pmMental)?"var(--red)":["😌 Tenang","🎯 Fokus","💪 Percaya Diri"].includes(sorted[0].pmMental)?"var(--green)":"var(--t2)"}}>{sorted[0].pmMental}</span>
                           </div>
                         )}
                         {!sorted[0]?.pmMental&&sorted[0]?.feelings&&(
                           <div style={{display:"flex",alignItems:"center",gap:4}}>
-                            <span style={{fontSize:9,color:"var(--t3)",fontWeight:700,textTransform:"uppercase",letterSpacing:".05em"}}>Feeling</span>
+                            <span style={{fontSize:"var(--fs-xs)",color:"var(--t3)",fontWeight:500,textTransform:"uppercase",letterSpacing:".05em"}}>Feeling</span>
                             <span style={{fontSize:11,color:"var(--t2)",fontWeight:500}}>{sorted[0].feelings}</span>
                           </div>
                         )}
@@ -4680,19 +4699,17 @@ function App(){
                     )}
                     <div style={{display:"flex",gap:7}}>
                       {[{l:"Set Balance",a:()=>setBalModal(true),col:"var(--green)",bg:"var(--green-dim)",brd:"rgba(45,214,117,0.2)"},{l:"Drawdown",a:()=>setDdModal(true),col:"var(--red)",bg:"var(--red-dim)",brd:"rgba(240,72,74,0.2)"}].map((x,i)=>(
-                        <button key={i} onClick={x.a} className="tap" style={{flex:1,padding:"9px 6px",background:x.bg,border:`1px solid ${x.brd}`,borderRadius:"var(--r-md)",cursor:"pointer",fontSize:10,color:x.col,fontWeight:700,letterSpacing:".03em"}}>{x.l}</button>
+                        <button key={i} onClick={x.a} className="tap" style={{flex:1,padding:"10px 8px",background:x.bg,border:`1px solid ${x.brd}`,borderRadius:"var(--r-md)",cursor:"pointer",fontSize:"var(--fs-sm)",color:x.col,fontWeight:700,letterSpacing:".03em"}}>{x.l}</button>
                       ))}
                     </div>
                   </div>
-                  {/* Stats */}
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                  {/* Stats — 3-col grid, 2 rows */}
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8,marginBottom:14}}>
                     <StatCard label="Win Rate" value={`${winRate}%`} sub={`${wins.length}W · ${losses.length}L`} col={winRate>=50?"var(--green)":"var(--red)"}/>
                     <StatCard label="Avg R:R" value={`${avgRR}R`} sub={`${trades.length} trades`}/>
-                  </div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:14}}>
+                    <StatCard label="Prof. Factor" value={profitFactor} col={profitFactor==="∞"||parseFloat(profitFactor)>=1.5?"var(--green)":parseFloat(profitFactor)<1?"var(--red)":"var(--amber)"}/>
                     <StatCard label="Avg Win" value={avgWin?`$${Math.round(avgWin)}`:"—"} col="var(--green)"/>
                     <StatCard label="Avg Loss" value={avgLoss?`$${Math.abs(Math.round(avgLoss))}`:"—"} col="var(--red)"/>
-                    <StatCard label="Prof. Factor" value={profitFactor} col={profitFactor==="∞"||parseFloat(profitFactor)>=1.5?"var(--green)":parseFloat(profitFactor)<1?"var(--red)":"var(--amber)"}/>
                     <StatCard label="Streak" value={streak.count?`${streak.count}×`:"—"} sub={streak.type||""} col={streak.type==="win"?"var(--green)":streak.type==="loss"?"var(--red)":"var(--t2)"}/>
                   </div>
                   <AlertBanner sorted={sorted}/>
@@ -4766,7 +4783,7 @@ function App(){
         </div>
 
         {/* ── Bottom Nav ── */}
-        <div className="bot-nav" style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"var(--surface)",borderTop:"1px solid var(--line)",display:"flex",padding:"8px 8px 22px",gap:2,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)"}}>
+        <div className="bot-nav" style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:"var(--surface)",borderTop:"1px solid var(--line)",display:"flex",padding:`10px 4px max(22px, calc(env(safe-area-inset-bottom) + 8px))`,gap:2,backdropFilter:"blur(20px)",WebkitBackdropFilter:"blur(20px)"}}>
           {[{id:"dashboard",l:"Home",I:IcoHome},{id:"log",l:"Log",I:IcoLog},{id:"analytics",l:"Stats",I:IcoChart},{id:"wallet",l:"Wallet",I:IcoWallet},{id:"notes",l:"Notes",I:IcoNote},{id:"review",l:"Review",I:IcoReview}].map(({id,l,I})=>{
             const a=tab===id;
             return(
@@ -4775,7 +4792,7 @@ function App(){
                   {a&&<div style={{position:"absolute",inset:0,borderRadius:"var(--r-md)",border:"1px solid rgba(108,111,245,0.35)"}}/>}
                   <I size={17} col={a?"var(--accent)":"var(--t3)"}/>
                 </div>
-                <span style={{fontSize:9,fontWeight:a?700:500,color:a?"var(--accent)":"var(--t3)",letterSpacing:a?".02em":"0",transition:"color .15s"}}>{l}</span>
+                <span style={{fontSize:"var(--fs-xs)",fontWeight:a?600:400,color:a?"var(--accent)":"var(--t3)",letterSpacing:a?".02em":"0",transition:"color .15s"}}>{l}</span>
               </button>
             );
           })}
