@@ -876,7 +876,7 @@ function DashboardCalendar({trades,onLogTrade}){
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",borderBottom:"1px solid var(--line)"}}>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           <button onClick={prev} className="tap" style={{background:"var(--elevated)",border:"1px solid var(--line-md)",width:24,height:24,borderRadius:"var(--r-sm)",display:"flex",alignItems:"center",justifyContent:"center"}}><IcoChL size={10} col="var(--t2)"/></button>
-          <span style={{fontSize:13,fontWeight:700,color:"var(--t1)",minWidth:100}}>{MONTHS[month]} {year}</span>
+          <span style={{fontSize:13,fontWeight:700,color:"var(--t1)",minWidth:100,textAlign:"center"}}>{MONTHS[month]} {year}</span>
           <button onClick={next} className="tap" style={{background:"var(--elevated)",border:"1px solid var(--line-md)",width:24,height:24,borderRadius:"var(--r-sm)",display:"flex",alignItems:"center",justifyContent:"center"}}><IcoChR size={10} col="var(--t2)"/></button>
           <div style={{padding:"2px 8px",borderRadius:99,background:"var(--accent-dim)",border:"1px solid rgba(108,111,245,0.2)",fontSize:10,color:"var(--accent)",fontWeight:700,cursor:"pointer"}} onClick={()=>{setYear(now.getFullYear());setMonth(now.getMonth())}}>This month</div>
         </div>
