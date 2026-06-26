@@ -25,7 +25,7 @@
       --line-md:  rgba(255,255,255,0.13);
       --t1: #F0F2F7;
       --t2: #8892A8;
-      --t3: #3D4663;
+      --t3: #4D5880;
       /* Unified green — no more dual-green */
       --green:      #2DD675;
       --green-dim:  rgba(45,214,117,0.13);
@@ -98,7 +98,7 @@
     input[type=time]::-webkit-datetime-edit-ampm-field{display:none!important}
     input[type=time]::-webkit-clear-button{display:none}
     [data-theme="light"] input[type=date]::-webkit-calendar-picker-indicator{filter:none;opacity:.5}
-    ::-webkit-scrollbar{width:3px}
+    ::-webkit-scrollbar{width:4px}
     ::-webkit-scrollbar-track{background:transparent}
     ::-webkit-scrollbar-thumb{background:var(--overlay);border-radius:99px}
     ::-webkit-scrollbar-thumb:hover{background:var(--t3)}
@@ -110,13 +110,13 @@
     @keyframes toastIn{from{opacity:0;transform:translateY(10px) scale(.94)}to{opacity:1;transform:translateY(0) scale(1)}}
     @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
     @keyframes marquee{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
-    @keyframes glowPulse{0%,100%{box-shadow:0 0 0 0 var(--accent-glow)}50%{box-shadow:0 0 20px 4px var(--accent-glow)}}
 
-    .tab-content{animation:fadeUp .18s cubic-bezier(0.16,1,0.3,1) forwards}
+    .tab-content{animation:fadeUp .18s cubic-bezier(0.16,1,0.3,1) forwards;padding-top:4px}
     .skeleton{background:linear-gradient(90deg,var(--elevated) 25%,var(--overlay) 50%,var(--elevated) 75%);background-size:600px 100%;animation:shimmer 1.3s infinite;border-radius:var(--r-md)}
     .toast-in{animation:toastIn .22s cubic-bezier(0.16,1,0.3,1) forwards}
-    .tap{transition:opacity .12s,transform .12s;cursor:pointer}
-    .tap:active{opacity:.6;transform:scale(.96)}
+    .tap{transition:opacity .12s,transform .12s,filter .12s;cursor:pointer}
+    .tap:hover{filter:brightness(1.07)}
+    .tap:active{opacity:.6;transform:scale(.96);filter:none}
     .mono{font-family:var(--mono)}
     /* Cards get a subtle inner glow on dark mode for depth */
     .card{background:var(--surface);border:1px solid var(--line-md);border-radius:var(--r-lg);box-shadow:0 1px 3px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.04)}
@@ -160,8 +160,8 @@
     .app-header{
       background:var(--surface);
       border-bottom:1px solid var(--line);
-      backdrop-filter:blur(20px);
-      -webkit-backdrop-filter:blur(20px);
+      backdrop-filter:blur(12px);
+      -webkit-backdrop-filter:blur(12px);
     }
 
     /* ── Sidebar active nav item ── */
@@ -374,7 +374,7 @@ function FundedTargetTracker({trades,accountBalance}){
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
         <div>
           <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:3}}>
-            <span style={{fontSize:12,fontWeight:800,color:isHit?"var(--green)":"var(--t1)"}}>{target.label}</span>
+            <span style={{fontSize:12,fontWeight:700,color:isHit?"var(--green)":"var(--t1)"}}>{target.label}</span>
             {isHit&&<span style={{fontSize:10,fontWeight:700,color:"var(--green)",background:"var(--green-dim)",padding:"2px 8px",borderRadius:99,border:"1px solid rgba(45,214,117,0.27)"}}>🎯 TARGET HIT!</span>}
           </div>
           <div style={{fontSize:10,color:"var(--t3)"}}>Since {target.startDate==="2000-01-01"?"all time":target.startDate||"—"}</div>
@@ -492,18 +492,18 @@ const TradeRow=React.memo(function TradeRow({trade,onPress,isLast}){
   const grade=trade.checklist?calcTradeGrade(trade):null;
   return(
     <div onClick={onPress} className="tap" style={{display:"flex",alignItems:"center",gap:12,padding:"14px 0",borderBottom:isLast?"none":"1px solid var(--line)",cursor:"pointer"}}>
-      <div style={{width:3,height:34,borderRadius:99,background:ntd?"var(--blue)":win?"var(--green)":loss?"var(--red)":"var(--t3)",flexShrink:0}}/>
+      <div style={{width:3,height:42,borderRadius:99,background:ntd?"var(--blue)":win?"var(--green)":loss?"var(--red)":"var(--t3)",flexShrink:0}}/>
       <div style={{flex:1,minWidth:0}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
           <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
             <span style={{fontSize:12,fontWeight:500,color:"var(--t1)"}}>{fmtLongDate(trade.date)}{trade.time&&<span className="mono" style={{color:"var(--t3)",fontWeight:400,fontSize:11}}> · {trade.time}</span>}</span>
             {ntd&&<span className="pill" style={{background:"var(--blue-dim)",color:"var(--blue)",border:"1px solid rgba(77,159,255,0.2)"}}>🚫 No Trade</span>}
-            {!ntd&&trade.direction&&<span className="pill" style={{background:trade.direction==="long"?"var(--green-dim)":"var(--red-dim)",color:trade.direction==="long"?"var(--green)":"var(--red)"}}>{trade.direction==="long"?"▲ L":"▼ S"}</span>}
+            {!ntd&&trade.direction&&<span className="pill" style={{background:trade.direction==="long"?"var(--green-dim)":"var(--red-dim)",color:trade.direction==="long"?"var(--green)":"var(--red)"}}>{trade.direction==="long"?"Long":"Short"}</span>}
             {trade.session&&<span className="pill" style={{background:SCOL[trade.session]+"22",color:SCOL[trade.session]}}>{trade.session}</span>}
             {trade.instrument&&<span className="pill" style={{background:(ICOL[trade.instrument]||"#666")+"22",color:ICOL[trade.instrument]||"var(--t2)"}}>{trade.instrument}{cts>1?` ×${cts}`:""}</span>}
-            {!ntd&&grade&&<span style={{fontSize:11,fontWeight:800,color:grade.color,background:grade.bg,padding:"2px 7px",borderRadius:99,border:`1px solid ${grade.color}44`}}>{grade.grade}</span>}
+            {!ntd&&grade&&<span style={{fontSize:11,fontWeight:700,color:grade.color,background:grade.bg,padding:"2px 7px",borderRadius:99,border:`1px solid ${grade.color}44`}}>{grade.grade}</span>}
           </div>
-          <span className="mono" style={{fontSize:"var(--fs-md)",fontWeight:600,color:ntd?"var(--blue)":pnlHidden?"var(--t3)":"var(--t2)",flexShrink:0,marginLeft:8}}>{ntd?"—":pnlHidden?PNL_MASK:fmt(trade.pnl)}</span>
+          <span className="mono" style={{fontSize:"var(--fs-md)",fontWeight:600,color:ntd?"var(--blue)":pnlHidden?"var(--t3)":clr(trade.pnl),flexShrink:0,marginLeft:8}}>{ntd?"—":pnlHidden?PNL_MASK:fmt(trade.pnl)}</span>
         </div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
@@ -519,8 +519,7 @@ const TradeRow=React.memo(function TradeRow({trade,onPress,isLast}){
             {/* Pre-market danger flag */}
             {["😤 Revenge Mode","😰 Anxious","🤑 Greedy","😵 Overwhelmed"].includes(trade.pmMental)&&<span className="pill" style={{background:"var(--amber-dim)",color:"var(--amber)",border:"1px solid rgba(247,163,37,0.2)",fontSize:10}}>⚠️ {trade.pmMental.split(" ").slice(0,2).join(" ")}</span>}
             {/* Gym pill */}
-            {trade.gymDay==="💪 Gym"&&<span className="pill" style={{background:"rgba(45,214,117,0.1)",color:"var(--green)",fontSize:10}}>💪</span>}
-            {trade.gymDay==="🚫 Ga Gym"&&<span className="pill" style={{background:"var(--elevated)",color:"var(--t3)",fontSize:10}}>🚫</span>}
+            {trade.gymDay==="💪 Gym"&&<span className="pill" style={{background:"rgba(45,214,117,0.1)",color:"var(--green)",fontSize:10}}>💪 Gym</span>}
           </div>
           <div style={{display:"flex",gap:8,flexShrink:0}}>
             {!ntd&&<span className="mono" style={{fontSize:11,color:"var(--t3)"}}>{trade.rr}R</span>}
@@ -1156,7 +1155,7 @@ const TradeLogView=React.memo(function TradeLogView({trades,onPress,accountName,
               <div key={g.mk} style={{marginBottom:14}}>
                 {/* Month header */}
                 <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8,paddingLeft:2}}>
-                  <span style={{fontSize:11,fontWeight:800,color:"var(--t2)",letterSpacing:".05em",textTransform:"uppercase"}}>{g.label}</span>
+                  <span style={{fontSize:11,fontWeight:600,color:"var(--t2)",letterSpacing:".05em",textTransform:"uppercase"}}>{g.label}</span>
                   <div style={{flex:1,height:1,background:"var(--line)"}}/>
                   <span className="mono" style={{fontSize:11,fontWeight:600,color:clr(g.pnl)}}>{fmt(g.pnl)}</span>
                   <span style={{fontSize:10,color:"var(--t3)",fontWeight:600}}>{g.wr}% WR</span>
@@ -1275,19 +1274,19 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
   const pnlVal=parseFloat(form.pnl);
   return(
     <>
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.72)",display:"flex",alignItems:isDesktop?"center":"flex-end",justifyContent:"center",zIndex:200,backdropFilter:"blur(8px)",padding:isDesktop?"0 20px":0}}>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",display:"flex",alignItems:isDesktop?"center":"flex-end",justifyContent:"center",zIndex:200,backdropFilter:"blur(4px)",padding:isDesktop?"0 20px":0}}>
       <div style={{width:"100%",maxWidth:isDesktop?500:480,margin:"0 auto",background:"var(--surface)",borderRadius:isDesktop?"var(--r-xl)":"var(--r-xl) var(--r-xl) 0 0",padding:isDesktop?"28px 24px":"20px 20px 44px",maxHeight:"92vh",overflowY:"auto",border:"1px solid var(--line-md)"}}>
         <div style={{width:36,height:4,background:"var(--overlay)",borderRadius:99,margin:"0 auto 20px"}}/>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <span style={{fontSize:17,fontWeight:800,color:"var(--t1)"}}>{isNew?"Log Trade":"Edit Trade"}</span>
+            <span style={{fontSize:17,fontWeight:700,color:"var(--t1)"}}>{isNew?"Log Trade":"Edit Trade"}</span>
             {isNew&&draftStatus==="saving"&&<span style={{fontSize:10,fontWeight:600,color:"var(--t3)",display:"flex",alignItems:"center",gap:4}}><span style={{width:6,height:6,borderRadius:"50%",background:"var(--amber)",display:"inline-block",animation:"pulse 1s infinite"}}/>menyimpan…</span>}
             {isNew&&draftStatus==="saved"&&<span style={{fontSize:10,fontWeight:600,color:"var(--green)",display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:11}}>✓</span>draft tersimpan</span>}
             {isNew&&!draftStatus&&(()=>{try{return!!localStorage.getItem(DRAFT_KEY)}catch{return false}})()&&<span style={{fontSize:10,fontWeight:700,color:"var(--accent)",background:"var(--accent-dim)",padding:"2px 8px",borderRadius:99}}>📋 Draft</span>}
           </div>
           <div style={{display:"flex",alignItems:"center",gap:6}}>
             {/* No Trade Day toggle */}
-            <button onClick={()=>set("noTradeDay",!form.noTradeDay)} className="tap" style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:99,border:`1px solid ${form.noTradeDay?"var(--blue)44":"var(--line-md)"}`,background:form.noTradeDay?"var(--blue-dim)":"var(--elevated)",cursor:"pointer",transition:"all .15s"}}>
+            <button onClick={()=>set("noTradeDay",!form.noTradeDay)} className="tap" style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",borderRadius:99,border:`1px solid ${form.noTradeDay?"var(--blue)44":"var(--line-md)"}`,background:form.noTradeDay?"var(--blue-dim)":"var(--elevated)",cursor:"pointer",transition:"background .15s,border-color .15s,color .15s,box-shadow .15s"}}>
               <span style={{fontSize:13}}>{form.noTradeDay?"🚫":"📊"}</span>
               <span style={{fontSize:10,fontWeight:700,color:form.noTradeDay?"var(--blue)":"var(--t3)",letterSpacing:".04em",whiteSpace:"nowrap"}}>{form.noTradeDay?"NO TRADE":"Analisis"}</span>
             </button>
@@ -1301,7 +1300,7 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
           {[{id:"premarket",label:"Pre-Market",dot:null},{id:"trade",label:"Trade",dot:(!form.date||form.pnl==="")?"var(--red)":null},{id:"review",label:"Review",dot:null},{id:"notes",label:"Notes",dot:null}].map(({id,label,dot})=>{
             const a=modalTab===id;
             return(
-              <button key={id} onClick={()=>setModalTab(id)} className="tap" style={{flex:1,padding:"8px 4px",borderRadius:"var(--r-sm)",fontSize:11,fontWeight:700,border:"none",background:a?"var(--surface)":"transparent",color:a?"var(--t1)":"var(--t3)",boxShadow:a?"0 1px 3px rgba(0,0,0,.25)":"none",transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
+              <button key={id} onClick={()=>setModalTab(id)} className="tap" style={{flex:1,padding:"8px 4px",borderRadius:"var(--r-sm)",fontSize:11,fontWeight:700,border:"none",background:a?"var(--surface)":"transparent",color:a?"var(--t1)":"var(--t3)",boxShadow:a?"0 1px 3px rgba(0,0,0,.25)":"none",transition:"background .15s,border-color .15s,color .15s,box-shadow .15s",display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
                 {label}
                 {dot&&<div style={{width:5,height:5,borderRadius:"50%",background:dot,flexShrink:0}}/>}
               </button>
@@ -1352,7 +1351,7 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
             <div style={{display:"flex",gap:6}}>
               {[{v:"😴 Kurang",c:"var(--red)"},{v:"😐 Cukup",c:"var(--amber)"},{v:"😴✅ Nyenyak",c:"var(--green)"}].map(({v,c})=>{
                 const a=form.pmSleep===v;
-                return<button key={v} onClick={()=>set("pmSleep",a?"":v)} className="tap" style={{flex:1,padding:"9px 6px",borderRadius:"var(--r-sm)",fontSize:11,fontWeight:700,border:`1px solid ${a?c:"var(--line-md)"}`,background:a?c+"22":"var(--elevated)",color:a?c:"var(--t2)",transition:"all .12s"}}>{v}</button>;
+                return<button key={v} onClick={()=>set("pmSleep",a?"":v)} className="tap" style={{flex:1,padding:"9px 6px",borderRadius:"var(--r-sm)",fontSize:11,fontWeight:700,border:`1px solid ${a?c:"var(--line-md)"}`,background:a?c+"22":"var(--elevated)",color:a?c:"var(--t2)",transition:"background .12s,border-color .12s,color .12s,box-shadow .12s"}}>{v}</button>;
               })}
             </div>
           </div>
@@ -1361,7 +1360,7 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
             <div style={{display:"flex",gap:6}}>
               {[{v:"🪫 Rendah",c:"var(--red)"},{v:"⚡ Sedang",c:"var(--amber)"},{v:"🔋 Tinggi",c:"var(--green)"}].map(({v,c})=>{
                 const a=form.pmEnergy===v;
-                return<button key={v} onClick={()=>set("pmEnergy",a?"":v)} className="tap" style={{flex:1,padding:"9px 6px",borderRadius:"var(--r-sm)",fontSize:11,fontWeight:700,border:`1px solid ${a?c:"var(--line-md)"}`,background:a?c+"22":"var(--elevated)",color:a?c:"var(--t2)",transition:"all .12s"}}>{v}</button>;
+                return<button key={v} onClick={()=>set("pmEnergy",a?"":v)} className="tap" style={{flex:1,padding:"9px 6px",borderRadius:"var(--r-sm)",fontSize:11,fontWeight:700,border:`1px solid ${a?c:"var(--line-md)"}`,background:a?c+"22":"var(--elevated)",color:a?c:"var(--t2)",transition:"background .12s,border-color .12s,color .12s,box-shadow .12s"}}>{v}</button>;
               })}
             </div>
           </div>
@@ -1369,12 +1368,9 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
           <div>
             <label style={lbl}>Gym Hari Ini?</label>
             <div style={{display:"flex",gap:6}}>
-              {[{v:"💪 Gym",c:"var(--green)",desc:"Udah workout"},{v:"🚫 Ga Gym",c:"var(--red)",desc:"Skip hari ini"},{v:"🛌 Rest Day",c:"var(--blue)",desc:"Planned rest"}].map(({v,c,desc})=>{
+              {[{v:"💪 Gym",c:"var(--green)"},{v:"🚫 Ga Gym",c:"var(--red)"}].map(({v,c})=>{
                 const a=form.gymDay===v;
-                return<button key={v} onClick={()=>set("gymDay",a?"":v)} className="tap" style={{flex:1,padding:"9px 6px",borderRadius:"var(--r-sm)",fontSize:11,fontWeight:700,border:`1px solid ${a?c:"var(--line-md)"}`,background:a?c+"22":"var(--elevated)",color:a?c:"var(--t2)",transition:"all .12s",display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
-                  <span>{v.split(" ")[0]}</span>
-                  <span style={{fontSize:9,fontWeight:500,opacity:.8}}>{v.split(" ").slice(1).join(" ")}</span>
-                </button>;
+                return<button key={v} onClick={()=>set("gymDay",a?"":v)} className="tap" style={{flex:1,padding:"9px 6px",borderRadius:"var(--r-sm)",fontSize:11,fontWeight:700,border:`1px solid ${a?c:"var(--line-md)"}`,background:a?c+"22":"var(--elevated)",color:a?c:"var(--t2)",transition:"background .12s,border-color .12s,color .12s,box-shadow .12s"}}>{v}</button>;
               })}
             </div>
           </div>
@@ -1386,7 +1382,7 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
                 const sel=form.pmMental===f;
                 const danger=["😤 Revenge Mode","😰 Anxious","🤑 Greedy","😵 Overwhelmed","😤 Frustrated"].includes(f);
                 const good=["😌 Tenang","🎯 Fokus","💪 Percaya Diri"].includes(f);
-                return<button key={f} onClick={()=>set("pmMental",sel?"":f)} className="tap" style={{padding:"5px 10px",borderRadius:99,fontSize:11,fontWeight:600,border:"none",background:sel?(danger?"var(--red)":good?"var(--green)":"var(--overlay)"):"var(--elevated)",color:sel?(danger||good?"#000":"var(--t1)"):"var(--t2)",transition:"all .12s"}}>{f}</button>;
+                return<button key={f} onClick={()=>set("pmMental",sel?"":f)} className="tap" style={{padding:"5px 10px",borderRadius:99,fontSize:11,fontWeight:600,border:"none",background:sel?(danger?"var(--red)":good?"var(--green)":"var(--overlay)"):"var(--elevated)",color:sel?(danger||good?"#000":"var(--t1)"):"var(--t2)",transition:"background .12s,border-color .12s,color .12s,box-shadow .12s"}}>{f}</button>;
               })}
             </div>
           </div>
@@ -1396,7 +1392,7 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
             <div style={{display:"flex",gap:6,marginBottom:8}}>
               {[{v:"📈 Bullish",c:"var(--green)"},{v:"📉 Bearish",c:"var(--red)"},{v:"↔️ Netral",c:"var(--amber)"}].map(({v,c})=>{
                 const a=form.pmBias===v;
-                return<button key={v} onClick={()=>set("pmBias",a?"":v)} className="tap" style={{flex:1,padding:"9px 6px",borderRadius:"var(--r-sm)",fontSize:11,fontWeight:700,border:`1px solid ${a?c:"var(--line-md)"}`,background:a?c+"22":"var(--elevated)",color:a?c:"var(--t2)",transition:"all .12s"}}>{v}</button>;
+                return<button key={v} onClick={()=>set("pmBias",a?"":v)} className="tap" style={{flex:1,padding:"9px 6px",borderRadius:"var(--r-sm)",fontSize:11,fontWeight:700,border:`1px solid ${a?c:"var(--line-md)"}`,background:a?c+"22":"var(--elevated)",color:a?c:"var(--t2)",transition:"background .12s,border-color .12s,color .12s,box-shadow .12s"}}>{v}</button>;
               })}
             </div>
             <textarea placeholder="DOL, key levels, FVG HTF, weekly high/low yang relevan hari ini…" value={form.pmDOL} onChange={e=>set("pmDOL",e.target.value)} rows={2} className="inp" style={{resize:"none",lineHeight:1.6}}/>
@@ -1407,7 +1403,7 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
             <div style={{display:"flex",gap:6,marginBottom:8}}>
               {[{v:"🔄 Ranging",c:"var(--amber)"},{v:"⚡ Manipulasi",c:"var(--green)"}].map(({v,c})=>{
                 const a=form.pmAsiaCondition===v;
-                return<button key={v} onClick={()=>set("pmAsiaCondition",a?"":v)} className="tap" style={{flex:1,padding:"9px 6px",borderRadius:"var(--r-sm)",fontSize:11,fontWeight:700,border:`1px solid ${a?c:"var(--line-md)"}`,background:a?c+"22":"var(--elevated)",color:a?c:"var(--t2)",transition:"all .12s"}}>{v}</button>;
+                return<button key={v} onClick={()=>set("pmAsiaCondition",a?"":v)} className="tap" style={{flex:1,padding:"9px 6px",borderRadius:"var(--r-sm)",fontSize:11,fontWeight:700,border:`1px solid ${a?c:"var(--line-md)"}`,background:a?c+"22":"var(--elevated)",color:a?c:"var(--t2)",transition:"background .12s,border-color .12s,color .12s,box-shadow .12s"}}>{v}</button>;
               })}
             </div>
             <input type="number" inputMode="decimal" placeholder="Poin pergerakan Asia (mis. 45)" value={form.pmAsiaPoints} onChange={e=>set("pmAsiaPoints",e.target.value)} className="inp"/>
@@ -1418,16 +1414,16 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
             <div style={{display:"flex",gap:6,marginBottom:8}}>
               {[{v:"🔄 Ranging",c:"var(--amber)"},{v:"⚡ Manipulasi",c:"var(--green)"}].map(({v,c})=>{
                 const a=form.pmLondonCondition===v;
-                return<button key={v} onClick={()=>set("pmLondonCondition",a?"":v)} className="tap" style={{flex:1,padding:"9px 6px",borderRadius:"var(--r-sm)",fontSize:11,fontWeight:700,border:`1px solid ${a?c:"var(--line-md)"}`,background:a?c+"22":"var(--elevated)",color:a?c:"var(--t2)",transition:"all .12s"}}>{v}</button>;
+                return<button key={v} onClick={()=>set("pmLondonCondition",a?"":v)} className="tap" style={{flex:1,padding:"9px 6px",borderRadius:"var(--r-sm)",fontSize:11,fontWeight:700,border:`1px solid ${a?c:"var(--line-md)"}`,background:a?c+"22":"var(--elevated)",color:a?c:"var(--t2)",transition:"background .12s,border-color .12s,color .12s,box-shadow .12s"}}>{v}</button>;
               })}
             </div>
             <input type="number" inputMode="decimal" placeholder="Poin pergerakan London (mis. 120)" value={form.pmLondonPoints} onChange={e=>set("pmLondonPoints",e.target.value)} className="inp"/>
           </div>
           {/* Calendar checked */}
           <div>
-            <button onClick={()=>set("pmCalChecked",!form.pmCalChecked)} className="tap" style={{display:"flex",alignItems:"center",gap:10,background:form.pmCalChecked?"var(--green-dim)":"var(--elevated)",border:`1px solid ${form.pmCalChecked?"rgba(45,214,117,0.27)":"var(--line)"}`,borderRadius:"var(--r-md)",padding:"11px 14px",width:"100%",cursor:"pointer",transition:"all .15s"}}>
-              <div style={{width:22,height:22,borderRadius:6,border:`2px solid ${form.pmCalChecked?"var(--green)":"var(--line-md)"}`,background:form.pmCalChecked?"var(--green)":"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",transition:"all .12s"}}>
-                {form.pmCalChecked&&<span style={{color:"#000",fontSize:12,fontWeight:800,lineHeight:1}}>✓</span>}
+            <button onClick={()=>set("pmCalChecked",!form.pmCalChecked)} className="tap" style={{display:"flex",alignItems:"center",gap:10,background:form.pmCalChecked?"var(--green-dim)":"var(--elevated)",border:`1px solid ${form.pmCalChecked?"rgba(45,214,117,0.27)":"var(--line)"}`,borderRadius:"var(--r-md)",padding:"11px 14px",width:"100%",cursor:"pointer",transition:"background .15s,border-color .15s,color .15s,box-shadow .15s"}}>
+              <div style={{width:22,height:22,borderRadius:6,border:`2px solid ${form.pmCalChecked?"var(--green)":"var(--line-md)"}`,background:form.pmCalChecked?"var(--green)":"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",transition:"background .12s,border-color .12s,color .12s,box-shadow .12s"}}>
+                {form.pmCalChecked&&<span style={{color:"#000",fontSize:12,fontWeight:700,lineHeight:1}}>✓</span>}
               </div>
               <div style={{textAlign:"left"}}>
                 <div style={{fontSize:12,fontWeight:700,color:form.pmCalChecked?"var(--green)":"var(--t1)"}}>Sudah cek economic calendar?</div>
@@ -1460,7 +1456,7 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
           </div>
           {/* ── Pre-trade Checklist (moved up) ── */}
           {checkRules.length>0&&(
-            <div style={{background:allChecked?"var(--green-dim)":"var(--elevated)",border:`1px solid ${allChecked?"rgba(45,214,117,0.2)":"var(--line)"}`,borderRadius:"var(--r-md)",padding:"14px",transition:"all .2s"}}>
+            <div style={{background:allChecked?"var(--green-dim)":"var(--elevated)",border:`1px solid ${allChecked?"rgba(45,214,117,0.2)":"var(--line)"}`,borderRadius:"var(--r-md)",padding:"14px",transition:"background .2s,border-color .2s"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                 <div style={{display:"flex",alignItems:"center",gap:7}}>
                   <span style={{fontSize:11,fontWeight:700,color:allChecked?"var(--green)":"var(--t2)",textTransform:"uppercase",letterSpacing:".07em"}}>Pre-trade Checklist</span>
@@ -1487,8 +1483,8 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
                     const checked=!!checkedItems[r];
                     return(
                       <button key={r} onClick={()=>setCheckedItems(p=>({...p,[r]:!p[r]}))} className="tap" style={{display:"flex",alignItems:"center",gap:10,background:"none",border:"none",padding:0,cursor:"pointer",textAlign:"left"}}>
-                        <div style={{width:20,height:20,borderRadius:6,border:`2px solid ${checked?"var(--green)":"var(--line-md)"}`,background:checked?"var(--green)":"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",transition:"all .12s"}}>
-                          {checked&&<span style={{color:"#000",fontSize:11,fontWeight:800,lineHeight:1}}>✓</span>}
+                        <div style={{width:20,height:20,borderRadius:6,border:`2px solid ${checked?"var(--green)":"var(--line-md)"}`,background:checked?"var(--green)":"transparent",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",transition:"background .12s,border-color .12s,color .12s,box-shadow .12s"}}>
+                          {checked&&<span style={{color:"#000",fontSize:11,fontWeight:700,lineHeight:1}}>✓</span>}
                         </div>
                         <span style={{fontSize:12,color:checked?"var(--t2)":"var(--t1)",fontWeight:checked?400:500,textDecoration:checked?"line-through":"none"}}>{r}</span>
                       </button>
@@ -1608,7 +1604,7 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
             <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>
               {["😌 Calm","💪 Confident","🔥 In the Zone","😤 Frustrated","😰 Anxious","😶 Numb","🤑 Greedy","😴 Tired","😬 FOMO","😔 Regret"].map(f=>{
                 const sel=form.feelings===f;
-                return<button key={f} onClick={()=>set("feelings",sel?"":f)} className="tap" style={{padding:"5px 10px",borderRadius:99,fontSize:11,fontWeight:600,border:"none",background:sel?"var(--overlay)":"var(--elevated)",color:sel?"var(--t1)":"var(--t2)",outline:sel?"1px solid var(--line-md)":"none",transition:"all .12s"}}>{f}</button>;
+                return<button key={f} onClick={()=>set("feelings",sel?"":f)} className="tap" style={{padding:"5px 10px",borderRadius:99,fontSize:11,fontWeight:600,border:"none",background:sel?"var(--overlay)":"var(--elevated)",color:sel?"var(--t1)":"var(--t2)",outline:sel?"1px solid var(--line-md)":"none",transition:"background .12s,border-color .12s,color .12s,box-shadow .12s"}}>{f}</button>;
               })}
             </div>
             <textarea placeholder="Describe your mental state, hesitation, confidence level…" value={form.feelings} onChange={e=>set("feelings",e.target.value)} rows={2} className="inp" style={{resize:"none",lineHeight:1.6}}/>
@@ -1627,7 +1623,7 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
           <div>
             <label style={lbl}>Screenshots</label>
             <input ref={imgRef} type="file" accept="image/*" multiple onChange={e=>{addFiles(e.target.files);e.target.value=""}} style={{display:"none"}}/>
-            <div onClick={()=>imgRef.current?.click()} onDragOver={e=>{e.preventDefault();setDrag(true)}} onDragLeave={()=>setDrag(false)} onDrop={e=>{e.preventDefault();setDrag(false);addFiles(e.dataTransfer.files)}} style={{border:`1.5px dashed ${drag?"var(--green)":"var(--line-md)"}`,borderRadius:"var(--r-md)",padding:"14px",textAlign:"center",cursor:"pointer",background:drag?"var(--green-dim)":"var(--elevated)",transition:"all .15s",marginBottom:form.images.length?8:0}}>
+            <div onClick={()=>imgRef.current?.click()} onDragOver={e=>{e.preventDefault();setDrag(true)}} onDragLeave={()=>setDrag(false)} onDrop={e=>{e.preventDefault();setDrag(false);addFiles(e.dataTransfer.files)}} style={{border:`1.5px dashed ${drag?"var(--green)":"var(--line-md)"}`,borderRadius:"var(--r-md)",padding:"14px",textAlign:"center",cursor:"pointer",background:drag?"var(--green-dim)":"var(--elevated)",transition:"background .15s,border-color .15s,color .15s,box-shadow .15s",marginBottom:form.images.length?8:0}}>
               <div style={{fontSize:12,fontWeight:600,color:drag?"var(--green)":"var(--t3)"}}>Tap, drag & drop, or Ctrl+V</div>
             </div>
             {form.images.length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
@@ -1677,9 +1673,9 @@ setForm(f=>({...f,images:[...f.images,c]}))};r.readAsDataURL(f)});
       </div>
     </div>
     {confirmClose&&(
-      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,backdropFilter:"blur(6px)",padding:"0 24px"}}>
+      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.65)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300,backdropFilter:"blur(4px)",padding:"0 24px"}}>
         <div style={{background:"var(--surface)",borderRadius:"var(--r-xl)",padding:"26px 24px",maxWidth:340,width:"100%",border:"1px solid var(--line-md)"}}>
-          <div style={{fontSize:15,fontWeight:800,color:"var(--t1)",marginBottom:6}}>Buang perubahan?</div>
+          <div style={{fontSize:15,fontWeight:700,color:"var(--t1)",marginBottom:6}}>Buang perubahan?</div>
           <div style={{fontSize:13,color:"var(--t2)",marginBottom:20,lineHeight:1.5}}>Form yang udah lo isi bakal hilang. Lanjut?</div>
           <div style={{display:"flex",gap:10}}>
             <button onClick={()=>setConfirmClose(false)} className="tap" style={{flex:1,padding:"11px",background:"var(--elevated)",border:"1px solid var(--line-md)",borderRadius:"var(--r-md)",color:"var(--t2)",fontSize:13,fontWeight:700}}>Lanjut isi</button>
@@ -1719,7 +1715,7 @@ function BalanceModal({current,onSave,onClose}){
   const[v,setV]=useState(String(current));const toast=useToast();
   const save=()=>{const n=parseFloat(v);if(!isNaN(n)&&n>0){onSave(n);toast("Balance updated")}};
   return(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.65)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,backdropFilter:"blur(8px)",padding:"0 20px"}}>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.68)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,backdropFilter:"blur(4px)",padding:"0 20px"}}>
       <div style={{width:"100%",maxWidth:360,background:"var(--surface)",borderRadius:"var(--r-xl)",padding:"26px 22px",border:"1px solid var(--line-md)"}}>
         <div style={{display:"flex",justifyContent:"flex-end",marginBottom:4}}><button onClick={onClose} className="tap" style={{background:"var(--elevated)",border:"none",borderRadius:"50%",width:28,height:28,display:"flex",alignItems:"center",justifyContent:"center",color:"var(--t2)",fontSize:15,fontWeight:700,cursor:"pointer"}}>✕</button></div>
         <div style={{textAlign:"center",marginBottom:20}}>
@@ -1743,7 +1739,7 @@ function DDModal({drawdownLimit,consistencyLimit,totalPnl,onSave,onClose}){
   const sug=totalPnl>0?Math.round(totalPnl*.5):null;
   const lbl={fontSize:10,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase",marginBottom:7,display:"block"};
   return(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.65)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:200,backdropFilter:"blur(8px)"}}>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.68)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:200,backdropFilter:"blur(4px)"}}>
       <div style={{width:"100%",maxWidth:480,margin:"0 auto",background:"var(--surface)",borderRadius:"var(--r-xl) var(--r-xl) 0 0",padding:"20px 20px 44px",border:"1px solid var(--line-md)"}}>
         <div style={{width:36,height:4,background:"var(--overlay)",borderRadius:99,margin:"0 auto 16px"}}/>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
@@ -1780,7 +1776,7 @@ function AccModal({accounts,activeId,onSwitch,onAdd,onEdit,onDelete,onClose}){
   const save=()=>{if(!form.name.trim())return;const bal=parseFloat(form.balance)||DEF_BAL;if(mode==="add"){onAdd({name:form.name.trim(),color:form.color,balance:bal});toast("Created")}else{onEdit({...et,name:form.name.trim(),color:form.color,balance:bal});toast("Updated")}setMode("list")};
   const lbl={fontSize:10,color:"var(--t3)",fontWeight:600,letterSpacing:".07em",textTransform:"uppercase",marginBottom:7,display:"block"};
   return(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.65)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:300,backdropFilter:"blur(8px)"}}>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.68)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:300,backdropFilter:"blur(4px)"}}>
       <div style={{width:"100%",maxWidth:480,margin:"0 auto",background:"var(--surface)",borderRadius:"var(--r-xl) var(--r-xl) 0 0",padding:"20px 20px 48px",maxHeight:"85vh",overflowY:"auto",border:"1px solid var(--line-md)"}}>
         <div style={{width:36,height:4,background:"var(--overlay)",borderRadius:99,margin:"0 auto 16px"}}/>
         {mode==="list"&&<>
@@ -2142,7 +2138,7 @@ function DataModal({trades,notes,account,onImport,onClearAll,onClose}){
     };r.readAsArrayBuffer(f);e.target.value="";
   };
   return(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.65)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:200,backdropFilter:"blur(8px)"}}>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.68)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:200,backdropFilter:"blur(4px)"}}>
       <div style={{width:"100%",maxWidth:480,margin:"0 auto",background:"var(--surface)",borderRadius:"var(--r-xl) var(--r-xl) 0 0",padding:"20px 20px 44px",maxHeight:"80vh",overflowY:"auto",border:"1px solid var(--line-md)"}}>
         <div style={{width:36,height:4,background:"var(--overlay)",borderRadius:99,margin:"0 auto 16px"}}/>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
@@ -2184,7 +2180,7 @@ function DataModal({trades,notes,account,onImport,onClearAll,onClose}){
                   disabled={delText!=="DELETE"}
                   onClick={()=>{if(delText==="DELETE"){onClearAll();setConf(false);setDelText("");onClose();toast("Cleared","error")}}}
                   className="tap"
-                  style={{flex:1,padding:"11px",background:delText==="DELETE"?"var(--red)":"var(--overlay)",border:"none",borderRadius:"var(--r-md)",color:delText==="DELETE"?"#fff":"var(--t3)",fontSize:13,fontWeight:700,cursor:delText==="DELETE"?"pointer":"not-allowed",transition:"all .15s"}}
+                  style={{flex:1,padding:"11px",background:delText==="DELETE"?"var(--red)":"var(--overlay)",border:"none",borderRadius:"var(--r-md)",color:delText==="DELETE"?"#fff":"var(--t3)",fontSize:13,fontWeight:700,cursor:delText==="DELETE"?"pointer":"not-allowed",transition:"background .15s,border-color .15s,color .15s,box-shadow .15s"}}
                 >Delete All</button>
               </div>
             </div>
@@ -2212,7 +2208,7 @@ function NoteEditor({note,onBack,onSave,onDelete}){
       </div>
       <div style={{flex:1,overflowY:"auto",padding:isDesktop?"28px 32px 40px":"20px 18px 40px"}}>
         <div style={{maxWidth:isDesktop?700:"none",margin:isDesktop?"0 auto":"unset"}}>
-          <textarea value={title} onChange={e=>{setTitle(e.target.value);trigger(e.target.value,body)}} placeholder="Title" rows={1} style={{width:"100%",background:"none",border:"none",outline:"none",color:"var(--t1)",fontSize:22,fontWeight:800,fontFamily:"var(--sans)",resize:"none",lineHeight:1.3,marginBottom:8,boxSizing:"border-box",overflow:"hidden"}}/>
+          <textarea value={title} onChange={e=>{setTitle(e.target.value);trigger(e.target.value,body)}} placeholder="Title" rows={1} style={{width:"100%",background:"none",border:"none",outline:"none",color:"var(--t1)",fontSize:22,fontWeight:700,fontFamily:"var(--sans)",resize:"none",lineHeight:1.3,marginBottom:8,boxSizing:"border-box",overflow:"hidden"}}/>
           <div style={{fontSize:11,color:"var(--t3)",marginBottom:18}}>{new Date().toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}</div>
           <textarea value={body} onChange={e=>{setBody(e.target.value);trigger(title,e.target.value)}} placeholder="Start writing…" style={{width:"100%",background:"none",border:"none",outline:"none",color:"var(--t2)",fontSize:15,fontFamily:"var(--sans)",resize:"none",lineHeight:1.9,boxSizing:"border-box",minHeight:"60vh"}}/>
         </div>
@@ -2319,13 +2315,13 @@ function Wallet({accountBalance,totalPnl,activeId,onUpdateBalance}){
             <div style={{width:30,height:30,borderRadius:"var(--r-sm)",background:"var(--green-dim)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
               <span style={{fontSize:18,lineHeight:1,color:"var(--green)",fontWeight:700}}>+</span>
             </div>
-            <span style={{fontSize:15,fontWeight:800,color:"var(--green)"}}>Deposit</span>
+            <span style={{fontSize:15,fontWeight:700,color:"var(--green)"}}>Deposit</span>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8,background:"var(--elevated)",borderRadius:"var(--r-md)",border:"1px solid var(--line-md)",padding:"10px 12px",marginBottom:10}}>
             <span style={{fontSize:13,color:"var(--t3)",fontWeight:600}}>$</span>
             <input type="number" placeholder="0.00" value={depAmt} onChange={e=>setDepAmt(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doDeposit()} className="mono" style={{flex:1,background:"none",border:"none",outline:"none",color:"var(--t1)",fontSize:15,fontWeight:500}}/>
           </div>
-          <button onClick={doDeposit} className="tap" style={{width:"100%",padding:"11px",background:"var(--green)",border:"none",borderRadius:"var(--r-md)",color:"#000",fontSize:13,fontWeight:800}}>Deposit</button>
+          <button onClick={doDeposit} className="tap" style={{width:"100%",padding:"11px",background:"var(--green)",border:"none",borderRadius:"var(--r-md)",color:"#000",fontSize:13,fontWeight:700}}>Deposit</button>
         </div>
 
         {/* Withdraw */}
@@ -2334,7 +2330,7 @@ function Wallet({accountBalance,totalPnl,activeId,onUpdateBalance}){
             <div style={{width:30,height:30,borderRadius:"var(--r-sm)",background:"var(--amber-dim)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
               <span style={{fontSize:18,lineHeight:1,color:"var(--amber)",fontWeight:700}}>−</span>
             </div>
-            <span style={{fontSize:15,fontWeight:800,color:"var(--amber)"}}>Withdraw</span>
+            <span style={{fontSize:15,fontWeight:700,color:"var(--amber)"}}>Withdraw</span>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8,background:"var(--elevated)",borderRadius:"var(--r-md)",border:"1px solid var(--line-md)",padding:"10px 12px",marginBottom:10}}>
             <span style={{fontSize:13,color:"var(--t3)",fontWeight:600}}>$</span>
@@ -2344,7 +2340,7 @@ function Wallet({accountBalance,totalPnl,activeId,onUpdateBalance}){
             <input type="checkbox" checked={witCapital} onChange={e=>setWitCapital(e.target.checked)} style={{width:14,height:14,accentColor:"var(--amber)",cursor:"pointer"}}/>
             <span style={{fontSize:11,color:"var(--t2)",fontWeight:500}}>Withdraw from initial capital</span>
           </label>
-          <button onClick={doWithdraw} className="tap" style={{width:"100%",padding:"11px",background:"var(--amber)",border:"none",borderRadius:"var(--r-md)",color:"#000",fontSize:13,fontWeight:800}}>Withdraw</button>
+          <button onClick={doWithdraw} className="tap" style={{width:"100%",padding:"11px",background:"var(--amber)",border:"none",borderRadius:"var(--r-md)",color:"#000",fontSize:13,fontWeight:700}}>Withdraw</button>
         </div>
       </div>
 
@@ -2759,7 +2755,7 @@ function TradeReviewView({trades}){
                     onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}/>
                 </div>
                 {/* Win/Loss badge */}
-                <div style={{position:"absolute",top:6,left:6,padding:"2px 8px",borderRadius:99,fontSize:10,fontWeight:800,background:won?"var(--green)":"var(--red)",color:"#000"}}>
+                <div style={{position:"absolute",top:6,left:6,padding:"2px 8px",borderRadius:99,fontSize:10,fontWeight:700,background:won?"var(--green)":"var(--red)",color:"#000"}}>
                   {won?"W":"L"}
                 </div>
                 {/* Multiple screenshots indicator */}
@@ -3090,7 +3086,7 @@ function ReviewView({trades,onOpenTrade}){
       <div style={{height:"100%",overflowY:"auto"}}>
 
         {/* ── STICKY HEADER: date · pills · P&L · Edit ── */}
-        <div style={{padding:"14px 16px 12px",borderBottom:"1px solid var(--line)",background:"var(--surface)",position:"sticky",top:0,zIndex:10,backdropFilter:"blur(8px)"}}>
+        <div style={{padding:"14px 16px 12px",borderBottom:"1px solid var(--line)",background:"var(--surface)",position:"sticky",top:0,zIndex:10}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
             <div style={{flex:1,minWidth:0}}>
               <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap",marginBottom:5}}>
@@ -3098,7 +3094,7 @@ function ReviewView({trades,onOpenTrade}){
                 {!ntd&&sel.direction&&<span className="pill" style={{background:sel.direction==="long"?"var(--green-dim)":"var(--red-dim)",color:sel.direction==="long"?"var(--green)":"var(--red)"}}>{sel.direction==="long"?"▲ Long":"▼ Short"}</span>}
                 {sel.session&&<span className="pill" style={{background:SCOL[sel.session]+"22",color:SCOL[sel.session]}}>{sel.session}</span>}
                 {sel.instrument&&<span className="pill" style={{background:(ICOL[sel.instrument]||"#666")+"22",color:ICOL[sel.instrument]||"var(--t2)"}}>{sel.instrument}{sel.contracts>1?` ×${sel.contracts}`:""}</span>}
-                {grade&&<span style={{fontSize:10,fontWeight:800,color:grade.color,background:grade.bg,padding:"2px 7px",borderRadius:99,border:`1px solid ${grade.color}44`}}>{grade.grade}</span>}
+                {grade&&<span style={{fontSize:10,fontWeight:700,color:grade.color,background:grade.bg,padding:"2px 7px",borderRadius:99,border:`1px solid ${grade.color}44`}}>{grade.grade}</span>}
               </div>
               <div style={{display:"flex",alignItems:"baseline",gap:10}}>
                 <span className="mono" style={{fontSize:22,fontWeight:700,color:ntd?"var(--blue)":pnlHidden?"var(--t3)":accentColor,letterSpacing:"-.5px"}}>
@@ -3205,7 +3201,7 @@ function ReviewView({trades,onOpenTrade}){
                 {sel.gymDay&&(
                   <span style={{fontSize:12,color:"var(--t2)"}}>
                     <span style={rowLbl}>Gym: </span>
-                    <span style={{fontWeight:600,color:sel.gymDay==="💪 Gym"?"var(--green)":sel.gymDay==="🛌 Rest Day"?"var(--blue)":"var(--t3)"}}>{sel.gymDay}</span>
+                    <span style={{fontWeight:600,color:sel.gymDay==="💪 Gym"?"var(--green)":"var(--t3)"}}>{sel.gymDay}</span>
                   </span>
                 )}
                 {sel.pmMental&&(
@@ -3300,7 +3296,7 @@ function ReviewView({trades,onOpenTrade}){
                   <div style={{position:"absolute",top:8,right:8,background:"rgba(0,0,0,.55)",backdropFilter:"blur(4px)",borderRadius:5,padding:"2px 8px",fontSize:"var(--fs-xs)",color:"rgba(255,255,255,.75)",fontWeight:600}}>
                     {imgIdx+1}/{imgs.length} · tap to zoom
                   </div>
-                  <div style={{position:"absolute",top:8,left:8,padding:"2px 9px",borderRadius:99,fontSize:10,fontWeight:800,background:ntd?"var(--blue)":win?"var(--green)":"var(--red)",color:"#000"}}>
+                  <div style={{position:"absolute",top:8,left:8,padding:"2px 9px",borderRadius:99,fontSize:10,fontWeight:700,background:ntd?"var(--blue)":win?"var(--green)":"var(--red)",color:"#000"}}>
                     {ntd?"NTD":win?"WIN":"LOSS"}
                   </div>
                 </div>
@@ -3412,7 +3408,7 @@ function ReviewView({trades,onOpenTrade}){
                           {!ntd&&t.direction&&<span style={{fontSize:11,flexShrink:0,color:t.direction==="long"?"var(--green)":"var(--red)"}}>{t.direction==="long"?"▲":"▼"}</span>}
                           {t.session&&<span className="pill" style={{background:SCOL[t.session]+"22",color:SCOL[t.session],fontSize:10,padding:"1px 6px"}}>{t.session}</span>}
                           {t.instrument&&<span className="pill" style={{background:(ICOL[t.instrument]||"#666")+"22",color:ICOL[t.instrument]||"var(--t2)",fontSize:10,padding:"1px 6px"}}>{t.instrument}</span>}
-                          {grade&&<span style={{fontSize:10,fontWeight:800,color:grade.color,background:grade.bg,padding:"1px 6px",borderRadius:99,border:`1px solid ${grade.color}44`,flexShrink:0}}>{grade.grade}</span>}
+                          {grade&&<span style={{fontSize:10,fontWeight:700,color:grade.color,background:grade.bg,padding:"1px 6px",borderRadius:99,border:`1px solid ${grade.color}44`,flexShrink:0}}>{grade.grade}</span>}
                         </div>
                         <span className="mono" style={{fontSize:14,fontWeight:700,color:ntd?"var(--blue)":pnlHidden?"var(--t3)":accentCol,flexShrink:0}}>{ntd?"—":pnlHidden?PNL_MASK:fmt(t.pnl)}</span>
                       </div>
@@ -3459,7 +3455,7 @@ function ReviewView({trades,onOpenTrade}){
       {imgLb&&sel&&(sel.images||[]).length>0&&(
         <div onClick={()=>setImgLb(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.97)",zIndex:600,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",overflowY:"auto",paddingTop:64,paddingBottom:32}}>
           {/* Close button — always pinned top-right */}
-          <button onClick={()=>setImgLb(false)} style={{position:"fixed",top:16,right:16,background:"rgba(255,255,255,.18)",border:"1px solid rgba(255,255,255,.2)",borderRadius:"50%",width:44,height:44,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1,backdropFilter:"blur(8px)"}}><IcoX size={18} col="white"/></button>
+          <button onClick={()=>setImgLb(false)} style={{position:"fixed",top:16,right:16,background:"rgba(255,255,255,.18)",border:"1px solid rgba(255,255,255,.2)",borderRadius:"50%",width:44,height:44,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1,backdropFilter:"blur(4px)"}}><IcoX size={18} col="white"/></button>
           {/* Prev / Next nav */}
           {imgIdx>0&&<button onClick={e=>{e.stopPropagation();setImgIdx(i=>i-1)}} style={{position:"fixed",left:12,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,.15)",border:"none",borderRadius:"50%",width:44,height:44,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1}}><IcoChL size={18} col="white"/></button>}
           <img src={sel.images[imgIdx]} alt="" onClick={e=>e.stopPropagation()} style={{maxWidth:"calc(100vw - 32px)",maxHeight:"calc(100vh - 120px)",objectFit:"contain",borderRadius:"var(--r-md)",display:"block"}}/>
@@ -3693,7 +3689,7 @@ function AnalyticsView({trades,accountBalance}){
   },[filtered]);
 
   const gymData=useMemo(()=>{
-    const m={"💪 Gym":{pnl:0,n:0,wins:0},"🚫 Ga Gym":{pnl:0,n:0,wins:0},"🛌 Rest Day":{pnl:0,n:0,wins:0}};
+    const m={"💪 Gym":{pnl:0,n:0,wins:0},"🚫 Ga Gym":{pnl:0,n:0,wins:0}};
     filtered.forEach(t=>{
       const g=t.gymDay;
       if(g&&m[g]){m[g].pnl+=t.pnl;m[g].n++;if(t.pnl>0)m[g].wins++;}
@@ -3706,7 +3702,7 @@ function AnalyticsView({trades,accountBalance}){
         pnl:v.pnl,
         wr:Math.round(v.wins/v.n*100),
         avg:v.n?Math.round(v.pnl/v.n):0,
-        col:k==="💪 Gym"?"var(--green)":k==="🛌 Rest Day"?"var(--blue)":"var(--t3)"
+        col:k==="💪 Gym"?"var(--green)":"var(--t3)"
       }));
   },[filtered]);
 
@@ -4174,14 +4170,11 @@ const Sidebar=React.memo(function Sidebar({tab,setTab,onBackup,syncStatus,plusAc
     <div className="sidebar" style={{display:"none",width:"var(--sidebar-w)",background:"var(--surface)",borderRight:"1px solid var(--line)",position:"fixed",top:0,left:0,bottom:0,flexDirection:"column",zIndex:50}}>
       {/* Logo */}
       <div style={{padding:"18px 16px 16px"}}>
-        <div style={{display:"flex",alignItems:"center",gap:11}}>
-          <div style={{width:32,height:32,borderRadius:"var(--r-md)",background:"linear-gradient(135deg,var(--accent) 0%,#8B5CF6 100%)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:"0 2px 12px rgba(108,111,245,0.4)"}}>
-            <IcoTrendUp size={15} col="#fff"/>
+        <div style={{display:"flex",alignItems:"center",gap:9}}>
+          <div style={{width:24,height:24,borderRadius:"var(--r-sm)",background:"var(--accent)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            <IcoTrendUp size={13} col="#fff"/>
           </div>
-          <div>
-            <div style={{fontSize:14,fontWeight:700,color:"var(--t1)",letterSpacing:"-.5px",lineHeight:1}}>Trade Journal</div>
-            <div style={{fontSize:"var(--fs-sm)",color:"var(--t3)",fontWeight:400,marginTop:2,letterSpacing:".02em"}}>Performance Tracker</div>
-          </div>
+          <div style={{fontSize:14,fontWeight:700,color:"var(--t1)",letterSpacing:"-.3px",lineHeight:1}}>Trade Journal</div>
         </div>
       </div>
 
@@ -4216,13 +4209,13 @@ const Sidebar=React.memo(function Sidebar({tab,setTab,onBackup,syncStatus,plusAc
       </div>
 
       {/* Bottom util */}
-      <div style={{padding:"8px 10px 14px",borderTop:"1px solid var(--line)"}}>
+      <div style={{padding:"12px 12px 16px",borderTop:"1px solid var(--line)"}}>
         <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",borderRadius:"var(--r-md)",background:"var(--elevated)",border:"1px solid var(--line-md)",marginBottom:8}}>
           <div style={{width:7,height:7,borderRadius:"50%",background:syncStatus==="ok"?"var(--green)":syncStatus==="offline"?"var(--red)":"var(--amber)",flexShrink:0,boxShadow:syncStatus==="ok"?"0 0 6px var(--green)":syncStatus==="offline"?"0 0 6px var(--red)":"none",animation:syncStatus==="syncing"?"pulse 1.5s infinite":"none"}}/>
           <span style={{fontSize:11,color:"var(--t2)",fontWeight:600}}>{syncStatus==="ok"?"Cloud Sync":syncStatus==="offline"?"Offline":"Connecting…"}</span>
         </div>
-        <button onClick={onBackup} className="tap nav-item" style={{width:"100%",display:"flex",alignItems:"center",gap:9,padding:"7px 10px",borderRadius:"var(--r-md)",border:"none",background:"transparent",cursor:"pointer",fontFamily:"var(--sans)",color:"var(--t2)"}}>
-          <IcoUp size={13} col="var(--t3)"/><span style={{fontSize:12,fontWeight:500}}>Backup & Import</span>
+        <button onClick={onBackup} className="tap nav-item" style={{width:"100%",display:"flex",alignItems:"center",gap:9,padding:"8px 10px",borderRadius:"var(--r-md)",border:"none",background:"transparent",cursor:"pointer",fontFamily:"var(--sans)",color:"var(--t2)"}}>
+          <IcoUp size={13} col="var(--t3)"/><span style={{fontSize:"var(--fs-body)",fontWeight:400}}>Backup & Import</span>
         </button>
       </div>
     </div>
@@ -4390,7 +4383,7 @@ function DailyKillSwitch({trades,accountBalance,drawdownLimit}){
   };
 
   if(isBreached)return(
-    <div style={{position:"fixed",inset:0,zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:20,background:"rgba(0,0,0,.85)",backdropFilter:"blur(12px)"}}>
+    <div style={{position:"fixed",inset:0,zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:20,background:"rgba(0,0,0,.88)",backdropFilter:"blur(6px)"}}>
       <div style={{width:"100%",maxWidth:420,background:"var(--surface)",borderRadius:"var(--r-xl)",border:"2px solid var(--red)",overflow:"hidden"}}>
         <div style={{background:"var(--red)",padding:"24px 24px 20px",textAlign:"center"}}>
           <div style={{fontSize:48,marginBottom:8}}>🛑</div>
@@ -4471,7 +4464,7 @@ function InstrumentModal({instrs,onSave,onClose}){
   const remove=s=>setList(p=>p.filter(x=>x!==s));
   const move=(i,dir)=>{setList(p=>{const n=[...p];const j=i+dir;if(j<0||j>=n.length)return p;[n[i],n[j]]=[n[j],n[i]];return n})};
   return(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.72)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:300,backdropFilter:"blur(8px)"}}>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.75)",display:"flex",alignItems:"flex-end",justifyContent:"center",zIndex:300,backdropFilter:"blur(4px)"}}>
       <div style={{width:"100%",maxWidth:480,margin:"0 auto",background:"var(--surface)",borderRadius:"var(--r-xl) var(--r-xl) 0 0",padding:"20px 20px 48px",maxHeight:"85vh",overflowY:"auto",border:"1px solid var(--line-md)"}}>
         <div style={{width:36,height:4,background:"var(--overlay)",borderRadius:99,margin:"0 auto 18px"}}/>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
@@ -4748,7 +4741,7 @@ function App(){
                           <path d="M24 44 L40 44" stroke="var(--line-md)" strokeWidth="1.5" strokeLinecap="round"/>
                           <path d="M28 48 L36 48" stroke="var(--line-md)" strokeWidth="1.5" strokeLinecap="round" opacity=".5"/>
                         </svg>
-                        <div style={{fontSize:16,fontWeight:800,color:"var(--t1)",marginBottom:6}}>Journal kosong nih</div>
+                        <div style={{fontSize:16,fontWeight:700,color:"var(--t1)",marginBottom:6}}>Journal kosong nih</div>
                         <div style={{fontSize:13,color:"var(--t3)",lineHeight:1.6,marginBottom:18}}>Log trade pertama lu buat mulai<br/>tracking performa dan pattern</div>
                         <button onClick={()=>setTradeModal({})} className="tap" style={{background:"var(--accent)",border:"none",borderRadius:"var(--r-md)",padding:"10px 24px",color:"#fff",fontSize:13,fontWeight:700,cursor:"pointer"}}>+ Log Trade Pertama</button>
                       </div>
@@ -4853,7 +4846,7 @@ function App(){
                         <circle cx="46" cy="30" r="3" fill="var(--accent)" opacity=".7"/>
                         <path d="M24 44 L40 44" stroke="var(--line-md)" strokeWidth="1.5" strokeLinecap="round"/>
                       </svg>
-                      <div style={{fontSize:14,fontWeight:800,color:"var(--t1)",marginBottom:5}}>Journal kosong nih</div>
+                      <div style={{fontSize:14,fontWeight:700,color:"var(--t1)",marginBottom:5}}>Journal kosong nih</div>
                       <div style={{fontSize:12,color:"var(--t3)",lineHeight:1.6,marginBottom:16}}>Tap + untuk log trade pertama dan<br/>mulai tracking performa lu</div>
                       <button onClick={()=>setTradeModal({})} className="tap" style={{background:"var(--accent)",border:"none",borderRadius:"var(--r-md)",padding:"9px 20px",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>+ Log Trade Pertama</button>
                     </div>
@@ -4912,8 +4905,7 @@ function App(){
             const a=tab===id;
             return(
               <button key={id} onClick={()=>handleSetTab(id)} className="tap" style={{flex:1,background:"none",border:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"5px 2px",borderRadius:"var(--r-md)",position:"relative"}}>
-                <div style={{width:40,height:28,borderRadius:"var(--r-md)",background:a?"var(--accent-dim)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"background .15s",position:"relative"}}>
-                  {a&&<div style={{position:"absolute",inset:0,borderRadius:"var(--r-md)",border:"1px solid rgba(108,111,245,0.35)"}}/>}
+                <div style={{width:40,height:28,borderRadius:"var(--r-md)",background:a?"var(--accent-dim)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"background .15s"}}>
                   <I size={17} col={a?"var(--accent)":"var(--t3)"}/>
                 </div>
                 <span style={{fontSize:"var(--fs-xs)",fontWeight:a?600:400,color:a?"var(--accent)":"var(--t3)",letterSpacing:a?".02em":"0",transition:"color .15s"}}>{l}</span>
